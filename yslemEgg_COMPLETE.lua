@@ -1091,14 +1091,62 @@ local function makeDivider(page)
 	return d
 end
 
--- Section header — visual grouping for a block of rows.
-local function sectionHeader(page, text)
+-- Section header — visual grouping for a block of rows, collapsible
+-- like Chilli Hub's own CreateSection({Expanded=...}). With as many
+-- widgets as the full filter set now has per tab, an accordion is
+-- what keeps the panel scannable instead of one long scroll.
+-- Members are collected via page.ChildAdded from the moment a header
+-- is created until the next one replaces it — every widget helper
+-- (makeRow/makeSlider/makeCarousel/makeMultiSelect/makeButton/
+-- makeDivider) already parents its root Frame straight to `page`, so
+-- no call site elsewhere needs to change for this to work.
+local _sectionCollectors = {}
+local function sectionHeader(page, text, startCollapsed)
+	local prev = _sectionCollectors[page]
+	if prev and prev.conn then prev.conn:Disconnect() end
+
 	local wrap = Instance.new("Frame", page)
-	wrap.Size = UDim2.new(1,-12,0,18)
+	wrap.Size = UDim2.new(1,-12,0,20)
 	wrap.BackgroundTransparency = 1
-	local lbl = label(wrap, text:upper(), UDim2.new(1,-8,1,0), C.DIM, Enum.Font.GothamBold)
+
+	local accent = Instance.new("Frame", wrap)
+	accent.Size = UDim2.new(0,3,0,11)
+	accent.Position = UDim2.new(0,2,0.5,-5)
+	accent.BackgroundColor3 = C.MOON
+	accent.BorderSizePixel = 0
+	corner(accent, 2)
+
+	local lbl = label(wrap, text:upper(), UDim2.new(1,-30,1,0), C.DIM, Enum.Font.GothamBold)
 	lbl.TextSize = 9
-	lbl.Position = UDim2.new(0,4,0,0)
+	lbl.Position = UDim2.new(0,12,0,0)
+
+	local arrow = label(wrap, "▾", UDim2.new(0,16,1,0), C.DIM, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+	arrow.Position = UDim2.new(1,-18,0,0)
+	arrow.TextSize = 10
+
+	local btn = Instance.new("TextButton", wrap)
+	btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
+
+	local members = {}
+	local collector = { members = members }
+	collector.conn = page.ChildAdded:Connect(function(child)
+		table.insert(members, child)
+	end)
+	_sectionCollectors[page] = collector
+
+	local collapsed = startCollapsed == true
+	local function apply()
+		for _, m in ipairs(members) do
+			pcall(function() m.Visible = not collapsed end)
+		end
+		arrow.Text = collapsed and "▸" or "▾"
+	end
+	btn.MouseButton1Click:Connect(function()
+		collapsed = not collapsed
+		apply()
+	end)
+	if collapsed then task.defer(apply) end
+
 	return wrap
 end
 
@@ -1495,6 +1543,9 @@ tabList.VerticalAlignment = Enum.VerticalAlignment.Center
 tabList.Padding = UDim.new(0,6)
 
 local TABS = {"Farm","Speed","Visual","Misc"}
+-- Small procedural accent dot per tab (no image assets) — just enough
+-- to give each tab a distinct identity at a glance.
+local TAB_DOT = {Farm = C.GREEN, Speed = C.MOON, Visual = C.GOLD, Misc = C.SILVER2}
 local tabBtns, tabFlashes = {}, {}
 for _, name in ipairs(TABS) do
 	local btn = Instance.new("TextButton", tabBar)
@@ -1506,6 +1557,12 @@ for _, name in ipairs(TABS) do
 	btn.BorderSizePixel = 0
 	corner(btn, 9)
 	addLivingStroke(btn, 1)
+	local dot = Instance.new("Frame", btn)
+	dot.Size = UDim2.new(0,5,0,5)
+	dot.Position = UDim2.new(0.5,9,0.5,-9)
+	dot.BackgroundColor3 = TAB_DOT[name] or C.MOON
+	dot.BorderSizePixel = 0
+	corner(dot, 3)
 	local flash = Instance.new("Frame", btn)
 	flash.Size = UDim2.new(1,0,1,0)
 	flash.BackgroundColor3 = C.WHITE
@@ -2073,7 +2130,7 @@ task.spawn(function()
 		end
 	end
 end)
-sectionHeader(farmPage, "Auto Hatch & Equip")
+sectionHeader(farmPage, "Auto Hatch & Equip", true)
 makeRow(farmPage, "autoHatch", "Auto Hatch", function(on) end)
 do
 	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
@@ -2121,7 +2178,7 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoClaim", "Auto Claim", function(on) end)
 
-sectionHeader(farmPage, "Upgrades")
+sectionHeader(farmPage, "Upgrades", true)
 
 
 task.spawn(function()
@@ -2194,7 +2251,7 @@ local function _readOwnerEggs(filterFn)
 	return nil  -- nil = module unavailable, caller should use Backpack fallback
 end
 
-sectionHeader(farmPage, "Auto Place Egg")
+sectionHeader(farmPage, "Auto Place Egg", true)
 -- Chilli Hub: AskPlaceEgg with inventory egg uids, gated by Place Egg
 -- Rule and filtered/ordered exactly like aide_3 ~7118-7285 (Place Egg
 -- Rule/Order, Place Rarities, Place Specific Eggs, Min Place Value).
@@ -2285,7 +2342,7 @@ do
 	makeSlider(farmPage, "placeMinValueK", "Min Place Value", 0, 50000, "%dk")
 end
 
-sectionHeader(farmPage, "Auto Treadmill")
+sectionHeader(farmPage, "Auto Treadmill", true)
 -- Stay mounted continuously
 task.spawn(function()
 	while true do
@@ -2297,7 +2354,7 @@ makeRow(farmPage, "autoTreadmill2", "Auto Treadmill", function(on)
 	if not on then _invokeRF("RF/Treadmill/AskDoff") end
 end)
 
-sectionHeader(farmPage, "Auto Sell")
+sectionHeader(farmPage, "Auto Sell", true)
 -- Chilli Hub exact rule set (aide_3 ~8901, 9280-9470):
 -- Sell Rule combines a rarity check (<= Max Rarity) and a value check
 -- (< Value Threshold) via Rarity Only / Value Only / Rarity And Value /
@@ -2415,7 +2472,7 @@ do
 	end, St.sellEggBlacklist, function() saveConfig() end, _Egg.Icon)
 end
 
-sectionHeader(farmPage, "Auto Fuse Machine")
+sectionHeader(farmPage, "Auto Fuse Machine", true)
 -- Chilli Hub: fuses 3 SAME-SPECIES pets (aide_3 ~9702-9908:
 -- groups inventory by Category, needs #group>=3). LoadPet x3 → BeginFuse
 -- → wait → FinishFuse, EjectPet on failure if the machine can't finish.
@@ -2534,7 +2591,7 @@ do
 	makeRow(farmPage, "fuseEjectIncomplete", "Eject Incomplete Slots", function(on) end)
 end
 
-sectionHeader(farmPage, "Auto Favorite")
+sectionHeader(farmPage, "Auto Favorite", true)
 -- Chilli Hub exact rule set (aide_3 ~10497-10615): each
 -- of Min Rarity / Mutations / Min Value is an independent check that can
 -- be off (0 or empty = skip); Favorite Rule combines the active ones via
@@ -2638,7 +2695,7 @@ do
 	makeRow(farmPage, "autoUnfavoriteEquipped", "Auto Unfavorite Equipped", function(on) end)
 end
 
-sectionHeader(farmPage, "Dr Scramble Lab & Mech")
+sectionHeader(farmPage, "Dr Scramble Lab & Mech", true)
 -- Auto Lab Trade-In
 task.spawn(function()
 	while true do
@@ -2713,7 +2770,7 @@ makeRow(farmPage, "autoMech", "Auto Mech Boss", function(on)
 	if on then startMech() else stopMech() end
 end)
 
-sectionHeader(farmPage, "Dr Scramble Event")
+sectionHeader(farmPage, "Dr Scramble Event", true)
 -- Auto Use Scrambled Mutation — exact Chilli Hub remote (aide_3
 -- ~14685-14710): RF/BossMastery/AskUseMutationConsumable(uid). Skips
 -- already-mutated eggs (SkipMutated default true in the source) since
@@ -2891,6 +2948,7 @@ end)
 -- ============================================================
 local speedPage = pages["Speed"]
 
+sectionHeader(speedPage, "Movement")
 local speedRow, speedBtn, speedRefresh = makeRow(speedPage, "speedOn", "Speed Boost", function(on)
 	if on then startSpeed() else stopSpeed() end
 end)
@@ -3007,6 +3065,7 @@ local function startAntiRag()
 		end
 	end)
 end
+sectionHeader(speedPage, "Character")
 makeRow(speedPage, "antiRagdoll", "Anti Ragdoll", function(on)
 	if on then startAntiRag() else stopAntiRag() end
 end)
@@ -3313,6 +3372,7 @@ local function startESP()
 		end
 	end)
 end
+sectionHeader(visualPage, "Egg ESP")
 makeRow(visualPage, "esp", "Egg ESP", function(on) if on then startESP() else stopESP() end end)
 
 -- Small live recap under the ESP toggle — totals refreshed at the same
@@ -3353,6 +3413,7 @@ local function stopFullbright()
 	Lighting.Brightness = _origBright or 1; Lighting.GlobalShadows = true
 	Lighting.Ambient = Color3.fromRGB(70,70,70); Lighting.OutdoorAmbient = Color3.fromRGB(100,100,100)
 end
+sectionHeader(visualPage, "Display", true)
 makeRow(visualPage, "fullbright", "Fullbright", function(on) if on then startFullbright() else stopFullbright() end end)
 
 local function applyFpsBoost()
@@ -3414,6 +3475,7 @@ local function startAntiAFK()
 		end
 	end)
 end
+sectionHeader(visualPage, "Utility", true)
 makeRow(visualPage, "antiAFK", "Anti AFK", function(on) if on then startAntiAFK() else stopAntiAFK() end end)
 
 -- ESP Guards
@@ -3478,6 +3540,7 @@ local function startEspGuards()
 		end)
 	end)
 end
+sectionHeader(visualPage, "Guard ESP", true)
 makeRow(visualPage, "espGuards", "ESP Guards", function(on)
 	if on then startEspGuards() else stopEspGuards() end
 end)
@@ -3555,6 +3618,7 @@ local function startEspPlayers()
 		end
 	end)
 end
+sectionHeader(visualPage, "Player ESP", true)
 makeRow(visualPage, "espPlayers", "ESP Players", function(on)
 	if on then startEspPlayers() else stopEspPlayers() end
 end)
@@ -3568,6 +3632,7 @@ end
 -- ============================================================
 local miscPage = pages["Misc"]
 
+sectionHeader(miscPage, "Bypass & Movement")
 -- Bypass Anti-Cheat — a real ON/OFF toggle
 local _bypassActive, _bypassCooldown, _bypassOn = false, 0, false
 local _bypassPillRefresh, _bypassFloatRefresh = nil, nil
@@ -3697,6 +3762,7 @@ makeRow(miscPage, "infJump", "Infinite Jump", function(on)
 	end
 end)
 
+sectionHeader(miscPage, "Session")
 makeButton(miscPage, "Rejoin Server", "Rejoin", function()
 	pcall(function() game:GetService("TeleportService"):Teleport(game.PlaceId, LP) end)
 end, true)
@@ -3733,6 +3799,7 @@ end)
 
 -- FPS Cap — 0 = uncapped (executor default)
 do
+	sectionHeader(miscPage, "Performance", true)
 	local row, setVal = makeSlider(miscPage, "fpsCap", "FPS Cap", 0, 240, "%d")
 	local last = St.fpsCap
 	task.spawn(function()
@@ -3855,6 +3922,7 @@ function startHitNearest()
 		end)
 	end)
 end
+sectionHeader(miscPage, "Combat", true)
 do
 	local _, _, refresh = makeRow(miscPage, "autoHitNearest", "Auto Hit Nearest", function(on)
 		if on then
@@ -4618,6 +4686,18 @@ if _savedConfig then
 		if St[key] == true and onToggle then pcall(onToggle, true) end
 	end
 	if St.speedOn then startSpeed(); if speedRefresh then speedRefresh() end end
+end
+
+-- Intro "pop" — window opens from a small pill into full size instead
+-- of just appearing. Everything inside is already Scale-relative
+-- (UDim2 "1,-x" widths etc.), so it grows into place cleanly without
+-- animating every child individually.
+do
+	local fullSize, fullPos = main.Size, main.Position
+	main.Size = UDim2.new(0, WIN_W*0.6, 0, 42)
+	main.Position = UDim2.new(0.5, -WIN_W*0.3, 0.5, -21)
+	TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{Size = fullSize, Position = fullPos}):Play()
 end
 
 print("[MoonEgg] Loaded — full rebuild — RightShift hide/show | Dock: Speed, AimBat, Bypass, Lock")
