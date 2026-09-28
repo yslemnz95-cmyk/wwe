@@ -118,11 +118,14 @@ _M.Bases      = _tryRequire("Bases")
 _M.Treadmills = _tryRequire("Treadmills")
 _M.Trails     = _tryRequire("Trails")
 _M.EggState   = _tryRequire("EggState")  -- ReplicatedStorage.Client.EggState
+_M.Assets     = _tryRequire("Assets")    -- ReplicatedStorage.Data.Assets (rarity/value directory)
+_M.Mutations  = _tryRequire("Mutations") -- ReplicatedStorage.Shared.Modules.Mutations (EarningsFor)
 
 local _MODULE_NAMES = {
 	"EggCmds","Network","Ragdoll","GuardEscapePrediction","GuardChasePolicy",
 	"ResolveGuardSpeedRequirement","SpeedPowerProjection","Guards","Areas",
 	"AreaEggSlotIdentity","Save","Constants","Bases","Treadmills","Trails","EggState",
+	"Assets","Mutations",
 }
 do
 	local lines = {"[yslemEgg] Game module status:"}
@@ -283,7 +286,7 @@ local _RARE_KEYWORDS = {
 	"secret","eternal","divine","divin","mythic","celestial","ancient",
 	"rainbow","golden","shiny","radiant","corrupted","void","legendary",
 }
--- Used by the ProximityPrompt fallback (source 3)
+-- Used by the own-base-eggs scan (source 2)
 local function _readEggLabels(root)
 	local texts = {}
 	pcall(function()
@@ -300,24 +303,85 @@ local function _readEggLabels(root)
 	local weight = full:match("([%d][%d%.,]*)%s*[Kk][Gg]")
 	return full, tags, weight
 end
-local function _promptOwnerModel(prompt)
-	local part = prompt.Parent
-	if not part then return nil, nil end
-	if not part:IsA("BasePart") then
-		local anc = part
-		while anc and not anc:IsA("BasePart") do anc = anc.Parent end
-		part = anc
-	end
-	if not part then return nil, nil end
-	local model = part
-	while model and model.Parent and model.Parent ~= workspace and not model:IsA("Model") do
-		model = model.Parent
-	end
-	return part, (model and model:IsA("Model")) and model or part
-end
-
 -- Network cache: uid → {pos,cf,mutation,nestScale,zone,tags,t}
 local _fieldEggNet = {}
+
+-- ============================================================
+-- ASSET DIRECTORY / RARITY / VALUE — exact Chilli Hub technique
+-- (aide_3 ~lines 6927-6972, 2140-2186): ReplicatedStorage.Data.Assets
+-- .Directory[AssetCategory] carries {Rarity={RarityNumber,DisplayName},
+-- EarningRate}. Egg income = EarningRate * scaleFactor(AssetScale) *
+-- mutationMultiplier(Mutations), scaleFactor being the game's own
+-- nonlinear curve (not a naive scale*rate estimate).
+-- ============================================================
+local _Egg = {}
+do
+	local function dirEntry(assetCategory)
+		local dir = _M.Assets and _M.Assets.Directory
+		local e = type(dir) == "table" and dir[tostring(assetCategory)] or nil
+		return type(e) == "table" and e or nil
+	end
+	_Egg.DirEntry = dirEntry
+	function _Egg.Rarity(assetCategory)
+		local e = dirEntry(assetCategory)
+		local rarity = e and e.Rarity
+		local n = type(rarity) == "table" and tonumber(rarity.RarityNumber or rarity.Rank) or nil
+		return n or 0
+	end
+	function _Egg.RarityName(assetCategory)
+		local e = dirEntry(assetCategory)
+		local rarity = e and e.Rarity
+		if type(rarity) == "table" then
+			return tostring(rarity.DisplayName or rarity._id or _Egg.Rarity(assetCategory))
+		end
+		return "Common"
+	end
+	function _Egg.Value(assetCategory, assetScale, mutations)
+		local e = dirEntry(assetCategory)
+		local rate = e and tonumber(e.EarningRate) or 0
+		local scale = tonumber(assetScale) or 0
+		if scale <= 0 then return 0 end
+		local scaleFactor = (scale > 5) and ((scale/5)^1.2 * 19.637875755794113) or (scale^1.85)
+		local mult = 1
+		if _M.Mutations and type(_M.Mutations.EarningsFor) == "function" then
+			local ok, result = pcall(_M.Mutations.EarningsFor, type(mutations) == "table" and mutations or {})
+			if ok and type(result) == "number" then mult = result end
+		end
+		return rate * scaleFactor * mult
+	end
+	-- Builds the "N - DisplayName" rarity dropdown list (Any first),
+	-- exactly like Chilli Hub's tbl8/tbl9 pair. Falls back to the fixed
+	-- 10-tier list if the Directory hasn't loaded yet.
+	function _Egg.RarityDropdownOptions()
+		local byNum = {}
+		local dir = _M.Assets and _M.Assets.Directory
+		if type(dir) == "table" then
+			for _, entry in pairs(dir) do
+				local rarity = type(entry) == "table" and entry.Rarity or nil
+				if type(rarity) == "table" then
+					local n = tonumber(rarity.RarityNumber or rarity.Rank)
+					if n and not byNum[n] then
+						byNum[n] = tostring(rarity.DisplayName or rarity._id or n)
+					end
+				end
+			end
+		end
+		if next(byNum) == nil then
+			local fallback = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Cosmic","Secret","Eternal","Divine"}
+			for i, nm in ipairs(fallback) do byNum[i] = nm end
+		end
+		local nums = {}
+		for n in pairs(byNum) do table.insert(nums, n) end
+		table.sort(nums)
+		local options, valueOf = {"Any"}, {Any = 0}
+		for _, n in ipairs(nums) do
+			local str = string.format("%d - %s", n, byNum[n])
+			table.insert(options, str)
+			valueOf[str] = n
+		end
+		return options, valueOf
+	end
+end
 
 -- Zone from world position (AREA must be built before this block)
 local function _posToZone(pos)
@@ -387,6 +451,7 @@ pcall(function()
 		local walkPos = (typeof(data.BottomCFrame)=="CFrame" and data.BottomCFrame.Position) or pos2
 		_fieldEggNet[cacheKey] = {
 			pos=walkPos, cf=cf2, mutation=mutation, nestScale=nestScale,
+			mutTable=(type(data.Mutations)=="table" and data.Mutations or nil),
 			zone=zone, tags=tags, uid=realUid, t=tick(), enabled=true,
 			farmable=(realUid ~= nil),
 		}
@@ -441,6 +506,7 @@ task.spawn(function()
 					end
 					_fieldEggNet[uid2] = {
 						pos=pos2, cf=cf2, mutation=assetCategory, nestScale=tonumber(record.AssetScale),
+						mutTable=(type(record.Mutations)=="table" and record.Mutations or nil),
 						zone=zone, tags=tags2, uid=uid2,
 						t=now2, enabled=true, farmable=true,
 					}
@@ -450,70 +516,49 @@ task.spawn(function()
 	end
 end)
 
-local _eggScanSlotsFound, _eggScanPromptTotal, _eggScanPromptEnabled = false, 0, 0
+local _eggScanPromptTotal, _eggScanPromptEnabled = 0, 0
 local cachedEggs = {}
+local _ownBaseEggs = {}
 
+-- Exact Chilli Hub source only: _fieldEggNet, fed by RE/EggWorld/FieldEggShifted
+-- (push) and RF/EggWorld/AskFieldEggSnapshot (poll — see task.spawn above).
+-- No heuristic ProximityPrompt text-guessing: prompts get destroyed and
+-- recreated by the game every time an egg is claimed/respawned, which made
+-- a text-matched scanner flicker entries in and out every cycle — the
+-- exact symptom of "ESP started working then stopped". The snapshot/event
+-- data is authoritative and doesn't have that problem.
 task.spawn(function()
 	while true do
 		local eggs = {}
 		local total, enabledCount = 0, 0
-		local slotsRoot = workspace:FindFirstChild("AreaEggSlotsClient", true)
-
-		-- Cross-source deduplication that PREFERS the most useful entry
-		-- for a physical egg, instead of just keeping whichever source
-		-- happened to scan it first: a real ProximityPrompt (guaranteed
-		-- triggerable) or a confirmed-real id always wins over a
-		-- position-only/non-farmable duplicate at the same spot. Without
-		-- this, a working "Steal" prompt (source 3) could get silently
-		-- shadowed by an earlier, non-functional network-only entry at
-		-- the same position — which is exactly what caused grab to do
-		-- nothing while standing right in front of a visible prompt.
-		local function _upsertEgg(entry)
-			for i, ex in ipairs(eggs) do
-				if (ex.pos - entry.pos).Magnitude < 4 then
-					local newIsBetter = (entry.prompt ~= nil and ex.prompt == nil)
-						or (entry.farmable and not ex.farmable)
-					if newIsBetter then eggs[i] = entry end
-					return false
-				end
-			end
-			table.insert(eggs, entry)
-			return true
-		end
-
-		-- Source 1: network FieldEggShifted — 60s TTL
-		-- WEIGHT NOTE: NestScale is a model scale factor (~0.5-2), NOT a
-		-- weight in kg — displaying it with "kg" would be a visual lie.
-		-- So .weight is NOT set here (ESP cleanly omits it); only a
-		-- weight actually read in-game (sources 2/3, via the model's
-		-- TextLabels) is shown with the kg unit.
 		local now2 = tick()
 		for cacheKey, e in pairs(_fieldEggNet) do
 			if now2 - e.t > 60 then
 				_fieldEggNet[cacheKey] = nil
 			else
-				local added = _upsertEgg({
+				table.insert(eggs, {
 					pos=e.pos, cf=e.cf, area=e.zone,
 					cat=e.mutation or (e.zone.." Egg"),
-					mutation=e.mutation, tags=e.tags,
-					weight=nil, scale=e.nestScale, rawText=e.mutation or "",
-					enabled=true, uid=e.uid, netOnly=true, farmable=e.farmable,
+					mutation=e.mutation, tags=e.tags, mutTable=e.mutTable,
+					weight=nil, scale=e.nestScale,
+					rarity=_Egg.Rarity(e.mutation), value=_Egg.Value(e.mutation, e.nestScale, e.mutTable),
+					enabled=true, uid=e.uid, farmable=e.farmable,
 				})
-				if added then total = total + 1; enabledCount = enabledCount + 1 end
+				total = total + 1; enabledCount = enabledCount + 1
 			end
 		end
 
-		-- Source 2: AreaEggSlotsClient:GetChildren() — LP's own slots by name
+		-- Own base eggs (placed, already growing in your slots) — separate
+		-- list for the "ESP Own Base Eggs" toggle only. Never farmed:
+		-- AskFieldEggCarry targets a wild field egg's uid, not a slot name.
+		local ownEggs = {}
+		local slotsRoot = workspace:FindFirstChild("AreaEggSlotsClient", true)
 		if slotsRoot then
-			_eggScanSlotsFound = true
 			for _, slot in ipairs(slotsRoot:GetChildren()) do
 				pcall(function()
 					local sname = slot.Name
-					-- Filter: only LP's own slots (contains UserId)
 					if not sname:find(tostring(LP.UserId), 1, true) then return end
-					-- Extract the zone: FirstAreaEgg_{id}_{N}_{Zone}:Slot_{N}
 					local zone = sname:match("_(%u[%a%s]+):Slot") or "?"
-					-- Position from the slot itself or the first BasePart descendant
 					local pos3, cf3
 					if slot:IsA("BasePart") then
 						pos3=slot.Position; cf3=slot.CFrame
@@ -523,102 +568,22 @@ task.spawn(function()
 						end
 					end
 					if not pos3 then return end
-					-- Rarity via attributes, real weight via the model's
-					-- TextLabels (same read as source 3 — reliable and
-					-- already shown in kg by the game itself, unlike a
-					-- scale attribute we can't be certain about).
 					local mutation2 = slot:GetAttribute("Mutation") or slot:GetAttribute("EggType")
-					local rawText2, tags2, weight2 = _readEggLabels(slot)
+					local _, tags2, weight2 = _readEggLabels(slot)
 					local cat2 = mutation2 or (tags2[1] and tags2[1]:upper()) or (zone.." Egg")
-					local added = _upsertEgg({
-						slot=slot, pos=pos3, cf=cf3, area=zone,
-						cat=cat2,
+					table.insert(ownEggs, {
+						slot=slot, pos=pos3, cf=cf3, area=zone, cat=cat2,
 						mutation=mutation2 or tags2[1], tags=tags2,
-						weight=weight2, rawText=rawText2,
-						-- These slots are YOUR OWN eggs already taken and
-						-- growing in your base — not wild eggs to steal.
-						-- AskFieldEggCarry expects a world egg's id, not a
-						-- slot name: targeting them caused "grabs" that did
-						-- nothing. Shown in ESP, but never farmed.
-						enabled=true, uid=sname, farmable=false,
+						weight=weight2, enabled=true, uid=sname, farmable=false,
 					})
-					if added then total = total + 1; enabledCount = enabledCount + 1 end
 				end)
-			end
-		else
-			_eggScanSlotsFound = false
-		end
-
-		-- Source 3: ProximityPrompt fallback (other games / eggs on the ground)
-		pcall(function()
-			for _, prompt in ipairs(workspace:GetDescendants()) do
-				if prompt:IsA("ProximityPrompt") then
-					local action = prompt.ActionText:lower()
-					local objTxt = prompt.ObjectText:lower()
-					local parentName = (prompt.Parent and prompt.Parent.Name or ""):lower()
-					-- Explicitly excludes sell prompts (merchants) — otherwise
-					-- a "Sell Egg" prompt could get counted as an egg to farm
-					-- instead of a delivery target.
-					local isSellPrompt = action:find("sell",1,true) or objTxt:find("sell",1,true)
-						or action:find("vend",1,true) or objTxt:find("vend",1,true)
-					if not isSellPrompt and (action:find("grab") or action:find("steal") or action:find("take")
-						or action:find("pick") or action:find("collect") or action:find("hatch")
-						or action:find("claim") or action:find("harvest")
-						or objTxt:find("egg") or parentName:find("egg") or parentName:find("drop")
-						or parentName:find("field") or parentName:find("slot")) then
-						local part, model = _promptOwnerModel(prompt)
-						if part then
-							local full, tags3, weight3 = _readEggLabels(model or part)
-							-- Prioritize a real rarity found in the model's labels
-							-- over the prompt's generic text ("Egg").
-							local cat3 = (tags3[1] and tags3[1]:upper())
-								or (objTxt ~= "" and prompt.ObjectText) or part.Name
-							local added = _upsertEgg({
-								prompt=prompt, part=part, pos=part.Position, cf=part.CFrame,
-								area="Dropped",
-								cat=cat3,
-								mutation=tags3[1], tags=tags3, weight=weight3, rawText=full,
-								enabled=prompt.Enabled, farmable=true,
-							})
-							if added then
-								total = total + 1
-								if prompt.Enabled then enabledCount = enabledCount + 1 end
-							end
-						end
-					end
-				end
-			end
-		end)
-
-		-- Zone correction: Source 1 farmable eggs whose zone is "?" (AREA
-		-- build failed — game path unavailable) inherit the zone of the
-		-- nearest Source 2 slot egg (zone extracted from slot name, always
-		-- reliable). Both sources cover the same islands, so proximity is a
-		-- sound proxy for island membership.
-		do
-			local knownSlots = {}
-			for _, r in ipairs(eggs) do
-				if r.slot and r.area and r.area ~= "?" then
-					knownSlots[#knownSlots+1] = r
-				end
-			end
-			if #knownSlots > 0 then
-				for _, r in ipairs(eggs) do
-					if r.area == "?" then
-						local bestZone, bestD = "?", math.huge
-						for _, s in ipairs(knownSlots) do
-							local d = (r.pos - s.pos).Magnitude
-							if d < bestD then bestD = d; bestZone = s.area end
-						end
-						r.area = bestZone
-					end
-				end
 			end
 		end
 
 		_eggScanPromptTotal = total
 		_eggScanPromptEnabled = enabledCount
 		cachedEggs = eggs
+		_ownBaseEggs = ownEggs
 		task.wait(0.5)
 	end
 end)
@@ -710,6 +675,76 @@ local St = {
 	autoHitAura      = false,
 	keepMutatedSell  = true,
 	skipMutatedFuse  = true,
+
+	-- Auto Steal filters (Chilli Hub "Auto Steal" section)
+	stealMinRarity   = 0,
+	stealMinValueK   = 0,
+	stealPriority    = "Highest Value",
+	stealTargetEggs  = {},
+	stealTweenPct    = 100,
+	stealCarryPct    = 100,
+
+	-- Auto Place Egg filters
+	placeRule        = "Always",
+	placeOrder       = "Highest Value",
+	placeRarities    = {},
+	placeSpecificEggs = {},
+	placeMinValueK   = 0,
+
+	-- Auto Hatch filters
+	hatchMinRarity   = 0,
+	hatchMinValueK   = 0,
+	hatchSpecificEggs = {},
+
+	-- Auto Sell filters
+	sellPetRule      = "Rarity Only",
+	sellPetMaxRarity = 0,
+	sellPetValueK    = 0,
+	sellPetBlacklist = {},
+	sellEggRule      = "Rarity Only",
+	sellEggMaxRarity = 0,
+	sellEggValueK    = 0,
+	sellEggBlacklist = {},
+
+	-- Auto Fuse filters
+	fusePriorityMode = "Lowest Rarity First",
+	fusePetsToUse    = "Lowest To Highest",
+	fuseMaxRarity    = 0,
+	fuseSpecificSpecies = {},
+	fuseEjectIncomplete = true,
+
+	-- Auto Favorite filters
+	favoriteRule     = "Match All",
+	favoriteMinRarity = 0,
+	favoriteMutations = {},
+	favoriteMinValueK = 0,
+	favoriteAlwaysSpecies = {},
+	autoFavoriteEquipped = false,
+	autoUnfavoriteEquipped = false,
+
+	-- Combat
+	hitTweenPct      = 100,
+	hitMaxSpeed      = 90,
+	hitLead          = 0,
+	hitSweep         = 4,
+
+	-- ESP
+	espFixedSize     = false,
+	espOwnBase       = true,
+	espMinRarity     = 0,
+	espShowInfo      = {Icon=true, Name=true, Value=true},
+	espMinValueK     = 0,
+	espEggSizePct    = 75,
+	espGuardSizePct  = 100,
+	espLostParts     = false,
+	espPlayerSizePct = 100,
+
+	-- Misc
+	fpsCap           = 0,
+	optimizer        = false,
+	fpsPingHud       = false,
+	serverHopMode    = "Manual",
+	autoRejoin       = true,
 }
 
 -- ============================================================
@@ -1443,6 +1478,144 @@ end
 local function setStatus(_txt, _col) end
 
 -- ============================================================
+-- MULTI-SELECT OVERLAY — matches Chilli Hub's CreateMultiDropdown
+-- widgets (Target Areas, Target/Place/Hatch Specific Eggs, ESP Show
+-- Info, Blacklist Sell, Specific Species to Fuse, Favorite
+-- Mutations/Species). yslemEgg_1.lua's design system has no
+-- multi-select primitive, so this adds one reusable overlay in the
+-- same visual language (rows, living stroke, corner radius) instead
+-- of a one-off per feature.
+-- ============================================================
+local _msOverlay, _msTitle, _msList
+local function _ensureMultiSelectOverlay()
+	if _msOverlay then return end
+	local ov = Instance.new("Frame", main)
+	ov.Name = "MultiSelectOverlay"
+	ov.Size = UDim2.new(1,0,1,-CONTENT_Y)
+	ov.Position = UDim2.new(0,0,0,CONTENT_Y)
+	ov.BackgroundColor3 = C.BG
+	ov.BorderSizePixel = 0
+	ov.Visible = false
+	ov.ZIndex = 300
+	_msOverlay = ov
+
+	local head = Instance.new("Frame", ov)
+	head.Size = UDim2.new(1,0,0,26)
+	head.BackgroundTransparency = 1
+	head.ZIndex = 301
+	_msTitle = label(head, "", UDim2.new(1,-56,1,0), C.WHITE, Enum.Font.GothamBold)
+	_msTitle.Position = UDim2.new(0,6,0,0)
+	_msTitle.ZIndex = 301
+	_msTitle.TextSize = 11.5
+
+	local closeBtn = Instance.new("TextButton", head)
+	closeBtn.Size = UDim2.new(0,46,0,20)
+	closeBtn.Position = UDim2.new(1,-50,0,2)
+	closeBtn.BackgroundColor3 = C.MOON
+	closeBtn.Text = "Done"
+	closeBtn.TextColor3 = C.MOONTEXT
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.TextSize = 10.5
+	closeBtn.BorderSizePixel = 0
+	closeBtn.ZIndex = 301
+	corner(closeBtn, 6)
+	closeBtn.MouseButton1Click:Connect(function() _msOverlay.Visible = false end)
+
+	local list = Instance.new("ScrollingFrame", ov)
+	list.Size = UDim2.new(1,0,1,-30)
+	list.Position = UDim2.new(0,0,0,28)
+	list.BackgroundTransparency = 1
+	list.BorderSizePixel = 0
+	list.ScrollBarThickness = 3
+	list.ScrollBarImageColor3 = C.ACCENT
+	list.CanvasSize = UDim2.new(0,0,0,0)
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.ZIndex = 301
+	local ll = Instance.new("UIListLayout", list)
+	ll.Padding = UDim.new(0,3)
+	ll.SortOrder = Enum.SortOrder.LayoutOrder
+	_msList = list
+end
+
+-- getOptionsFn(): -> array of option strings, re-evaluated on every open
+-- (covers dynamic lists: live area names, the egg Directory, etc.).
+-- selectedSet: caller-owned table, key=option -> true when selected.
+-- Empty selectedSet means "match everything" — same fallback Chilli Hub
+-- uses for its MultiDropdowns (`if next(sel) == nil then` -> select all).
+local function makeMultiSelect(page, displayName, getOptionsFn, selectedSet, onChange)
+	_ensureMultiSelectOverlay()
+	local row = Instance.new("Frame", page)
+	row.Size = UDim2.new(1,0,0,30)
+	row.BackgroundColor3 = C.ROW
+	row.BackgroundTransparency = 0.35
+	row.BorderSizePixel = 0
+	corner(row, 8)
+	addLivingStroke(row, 1)
+	local lbl = label(row, displayName, UDim2.new(1,-70,1,0), C.WHITE, Enum.Font.GothamMedium)
+	lbl.Position = UDim2.new(0,10,0,0)
+	lbl.TextSize = 11.5
+	local countLbl = label(row, "All", UDim2.new(0,56,1,0), C.MOON2, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+	countLbl.Position = UDim2.new(1,-64,0,0)
+	countLbl.TextSize = 10.5
+
+	local btn = Instance.new("TextButton", row)
+	btn.Size = UDim2.new(1,0,1,0)
+	btn.BackgroundTransparency = 1
+	btn.Text = ""
+
+	local function refreshCount()
+		local n = 0
+		for _ in pairs(selectedSet) do n = n + 1 end
+		countLbl.Text = (n == 0) and "All" or tostring(n)
+	end
+	refreshCount()
+
+	btn.MouseButton1Click:Connect(function()
+		_msTitle.Text = displayName
+		for _, c in ipairs(_msList:GetChildren()) do
+			if c:IsA("Frame") then c:Destroy() end
+		end
+		local opts = getOptionsFn() or {}
+		for i, opt in ipairs(opts) do
+			local r = Instance.new("Frame", _msList)
+			r.Size = UDim2.new(1,0,0,26)
+			r.BackgroundColor3 = C.ROW
+			r.BackgroundTransparency = 0.35
+			r.BorderSizePixel = 0
+			r.ZIndex = 301
+			r.LayoutOrder = i
+			corner(r, 6)
+			local olbl = label(r, opt, UDim2.new(1,-40,1,0), C.SILVER, Enum.Font.GothamMedium)
+			olbl.Position = UDim2.new(0,8,0,0)
+			olbl.TextSize = 10.5
+			olbl.ZIndex = 302
+			local check = Instance.new("Frame", r)
+			check.Size = UDim2.new(0,16,0,16)
+			check.Position = UDim2.new(1,-26,0.5,-8)
+			check.BackgroundColor3 = selectedSet[opt] and C.MOON or Color3.fromRGB(10,14,22)
+			check.BorderSizePixel = 0
+			check.ZIndex = 302
+			corner(check, 4)
+			addLivingStroke(check, 1)
+			local rbtn = Instance.new("TextButton", r)
+			rbtn.Size = UDim2.new(1,0,1,0)
+			rbtn.BackgroundTransparency = 1
+			rbtn.Text = ""
+			rbtn.ZIndex = 303
+			rbtn.MouseButton1Click:Connect(function()
+				if selectedSet[opt] then selectedSet[opt] = nil else selectedSet[opt] = true end
+				check.BackgroundColor3 = selectedSet[opt] and C.MOON or Color3.fromRGB(10,14,22)
+				refreshCount()
+				if onChange then onChange(selectedSet) end
+			end)
+		end
+		_msOverlay.Visible = true
+	end)
+
+	return refreshCount
+end
+
+-- ============================================================
 -- FARM TAB
 -- ============================================================
 local farmPage = pages["Farm"]
@@ -1560,7 +1733,6 @@ task.spawn(function()
 			-- Only target READY and FARMABLE eggs (never your own eggs
 			-- already in a slot — see scanner source 2), island filter applied.
 			local myPos = rootPart.Position
-			local best, bestDist = nil, math.huge
 			-- Fuzzy zone match: exact → case-insensitive substring both ways.
 			-- Handles AREA key names that differ in case or carry a suffix
 			-- vs the FARM_ZONES canonical names (e.g. "ForestArea" vs "Forest").
@@ -1572,20 +1744,39 @@ task.spawn(function()
 				local al = area:lower()
 				return al:find(fzLow,1,true)~=nil or fzLow:find(al,1,true)~=nil
 			end
+			-- Chilli Hub exact filters: Min Rarity, Min Steal Value, Target
+			-- Specific Eggs (empty selection = match every species).
+			local minVal = St.stealMinValueK * 1000
+			local hasTargetSet = next(St.stealTargetEggs) ~= nil
+			local candidates = {}
 			for _, r in ipairs(cachedEggs) do
-				if r.enabled and r.farmable ~= false then
-					if _zoneOk(r.area) then
-						local d = (r.pos - myPos).Magnitude
-						if d < bestDist then bestDist = d; best = r end
-					end
+				if r.enabled and r.farmable ~= false and _zoneOk(r.area)
+					and (r.rarity or 0) >= St.stealMinRarity
+					and (r.value or 0) >= minVal
+					and (not hasTargetSet or St.stealTargetEggs[r.mutation or ""]) then
+					table.insert(candidates, r)
 				end
 			end
+			-- Steal Priority (Chilli Hub tbl5, exact 5 modes): sorts the
+			-- filtered pool; distance is always the final tiebreaker.
+			local priority = St.stealPriority
+			table.sort(candidates, function(a, b)
+				local av, bv
+				if priority == "Best Rarity" then av, bv = a.rarity or 0, b.rarity or 0
+				elseif priority == "Biggest Weight" then av, bv = a.scale or 0, b.scale or 0
+				elseif priority == "Best Mutation" then av, bv = (a.tags and #a.tags or 0), (b.tags and #b.tags or 0)
+				elseif priority == "Lowest Value" then av, bv = -(a.value or 0), -(b.value or 0)
+				else av, bv = a.value or 0, b.value or 0 end
+				if av ~= bv then return av > bv end
+				return (a.pos - myPos).Magnitude < (b.pos - myPos).Magnitude
+			end)
+			local best = candidates[1]
 
 			if best then
 				isFarmingEgg = true
 				_farmMoving = true
 				_farmTargetPos = best.pos
-				_farmSpeed = math.max(St.speed, 40)
+				_farmSpeed = math.max(St.speed, 40) * (St.stealTweenPct / 100)
 
 				-- Remove the target from the network cache right away:
 				-- avoids re-selecting the same egg in a loop if the world
@@ -1626,6 +1817,7 @@ task.spawn(function()
 					if safePos then
 						_farmMoving = true
 						_farmTargetPos = safePos
+						_farmSpeed = math.max(St.speed, 40) * (St.stealCarryPct / 100)
 
 						local t1 = os.clock()
 						while St.autoFarm and _farmMoving and (os.clock()-t1) < 10 do
@@ -1680,6 +1872,41 @@ do
 	end)
 
 	makeDivider(farmPage)
+end
+
+-- ============================================================
+-- AUTO STEAL FILTERS — exact Chilli Hub widget set (aide_3 ~2078-2629):
+-- Min Rarity, Target Specific Eggs, Steal Priority, Min Steal Value,
+-- Tween/Carry Speed. Target Areas is covered by the Island Picker above.
+-- ============================================================
+do
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	makeCarousel(farmPage, "Min Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+		St.stealMinRarity = rarityValueOf[v] or 0
+		saveConfig()
+	end)
+
+	makeMultiSelect(farmPage, "Target Specific Eggs", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.stealTargetEggs, function() saveConfig() end)
+
+	local STEAL_PRIORITY = {"Best Rarity","Biggest Weight","Best Mutation","Highest Value","Lowest Value"}
+	makeCarousel(farmPage, "Steal Priority", STEAL_PRIORITY, STEAL_PRIORITY, St.stealPriority, function(v)
+		St.stealPriority = v
+		saveConfig()
+	end)
+
+	makeSlider(farmPage, "stealMinValueK", "Min Steal Value", 0, 50000, "%dk")
+	makeSlider(farmPage, "stealTweenPct", "Tween Speed", 50, 120, "%d%%")
+	makeSlider(farmPage, "stealCarryPct", "Carry Speed", 80, 120, "%d%%")
 end
 
 -- Auto Hatch / Auto Equip — directly clicks the game's real UI buttons
