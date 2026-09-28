@@ -3,6 +3,19 @@
 -- Excludes: telemetry/webhook exfiltration, remote kill-switches, RPC/RCE backdoors,
 -- anti-cheat-hook-disabling ("getconnections" hijacking) -- none of that is reproduced here.
 
+print("[yslemEgg] boot: script started executing")
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "yslemEgg", Text = "Script started, loading...", Duration = 3,
+    })
+end)
+
+-- Everything below runs inside one big pcall. If ANYTHING anywhere in this
+-- script throws an uncaught error, we catch it here and both print it AND
+-- draw it directly on screen as a big red box -- so a crash is never
+-- silent, even on an executor whose console isn't visible/checked.
+local __yslemEgg_ok, __yslemEgg_err = pcall(function()
+
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
 local UserInputService  = game:GetService("UserInputService")
@@ -2329,3 +2342,87 @@ end)
 
 _notify("yslemEgg", "v5.0 ULTRA loaded — verified remotes, real income formula, full automation suite.")
 print("[yslemEgg v5.0 ULTRA] Loaded — Farm/Economy/Player/Stats tabs active. Settings auto-save to " .. SAVE_FILE)
+
+end) -- closes the pcall opened near the top of the file
+
+if not __yslemEgg_ok then
+    local errText = tostring(__yslemEgg_err)
+    warn("[yslemEgg] FATAL ERROR (script did not finish loading): " .. errText)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "yslemEgg CRASHED",
+            Text = errText:sub(1, 180),
+            Duration = 20,
+        })
+    end)
+    -- Guaranteed-visible fallback: draw the error directly on screen in
+    -- case SendNotification / the console aren't visible on this executor.
+    pcall(function()
+        local Players = game:GetService("Players")
+        local lp = Players.LocalPlayer
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "yslemEggErrorReport"
+        screenGui.ResetOnSpawn = false
+        screenGui.IgnoreGuiInset = true
+        screenGui.Parent = (gethui and gethui()) or lp:WaitForChild("PlayerGui")
+
+        local box = Instance.new("Frame")
+        box.Size = UDim2.new(0, 420, 0, 220)
+        box.Position = UDim2.new(0.5, -210, 0.5, -110)
+        box.BackgroundColor3 = Color3.fromRGB(40, 12, 12)
+        box.BorderSizePixel = 0
+        box.Active = true
+        box.Draggable = true
+        box.Parent = screenGui
+        Instance.new("UICorner", box).CornerRadius = UDim.new(0, 10)
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -16, 0, 24)
+        title.Position = UDim2.new(0, 8, 0, 6)
+        title.BackgroundTransparency = 1
+        title.Text = "yslemEgg crashed while loading -- copy this text:"
+        title.TextColor3 = Color3.fromRGB(255, 180, 180)
+        title.TextSize = 13
+        title.Font = Enum.Font.GothamBold
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = box
+
+        local scroll = Instance.new("ScrollingFrame")
+        scroll.Size = UDim2.new(1, -16, 1, -66)
+        scroll.Position = UDim2.new(0, 8, 0, 32)
+        scroll.BackgroundColor3 = Color3.fromRGB(20, 6, 6)
+        scroll.BorderSizePixel = 0
+        scroll.ScrollBarThickness = 4
+        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        scroll.Parent = box
+        Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
+
+        local errLbl = Instance.new("TextLabel")
+        errLbl.Size = UDim2.new(1, -8, 0, 0)
+        errLbl.Position = UDim2.new(0, 4, 0, 4)
+        errLbl.AutomaticSize = Enum.AutomaticSize.Y
+        errLbl.BackgroundTransparency = 1
+        errLbl.Text = errText
+        errLbl.TextColor3 = Color3.fromRGB(255, 220, 220)
+        errLbl.TextSize = 13
+        errLbl.Font = Enum.Font.RobotoMono
+        errLbl.TextWrapped = true
+        errLbl.TextXAlignment = Enum.TextXAlignment.Left
+        errLbl.TextYAlignment = Enum.TextYAlignment.Top
+        errLbl.Parent = scroll
+
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.new(1, -16, 0, 26)
+        closeBtn.Position = UDim2.new(0, 8, 1, -32)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+        closeBtn.Text = "Close"
+        closeBtn.TextColor3 = Color3.new(1, 1, 1)
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextSize = 13
+        closeBtn.BorderSizePixel = 0
+        closeBtn.Parent = box
+        Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+        closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+    end)
+end
