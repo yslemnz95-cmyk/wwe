@@ -729,10 +729,7 @@ local St = {
 	autoUnfavoriteEquipped = false,
 
 	-- Combat
-	hitTweenPct      = 100,
-	hitMaxSpeed      = 90,
-	hitLead          = 0,
-	hitSweep         = 4,
+	hitSweep         = 20,
 
 	-- ESP
 	espFixedSize     = false,
@@ -3555,10 +3552,16 @@ do
 	end)
 end
 
--- Auto Hit Nearest
+-- Auto Hit Nearest / Auto Hit Aura — Chilli Hub's exclusive combat
+-- target group (CreateExclusiveGroup MaxActive=1, aide_3 ~17855-17894):
+-- turning one on switches the other off. Forward-declared so each
+-- toggle's callback can stop+resync the other.
+local stopHitNearest, startHitNearest, stopHitAura, startHitAura
+local _hitRefresh = {}
+
 local _hitNearestConn = nil
-local function stopHitNearest() if _hitNearestConn then _hitNearestConn:Disconnect(); _hitNearestConn = nil end end
-local function startHitNearest()
+function stopHitNearest() if _hitNearestConn then _hitNearestConn:Disconnect(); _hitNearestConn = nil end end
+function startHitNearest()
 	stopHitNearest()
 	local _t = 0
 	_hitNearestConn = RunService.Heartbeat:Connect(function(dt)
@@ -3584,14 +3587,19 @@ local function startHitNearest()
 		end)
 	end)
 end
-makeRow(miscPage, "autoHitNearest", "Auto Hit Nearest", function(on)
-	if on then startHitNearest() else stopHitNearest() end
-end)
+do
+	local _, _, refresh = makeRow(miscPage, "autoHitNearest", "Auto Hit Nearest", function(on)
+		if on then
+			if St.autoHitAura then St.autoHitAura = false; stopHitAura(); if _hitRefresh.Aura then _hitRefresh.Aura() end end
+			startHitNearest()
+		else stopHitNearest() end
+	end)
+	_hitRefresh.Nearest = refresh
+end
 
--- Auto Hit Aura
 local _hitAuraConn = nil
-local function stopHitAura() if _hitAuraConn then _hitAuraConn:Disconnect(); _hitAuraConn = nil end end
-local function startHitAura()
+function stopHitAura() if _hitAuraConn then _hitAuraConn:Disconnect(); _hitAuraConn = nil end end
+function startHitAura()
 	stopHitAura()
 	local _t = 0
 	_hitAuraConn = RunService.Heartbeat:Connect(function(dt)
@@ -3604,7 +3612,7 @@ local function startHitAura()
 			for _, plr in ipairs(Players:GetPlayers()) do
 				if plr ~= LP and plr.Character then
 					local h = plr.Character:FindFirstChild("HumanoidRootPart")
-					if h and (h.Position - hrp.Position).Magnitude <= 20 then
+					if h and (h.Position - hrp.Position).Magnitude <= St.hitSweep then
 						_fireRE("RE/BatSwing/Trigger", {serverTime = workspace:GetServerTimeNow(), targetCFrame = h.CFrame})
 					end
 				end
@@ -3612,9 +3620,16 @@ local function startHitAura()
 		end)
 	end)
 end
-makeRow(miscPage, "autoHitAura", "Auto Hit Aura", function(on)
-	if on then startHitAura() else stopHitAura() end
-end)
+do
+	local _, _, refresh = makeRow(miscPage, "autoHitAura", "Auto Hit Aura", function(on)
+		if on then
+			if St.autoHitNearest then St.autoHitNearest = false; stopHitNearest(); if _hitRefresh.Nearest then _hitRefresh.Nearest() end end
+			startHitAura()
+		else stopHitAura() end
+	end)
+	_hitRefresh.Aura = refresh
+	makeSlider(miscPage, "hitSweep", "Hit Sweep", 0, 100, "%d studs")
+end
 
 -- ============================================================
 -- FLING — proximity neutralisation of NPCs / guards
