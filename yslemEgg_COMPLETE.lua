@@ -215,7 +215,16 @@ do
         local ok2, parsed = pcall(HttpService.JSONDecode, HttpService, raw)
         if ok2 and type(parsed) == "table" then
             for k, v in pairs(DEFAULT_SETTINGS) do
-                S[k] = (parsed[k] ~= nil) and parsed[k] or v
+                -- NOT `(parsed[k] ~= nil) and parsed[k] or v` -- that and/or
+                -- idiom collapses to `v` whenever parsed[k] is boolean
+                -- false, silently reverting any disabled true-by-default
+                -- toggle (waitGuardSleep, antiRagdoll, antiTrap, ...) back
+                -- on every reload.
+                if parsed[k] ~= nil then
+                    S[k] = parsed[k]
+                else
+                    S[k] = v
+                end
             end
         end
     end
@@ -489,7 +498,10 @@ local function _queueList()
     end)
     return uids
 end
-local function _wakeSteal() end -- set below once the scheduler exists
+-- Intentional no-op: the steal loop already polls every 0.2s (see MAIN
+-- LOOPS below), so a queue change here is picked up within that window
+-- without needing an explicit wake signal.
+local function _wakeSteal() end
 
 local function CancelSteal(uid)
     StealQueue[uid] = nil
@@ -1090,7 +1102,16 @@ local function _autoFavoriteTick()
             local value = _income(item.Category, item.Scale, item.Mutations)
             local rarityOk = info.RarityNumber >= minRarity
             local valueOk = S.minFavoriteValue <= 0 or value >= S.minFavoriteValue
-            local pass = (S.favoriteRule == "Match All") and (rarityOk and valueOk) or (rarityOk or valueOk)
+            -- Not the and/or ternary idiom: when rarityOk/valueOk disagree
+            -- and the rule is "Match All", `(rarityOk and valueOk)` is
+            -- false, and and/or falls through to the "Match Any" fallback,
+            -- silently favoriting things that only match one criterion.
+            local pass
+            if S.favoriteRule == "Match All" then
+                pass = rarityOk and valueOk
+            else
+                pass = rarityOk or valueOk
+            end
             if pass then table.insert(toFav, uid) end
         end
         ::continue::
@@ -1399,8 +1420,14 @@ do -- Combat / Auto Hit (RE/BatSwing/Trigger)
                     if model then
                         for _, d in ipairs(model:GetDescendants()) do
                             if d:IsA("WeldConstraint") or d:IsA("Weld") or d:IsA("RigidConstraint") then
-                                local other = d.Part0 and Players:GetPlayerFromCharacter(d.Part0.Parent)
-                                    or d.Part1 and Players:GetPlayerFromCharacter(d.Part1.Parent)
+                                -- GetPlayerFromCharacter(nil) throws if the
+                                -- joint's Part0/Part1 exists but is
+                                -- currently unparented -- guard the parent
+                                -- before passing it in.
+                                local p0 = d.Part0 and d.Part0.Parent
+                                local p1 = d.Part1 and d.Part1.Parent
+                                local other = (p0 and Players:GetPlayerFromCharacter(p0))
+                                    or (p1 and Players:GetPlayerFromCharacter(p1))
                                 if other and hittable(other) then return other end
                             end
                         end
@@ -1427,7 +1454,11 @@ do -- Combat / Auto Hit (RE/BatSwing/Trigger)
         if not bat then return end
         char = lp.Character
         hum = char and char:FindFirstChildOfClass("Humanoid")
-        if hum and hum:FindFirstChildOfClass("Tool") ~= bat then
+        -- Equipped Tools parent to the Character, never the Humanoid --
+        -- checking hum:FindFirstChildOfClass("Tool") is always nil, so this
+        -- branch used to re-equip and `return` every single tick, and the
+        -- actual swing/fire logic below was never reached.
+        if hum and char and char:FindFirstChildOfClass("Tool") ~= bat then
             pcall(function() hum:EquipTool(bat) end)
             return
         end
@@ -2180,10 +2211,10 @@ _spawnTracked(function()
                 rankLbl.Parent = row
 
                 local nameLbl = Instance.new("TextLabel")
-                nameLbl.Size = UDim2.new(0.55, -26, 1, 0)
+                nameLbl.Size = UDim2.new(0.45, -26, 1, 0)
                 nameLbl.Position = UDim2.new(0, 26, 0, 0)
                 nameLbl.BackgroundTransparency = 1
-                nameLbl.Text = tostring(rec.AssetCategory or "?"):sub(1, 16)
+                nameLbl.Text = tostring(rec.AssetCategory or "?"):sub(1, 14)
                 nameLbl.TextColor3 = TEXT
                 nameLbl.TextSize = 10
                 nameLbl.Font = Enum.Font.Gotham
@@ -2191,15 +2222,41 @@ _spawnTracked(function()
                 nameLbl.Parent = row
 
                 local valLbl = Instance.new("TextLabel")
-                valLbl.Size = UDim2.new(0.45, 0, 1, 0)
-                valLbl.Position = UDim2.new(0.55, 0, 0, 0)
+                valLbl.Size = UDim2.new(0.4, 0, 1, 0)
+                valLbl.Position = UDim2.new(0.45, 0, 0, 0)
                 valLbl.BackgroundTransparency = 1
-                valLbl.Text = ("%s  $%.0f"):format(info.RarityName or "?", value)
+                valLbl.Text = ("%s $%.0f"):format(info.RarityName or "?", value)
                 valLbl.TextColor3 = YELLOW
-                valLbl.TextSize = 10
+                valLbl.TextSize = 9
                 valLbl.Font = Enum.Font.GothamBold
                 valLbl.TextXAlignment = Enum.TextXAlignment.Right
                 valLbl.Parent = row
+
+                -- Prioritize (star) button -- promotes this uid to the front
+                -- of the steal queue via the already-implemented StealAPI.
+                local starBtn = Instance.new("TextButton")
+                starBtn.Size = UDim2.new(0, 20, 1, 0)
+                starBtn.Position = UDim2.new(0.85, 0, 0, 0)
+                starBtn.BackgroundTransparency = 1
+                starBtn.Text = "\226\152\133" -- star
+                starBtn.TextColor3 = (i == 1) and GOLD_C or DIM
+                starBtn.TextSize = 12
+                starBtn.Font = Enum.Font.GothamBold
+                starBtn.Parent = row
+                starBtn.MouseButton1Click:Connect(function() PrioritizeSteal(uid) end)
+
+                -- Cancel button -- drops this uid from the queue (blacklists
+                -- it for this session) via the already-implemented StealAPI.
+                local cancelBtn = Instance.new("TextButton")
+                cancelBtn.Size = UDim2.new(0, 20, 1, 0)
+                cancelBtn.Position = UDim2.new(0.93, 0, 0, 0)
+                cancelBtn.BackgroundTransparency = 1
+                cancelBtn.Text = "X"
+                cancelBtn.TextColor3 = CANCEL_C
+                cancelBtn.TextSize = 11
+                cancelBtn.Font = Enum.Font.GothamBold
+                cancelBtn.Parent = row
+                cancelBtn.MouseButton1Click:Connect(function() CancelSteal(uid) end)
 
                 table.insert(queueRows, row)
             end
@@ -2239,7 +2296,6 @@ if S.antiRagdoll then PlayerFX.StartAntiRagdoll() end
 if S.antiTrap then PlayerFX.StartAntiTrap() end
 if S.instantPrompts then PlayerFX.StartInstantPrompts() end
 if S.invisibility then PlayerFX.StartInvisibility() end
-if S.hitMode ~= "Off" then PlayerFX.StartCombat() end
 if S.antiAFK then PlayerFX.StartAntiAFK() end
 PlayerFX.StartCombat() -- always running; internally no-ops while hitMode == "Off"
 
