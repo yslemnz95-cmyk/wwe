@@ -700,7 +700,7 @@ local St = {
 	infJump          = false,
 	speedOn          = false,
 	floatLocked      = false,
-	speed            = 16,
+	speed            = 350,
 	flySpeed         = 50,
 	fov              = 70,
 	guiVisible       = true,
@@ -857,17 +857,17 @@ do
 end
 
 -- ============================================================
--- SPEED BOOST — matches the game's real technique: direct
--- Humanoid.WalkSpeed override (not a velocity proxy), dismount the
--- treadmill first (RF/Treadmill/AskDoff, invoked twice), then
--- RE/RigSync/AskRigWipe to clear the server-side rig correction so
--- the override isn't snapped back down.
+-- SPEED BOOST — exact Chilli Hub technique: AssemblyLinearVelocity-based
+-- (NOT WalkSpeed). Dismount treadmill first (AskDoff x2) + AskRigWipe.
+-- On each Heartbeat: project MoveDirection onto XZ plane * speed and set
+-- hrp.AssemblyLinearVelocity, preserving Y. Skip during ragdoll / sit /
+-- platform-stand. Reset velocity on stop.
 -- ============================================================
 local startSpeed, stopSpeed
 do
-	local _origWalkSpeed = nil
-	local _speedActive = false
-	local _speedConn = nil
+	local _speedActive  = false
+	local _speedBoosted = false
+	local _speedConn    = nil
 
 	local function _dismountTreadmill()
 		local r = _getRemote("RF/Treadmill/AskDoff")
@@ -879,41 +879,51 @@ do
 		local r = _getRemote("RE/RigSync/AskRigWipe")
 		if r and r:IsA("RemoteEvent") then pcall(function() r:FireServer() end) end
 	end
-	local function _applySpeed()
-		local char = LP.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if not hum then return end
-		if _origWalkSpeed == nil then _origWalkSpeed = hum.WalkSpeed end
-		hum.WalkSpeed = St.speed
+	local function _resetBoostedVelocity()
+		if not _speedBoosted then return end
+		_speedBoosted = false
+		pcall(function()
+			local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
+			end
+		end)
 	end
 
 	startSpeed = function()
 		St.speedOn = true
 		_speedActive = true
 		_dismountTreadmill()
-		_applySpeed()
 		_wipeRig()
 		if _speedConn then _speedConn:Disconnect() end
 		_speedConn = RunService.Heartbeat:Connect(function()
 			if not _speedActive then return end
 			local char = LP.Character
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-			if hum and hum.WalkSpeed ~= St.speed then _applySpeed(); _wipeRig() end
-		end)
-		LP.CharacterAdded:Connect(function()
-			if not _speedActive then return end
-			_origWalkSpeed = nil
-			task.defer(function() _applySpeed(); _wipeRig() end)
+			local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+			local hum  = char and char:FindFirstChildOfClass("Humanoid")
+			if not hrp or not hum or hum.Sit or hum.PlatformStand then
+				_resetBoostedVelocity(); return
+			end
+			local ragEnd = tonumber(LP:GetAttribute("RagdollEndTime"))
+			if ragEnd and ragEnd > workspace:GetServerTimeNow() then
+				_resetBoostedVelocity(); return
+			end
+			local dir = Vector3.new(hum.MoveDirection.X, 0, hum.MoveDirection.Z)
+			if dir.Magnitude <= 0.001 then
+				_resetBoostedVelocity(); return
+			end
+			local vel = dir.Unit * St.speed
+			pcall(function()
+				hrp.AssemblyLinearVelocity = Vector3.new(vel.X, hrp.AssemblyLinearVelocity.Y, vel.Z)
+			end)
+			_speedBoosted = true
 		end)
 	end
 	stopSpeed = function()
 		St.speedOn = false
 		_speedActive = false
 		if _speedConn then _speedConn:Disconnect(); _speedConn = nil end
-		local char = LP.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if hum and _origWalkSpeed then hum.WalkSpeed = _origWalkSpeed end
-		_origWalkSpeed = nil
+		_resetBoostedVelocity()
 	end
 end
 
@@ -2055,33 +2065,60 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoUpgradeBase", "Auto Upgrade Base", function(on) end)
 
--- Anti-Guard
-local _antiGuardConn = nil
-local function stopAntiGuard() if _antiGuardConn then _antiGuardConn:Disconnect(); _antiGuardConn = nil end end
+-- Anti-Guard — exact Chilli Hub technique: react to RagdollEndTime
+-- attribute. When a guard hits the player the server sets this attribute.
+-- We detect the change instantly and teleport past the guard line before
+-- the physics-ragdoll animation finishes, so the player arrives on the
+-- safe side with the egg still in hand.
+local _antiGuardLink = nil
+local function stopAntiGuard()
+	if _antiGuardLink then _antiGuardLink:Disconnect(); _antiGuardLink = nil end
+end
 local function startAntiGuard()
 	stopAntiGuard()
-	local _t = 0
-	_antiGuardConn = RunService.Heartbeat:Connect(function(dt)
+	_antiGuardLink = LP:GetAttributeChangedSignal("RagdollEndTime"):Connect(function()
 		if not St.antiGuard then return end
-		_t = _t + dt; if _t < 0.2 then return end; _t = 0
-		pcall(function()
-			local char = LP.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-			if not hrp then return end
-			local folder = workspace:FindFirstChild("__OBJECTS")
-			folder = folder and folder:FindFirstChild("Areas")
-			folder = folder and folder:FindFirstChild("GuardAreas")
-			if not folder then return end
-			for _, a in ipairs(folder:GetChildren()) do
-				local guard = a:FindFirstChild("Guard")
-				if guard then
-					local gp = guard:GetPivot().Position
-					if (gp - hrp.Position).Magnitude < 15 then
-						hrp.CFrame = hrp.CFrame + EXIT_DIR * 20
-						break
+		local num = tonumber(LP:GetAttribute("RagdollEndTime"))
+		if not num or num <= workspace:GetServerTimeNow() then return end
+		task.defer(function()
+			pcall(function()
+				local char = LP.Character
+				local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+				if not hrp then return end
+				local folder = workspace:FindFirstChild("__OBJECTS")
+				folder = folder and folder:FindFirstChild("Areas")
+				folder = folder and folder:FindFirstChild("GuardAreas")
+				local nearGuardPos = nil
+				local nearDist = math.huge
+				if folder then
+					for _, area in ipairs(folder:GetChildren()) do
+						local guard = area:FindFirstChild("Guard")
+						if guard then
+							local ok, gp = pcall(function() return guard:GetPivot().Position end)
+							if ok then
+								local d = (gp - hrp.Position).Magnitude
+								if d < nearDist then nearDist = d; nearGuardPos = gp end
+							end
+						end
 					end
 				end
-			end
+				local dest
+				if nearGuardPos then
+					local awayDir = (hrp.Position - nearGuardPos)
+					awayDir = Vector3.new(awayDir.X, 0, awayDir.Z)
+					if awayDir.Magnitude > 0.1 then
+						awayDir = awayDir.Unit
+					else
+						awayDir = EXIT_DIR
+					end
+					dest = hrp.Position + awayDir * (nearDist + 8)
+				else
+					dest = hrp.Position + EXIT_DIR * 30
+				end
+				hrp.CFrame = CFrame.new(dest)
+				hrp.AssemblyLinearVelocity = Vector3.zero
+				hrp.AssemblyAngularVelocity = Vector3.zero
+			end)
 		end)
 	end)
 end
@@ -2097,7 +2134,7 @@ local speedPage = pages["Speed"]
 local speedRow, speedBtn, speedRefresh = makeRow(speedPage, "speedOn", "Speed Boost", function(on)
 	if on then startSpeed() else stopSpeed() end
 end)
-makeSlider(speedPage, "speed", "Walk Speed", 4, 500, "%d")
+makeSlider(speedPage, "speed", "Boost Speed", 20, 1000, "%d")
 
 -- Anti Ragdoll — module override + reactive safety net
 local _ragdollOriginal = {}
@@ -2124,41 +2161,88 @@ local function _applyRagdollModuleOverride(on)
 		end
 	end
 end
--- The game itself drives ragdoll through a "RagdollEndTime" attribute
--- on the LocalPlayer (set to a future serverTime while ragdolled) — this
--- is the actual signal the game's own systems react to, not just the
--- Humanoid state. Reacting to it directly (restore Health + cancel
--- state) is faster and more reliable than only polling GetState().
-local _ragConn, _ragAttrConn = nil, nil
+-- Anti-Ragdoll — exact Chilli Hub technique:
+-- 1. BreakJointsOnDeath=false, RequiresNeck=false, disable Dead state
+-- 2. HealthChanged → immediately restore MaxHealth
+-- 3. StateChanged(Dead) → re-apply protection
+-- 4. RagdollEndTime attr → snap state back to Running
+-- 5. Heartbeat every 0.1s → restore health, repair Motor6D, cancel states
+local _ragConn, _ragAttrConn, _ragHealthConn, _ragStateConn = nil, nil, nil, nil
+local _ragdollSavedProps = nil
+
+local function _applyHumanoidProtection(hum, on)
+	if not hum or not hum.Parent then return end
+	if on then
+		_ragdollSavedProps = {
+			BreakJointsOnDeath = hum.BreakJointsOnDeath,
+			RequiresNeck = hum.RequiresNeck,
+			DeadEnabled = hum:GetStateEnabled(Enum.HumanoidStateType.Dead),
+		}
+		pcall(function()
+			hum.BreakJointsOnDeath = false
+			hum.RequiresNeck = false
+			hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+		end)
+	else
+		if _ragdollSavedProps then
+			pcall(function()
+				hum.BreakJointsOnDeath = _ragdollSavedProps.BreakJointsOnDeath
+				hum.RequiresNeck = _ragdollSavedProps.RequiresNeck
+				hum:SetStateEnabled(Enum.HumanoidStateType.Dead, _ragdollSavedProps.DeadEnabled)
+			end)
+			_ragdollSavedProps = nil
+		end
+	end
+end
+
 local function _ragdollCounter()
 	if not St.antiRagdoll then return end
 	local char = LP.Character; if not char then return end
 	local hum = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
 	pcall(function()
-		if hum.Health > 0 and hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+		if hum.MaxHealth > 0 and hum.MaxHealth ~= math.huge then
+			if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+		end
 	end)
 	local st = hum:GetState()
 	if st==Enum.HumanoidStateType.Physics or st==Enum.HumanoidStateType.Ragdoll
 		or st==Enum.HumanoidStateType.FallingDown then
-		hum:ChangeState(Enum.HumanoidStateType.Running)
+		pcall(function() hum:ChangeState(Enum.HumanoidStateType.Running) end)
 	end
 end
 local function stopAntiRag()
 	if _ragConn then _ragConn:Disconnect(); _ragConn = nil end
 	if _ragAttrConn then _ragAttrConn:Disconnect(); _ragAttrConn = nil end
+	if _ragHealthConn then _ragHealthConn:Disconnect(); _ragHealthConn = nil end
+	if _ragStateConn then _ragStateConn:Disconnect(); _ragStateConn = nil end
+	local char = LP.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then _applyHumanoidProtection(hum, false) end
 	_applyRagdollModuleOverride(false)
 end
 local function startAntiRag()
 	stopAntiRag()
 	_applyRagdollModuleOverride(true)
+	local char = LP.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		_applyHumanoidProtection(hum, true)
+		_ragHealthConn = hum.HealthChanged:Connect(function() _ragdollCounter() end)
+		_ragStateConn = hum.StateChanged:Connect(function(_, new)
+			if new == Enum.HumanoidStateType.Dead then
+				_applyHumanoidProtection(hum, true)
+				_ragdollCounter()
+			end
+		end)
+	end
 	_ragAttrConn = LP:GetAttributeChangedSignal("RagdollEndTime"):Connect(_ragdollCounter)
 	local _t = 0
 	_ragConn = RunService.Heartbeat:Connect(function()
 		if not St.antiRagdoll then return end
 		local now = tick(); if now-_t < 0.1 then return end; _t = now
 		_ragdollCounter()
-		local char = LP.Character; if not char then return end
-		for _, obj in ipairs(char:GetDescendants()) do
+		local ch = LP.Character; if not ch then return end
+		for _, obj in ipairs(ch:GetDescendants()) do
 			if obj:IsA("Motor6D") and not obj.Enabled then obj.Enabled = true end
 		end
 	end)
