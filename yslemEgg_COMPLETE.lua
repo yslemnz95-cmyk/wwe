@@ -654,9 +654,7 @@ local St = {
 	autoHatch        = false,
 	autoEquip        = false,
 	autoClaim        = false,
-	autoUpgradePen   = false,
 	autoUpgradeTM    = false,
-	autoBuyTrails    = false,
 	autoRunTreadmill = false,
 	antiRagdoll      = false,
 	fly              = false,
@@ -2043,27 +2041,6 @@ makeRow(farmPage, "autoClaim", "Auto Claim", function(on) end)
 
 sectionHeader(farmPage, "Upgrades")
 
--- Auto Upgrade Pen/Treadmill — real money check (Save.Get confirmed
--- correct) + confirmed real remotes (AskBaseTierRaise, not the
--- wrongly guessed AskWearLimit from an earlier pass).
-task.spawn(function()
-	local lastPen = 0
-	while true do
-		task.wait(1.5)
-		if St.autoUpgradePen and (os.clock()-lastPen) >= 2 then
-			lastPen = os.clock()
-			local ok, data = pcall(function() return _M.Save and _M.Save.Get and _M.Save.Get() end)
-			if ok and data then
-				local nextLevel = (data.BaseUpgradeLevel or 0) + 1
-				local nextConfig = _M.Bases and _M.Bases.BASES and _M.Bases.BASES[nextLevel]
-				if nextConfig and data.Money and data.Money >= (nextConfig.Cost or math.huge) then
-					_invokeRF("AskBaseTierRaise")
-				end
-			end
-		end
-	end
-end)
-makeRow(farmPage, "autoUpgradePen", "Auto Upgrade Pen", function(on) end)
 
 task.spawn(function()
 	local lastTM = 0
@@ -2083,18 +2060,6 @@ task.spawn(function()
 	end
 end)
 makeRow(farmPage, "autoUpgradeTM", "Auto Upgrade Treadmill", function(on) end)
-
--- Auto Buy Trails — deliberately disabled (mixed $/Robux prices seen
--- in the Trail Shop, risk of spending real Robux)
-local buyTrailsRefresh
-local _, _, _btr = makeRow(farmPage, "autoBuyTrails", "Auto Buy Trails", function(on)
-	if on then
-		setStatus("Buy Trails: disabled for safety (Robux price)", C.YELLOW)
-		St.autoBuyTrails = false
-		if buyTrailsRefresh then buyTrailsRefresh() end
-	end
-end)
-buyTrailsRefresh = _btr
 
 -- Auto Run Treadmill — disables "Slow Mode" (confirmed by screenshot)
 task.spawn(function()
