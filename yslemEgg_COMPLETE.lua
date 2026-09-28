@@ -121,13 +121,15 @@ _M.EggState   = _tryRequire("EggState")  -- ReplicatedStorage.Client.EggState
 _M.Assets     = _tryRequire("Assets")    -- ReplicatedStorage.Data.Assets (rarity/value directory)
 _M.Mutations  = _tryRequire("Mutations") -- ReplicatedStorage.Shared.Modules.Mutations (EarningsFor)
 _M.TreadmillUtil = _tryRequire("TreadmillUtil")
+_M.AreaEggCycle = _tryRequire("AreaEggCycle")
+_M.FuseKernel = _tryRequire("FuseKernel")
 _M.EggRecords = _tryRequire("EggRecords") -- Shared.Util.EggRecords (WeightKgForScale) -- Shared.Util.TreadmillUtil (SpeedPowerToWalkSpeed)
 
 local _MODULE_NAMES = {
 	"EggCmds","Network","Ragdoll","GuardEscapePrediction","GuardChasePolicy",
 	"ResolveGuardSpeedRequirement","SpeedPowerProjection","Guards","Areas",
 	"AreaEggSlotIdentity","Save","Constants","Bases","Treadmills","Trails","EggState",
-	"Assets","Mutations","TreadmillUtil","EggRecords",
+	"Assets","Mutations","TreadmillUtil","EggRecords","AreaEggCycle","FuseKernel",
 }
 do
 	local lines = {"[MoonEgg] Game module status:"}
@@ -172,6 +174,16 @@ local function _getRemote(name)
 	if not _NetworkingFolder then return nil end
 	local exact = _NetworkingFolder:FindFirstChild(name)
 	if exact then return exact end
+	-- a few names in the reference source are mangled ("...Finishaide"):
+	-- fall back to the remote of the same family whose name has "Finish"
+	if name:find("aide", 1, true) then
+		local fam = name:match("^(%a+/[%w_]+/)")
+		if fam then
+			for _, inst in ipairs(_NetworkingFolder:GetChildren()) do
+				if inst.Name:sub(1, #fam) == fam and inst.Name:find("Finish", 1, true) then return inst end
+			end
+		end
+	end
 	if not name:find("/", 1, true) then
 		local suffix = "/"..name
 		for _, inst in ipairs(_NetworkingFolder:GetChildren()) do
@@ -526,67 +538,66 @@ pcall(function()
 	end)
 end)
 
--- AskFieldEggSnapshot — periodic poll (every 3s while Auto Farm is active).
--- More reliable than FieldEggShifted alone: directly requests the server's
--- current live list of field eggs (with real UIDs), so Auto Farm has valid
--- targets even when the push event doesn't fire.
--- Also printed once on load for diagnostics.
+-- FIELD EGGS — Chilli Hub's source (aide_3 ~2898-2990): the game's own
+-- EggState.ReadFieldEggs() (local cache, Records keyed by anything), else
+-- RF/EggWorld/AskFieldEggSnapshot. Records are iterated with pairs(); an egg
+-- is takeable while its State is "Slot" or "Dropped". Rebuilt every pass, so
+-- an egg that left the list disappears at once.
 local _snapshotDebugPrinted = false
+local function _readFieldRecords()
+	local es = _M.EggState
+	if type(es) == "table" and type(es.ReadFieldEggs) == "function" then
+		local ok, res = pcall(es.ReadFieldEggs)
+		if ok and type(res) == "table" and type(res.Records) == "table" and next(res.Records) ~= nil then
+			return res.Records, "EggState.ReadFieldEggs"
+		end
+	end
+	local ok, snap = _invokeRF("RF/EggWorld/AskFieldEggSnapshot")
+	if ok and type(snap) == "table" and type(snap.Records) == "table" then
+		return snap.Records, "AskFieldEggSnapshot"
+	end
+	return nil
+end
 task.spawn(function()
 	while true do
-		task.wait(3)
-		local ok, snap = _invokeRF("RF/EggWorld/AskFieldEggSnapshot")
-		if ok and type(snap) ~= "table" then ok = false end
-		if not ok then
-			if not _snapshotDebugPrinted then
-				_snapshotDebugPrinted = true
-				print("[MoonEgg] AskFieldEggSnapshot: unavailable or returned non-table")
-			end
-		else
-			if not _snapshotDebugPrinted then
-				_snapshotDebugPrinted = true
-				local dumpOk, dump = pcall(function() return HttpService:JSONEncode(snap) end)
-				print("[MoonEgg] AskFieldEggSnapshot (first result):")
-				print(dumpOk and dump:sub(1, 800) or "<not serializable>")
-			end
-			-- Seed _fieldEggNet from snap.Records (Chilli Hub format).
-			-- snap = {Records = [{Uid, State, BottomCFrame, AssetCategory, AssetScale, AreaId}]}
+		task.wait(1)
+		local records, src = _readFieldRecords()
+		if not _snapshotDebugPrinted then
+			_snapshotDebugPrinted = true
+			local n = 0
+			if records then for _ in pairs(records) do n = n + 1 end end
+			print("[MoonEgg] field eggs source:", src or "none", "records:", n)
+		end
+		if records then
 			local now2 = tick()
-			pcall(function()
-				local records = type(snap) == "table" and snap.Records or nil
-				if type(records) ~= "table" then return end
-				local seen = {}
-				for _, record in ipairs(records) do
-					if type(record) ~= "table" then continue end
-					local uid2 = record.Uid and tostring(record.Uid) or nil
-					if not uid2 then continue end
-					seen[uid2] = true
+			local seen = {}
+			for key, record in pairs(records) do
+				if type(record) == "table" then
+					local uid2 = record.Uid ~= nil and tostring(record.Uid) or (type(key) == "string" and key or nil)
 					local state = record.State
-					if state == "Claimed" or state == "Carried" then continue end
 					local cf2 = typeof(record.BottomCFrame) == "CFrame" and record.BottomCFrame or nil
-					if not cf2 then continue end
-					local pos2 = cf2.Position
-					local areaId = tostring(record.AreaId or "")
-					local assetCategory = tostring(record.AssetCategory or "")
-					local zone = (areaId ~= "") and areaId or _posToZone(pos2)
-					local tags2 = {}
-					local low2 = assetCategory:lower()
-					for _, kw in ipairs(_RARE_KEYWORDS) do
-						if low2:find(kw,1,true) then table.insert(tags2, kw) end
+					if uid2 and cf2 and (state == "Slot" or state == "Dropped") then
+						seen[uid2] = true
+						local pos2 = cf2.Position
+						local areaId = tostring(record.AreaId or "")
+						local assetCategory = tostring(record.AssetCategory or "")
+						local tags2 = {}
+						local low2 = assetCategory:lower()
+						for _, kw in ipairs(_RARE_KEYWORDS) do
+							if low2:find(kw, 1, true) then table.insert(tags2, kw) end
+						end
+						_fieldEggNet[uid2] = {
+							pos=pos2, cf=cf2, mutation=assetCategory, nestScale=tonumber(record.AssetScale),
+							mutTable=(type(record.Mutations) == "table" and record.Mutations or nil),
+							zone=(areaId ~= "") and areaId or _posToZone(pos2), tags=tags2, uid=uid2,
+							t=now2, enabled=true, farmable=true, fromSnap=true, state=state,
+						}
 					end
-					_fieldEggNet[uid2] = {
-						pos=pos2, cf=cf2, mutation=assetCategory, nestScale=tonumber(record.AssetScale),
-						mutTable=(type(record.Mutations)=="table" and record.Mutations or nil),
-						zone=zone, tags=tags2, uid=uid2,
-						t=now2, enabled=true, farmable=true, fromSnap=true,
-					}
 				end
-				-- eggs that left the server's live list (claimed / carried by
-				-- someone else) are dropped right away, like Chilli Hub does
-				for k, e in pairs(_fieldEggNet) do
-					if e.fromSnap and not seen[k] then _fieldEggNet[k] = nil end
-				end
-			end)
+			end
+			for k, e in pairs(_fieldEggNet) do
+				if e.fromSnap and not seen[k] then _fieldEggNet[k] = nil end
+			end
 		end
 	end
 end)
@@ -705,6 +716,7 @@ C.TRACKOFF = C.OFF_BG
 -- ============================================================
 local St = {
 	stayOnTreadmill  = true,
+	autoClaimIndex   = false,
 	instantSteal     = false,
 	winSteal         = false,
 	winEvents        = false,
@@ -749,7 +761,8 @@ local St = {
 	espPlayers       = false,
 	autoHitNearest   = false,
 	autoHitAura      = false,
-	keepMutatedSell  = true,
+	keepMutatedPets  = true,
+	keepMutatedEggs  = true,
 	skipMutatedFuse  = true,
 
 	-- Auto Steal filters (Chilli Hub "Auto Steal" section)
@@ -783,11 +796,11 @@ local St = {
 
 	-- Auto Sell filters
 	sellPetRule      = "Rarity Only",
-	sellPetMaxRarity = 0,
+	sellPetMaxRarity = 3,
 	sellPetValueK    = 0,
 	sellPetBlacklist = {},
 	sellEggRule      = "Rarity Only",
-	sellEggMaxRarity = 0,
+	sellEggMaxRarity = 3,
 	sellEggValueK    = 0,
 	sellEggBlacklist = {},
 
@@ -851,6 +864,8 @@ if _savedConfig then
 		if St[k] ~= nil and type(v) == type(St[k]) then St[k] = v end
 	end
 end
+if St.sellPetMaxRarity <= 0 then St.sellPetMaxRarity = 3 end
+if St.sellEggMaxRarity <= 0 then St.sellEggMaxRarity = 3 end
 local _toggleRegistry = {}
 local _saveDebounce = false
 local function saveConfig()
@@ -943,6 +958,23 @@ function MV.Step(root, target, speed, dt, st)
 		root.AssemblyAngularVelocity = Vector3.zero
 	end)
 	return mag <= 0.5
+end
+-- generic legit-pace flight (same steering as Auto Steal) for the event helpers
+function MV.Go(target, arrive, timeout, stopFn, speedFn)
+	local st, done, elapsed = {}, nil, 0
+	local sig = RunService.PreSimulation or RunService.Heartbeat
+	local conn = sig:Connect(function(dt)
+		if done ~= nil then return end
+		elapsed = elapsed + dt
+		local root = MV.Root()
+		if not root or elapsed > timeout or MV.Ragdolled() or (stopFn and stopFn()) then done = false; return end
+		local reached = MV.Step(root, target, speedFn and speedFn() or math.max(MV.WalkSpeed(), 16), dt, st)
+		if reached or (root.Position - target).Magnitude <= arrive then done = true end
+	end)
+	while done == nil do RunService.Heartbeat:Wait() end
+	conn:Disconnect()
+	MV.Stop()
+	return done
 end
 function MV.Stop()
 	local r = MV.Root()
@@ -1374,6 +1406,7 @@ do
 		_farmMoving = false; _farmTargetPos = nil
 		MV.farming = false
 		Steal.current = nil
+		Steal.lastFinished = os.clock()
 		MV.Stop()
 		MV.GodMode(false)
 		MV.Shield("farm", false)
@@ -1440,7 +1473,7 @@ do
 			if not St.autoFarm then
 				if MV.farming then endRun() end
 				if Steal.status ~= "Idle" then setStatus2("Idle", "") end
-			elseif not MV.farming and not MV.Ragdolled() then
+			elseif not MV.farming and not MV.other and not MV.Ragdolled() then
 				local root = MV.Root()
 				if root then
 					local plan = Steal.Plan(root.Position, 1)
@@ -2383,37 +2416,21 @@ end
 
 
 -- ============================================================
--- STEAL PANEL — Chilli Hub's steal panel (aide_3 ~20860-22450): a HUD
--- panel with a red title bar + "Sort: ..." button, an "Auto Steal" and an
--- "Instant Steal" button, and one row per egg (picture, name in its rarity
--- colour, $/s, scale and weight, Steal / star buttons). Drag it by the bar.
+-- STEAL PANEL — Chilli Hub's steal panel (aide_3 ~20860-22450) drawn in the
+-- Moon Hub look (living strokes, gradient titles): title bar + "Sort: ..."
+-- button, Auto Steal / Instant Steal switches, one card per egg (picture,
+-- name in its rarity colour, $/s, scale and weight, Steal / star / x).
 -- ============================================================
-local HUDF = Enum.Font.GothamBlack
-local function hudText(parent, text, size, col, ax)
-	local l = Instance.new("TextLabel", parent)
-	l.BackgroundTransparency = 1
-	l.Text = text; l.TextSize = size; l.Font = HUDF
-	l.TextColor3 = col or C.WHITE
-	l.TextXAlignment = ax or Enum.TextXAlignment.Left
-	l.TextTruncate = Enum.TextTruncate.AtEnd
-	local s = Instance.new("UIStroke", l)
-	s.Color = Color3.new(0, 0, 0); s.Thickness = 1.5
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	return l
-end
-local HUD_GREEN, HUD_RED, HUD_GRAY = Color3.fromRGB(110, 235, 70), Color3.fromRGB(225, 55, 55), Color3.fromRGB(150, 150, 165)
-local function hudBtn(parent, text, col, size)
+local function moonBtn(parent, text, tcol, bg, size)
 	local b = Instance.new("TextButton", parent)
-	b.BackgroundColor3 = col; b.BorderSizePixel = 0
-	b.Text = text; b.TextSize = size or 12; b.Font = HUDF
-	b.TextColor3 = C.WHITE; b.AutoButtonColor = true
-	corner(b, 6)
-	local st = Instance.new("UIStroke", b)
-	st.Color = Color3.fromRGB(20, 60, 20); st.Thickness = 2
-	local ts = Instance.new("UIStroke", b)
-	ts.Color = Color3.new(0, 0, 0); ts.Thickness = 1.5
-	ts.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	ts.Name = "TextStroke"
+	b.BackgroundColor3 = bg or Color3.fromRGB(20, 32, 54)
+	b.BorderSizePixel = 0
+	b.Text = text; b.TextSize = size or 10.5
+	b.Font = Enum.Font.GothamBold
+	b.TextColor3 = tcol or C.ACCENT2
+	b.AutoButtonColor = true
+	corner(b, 8)
+	addLivingStroke(b, 1)
 	return b
 end
 
@@ -2422,53 +2439,77 @@ local stealSetSort
 do
 	local cam = workspace.CurrentCamera
 	local vp = cam and cam.ViewportSize or Vector2.new(800, 600)
-	local W, H = 300, math.min(400, math.max(230, vp.Y - 90))
+	local W, H = 290, math.min(400, math.max(230, vp.Y - 90))
 	local frame = Instance.new("Frame", gui)
 	frame.Name = "MoonEggSteal"
 	frame.Size = UDim2.new(0, W, 0, H)
 	frame.Position = UDim2.new(1, -(W + 104), 0, 60)
-	frame.BackgroundColor3 = Color3.fromRGB(58, 60, 80)
+	frame.BackgroundColor3 = C.BG
 	frame.BorderSizePixel = 0
 	frame.Active = true
+	frame.ClipsDescendants = true
 	frame.ZIndex = 20
-	corner(frame, 12)
-	local fst = Instance.new("UIStroke", frame)
-	fst.Color = Color3.fromRGB(26, 26, 38); fst.Thickness = 3
+	corner(frame, 20)
+	stroke(frame, C.BORDER, 1.5)
+	local glow = Instance.new("UIStroke", frame)
+	glow.Color = C.ACCENT; glow.Thickness = 1; glow.Transparency = 0.85
 	stealWin.frame = frame
 
 	local hdr = Instance.new("Frame", frame)
-	hdr.Size = UDim2.new(1, 0, 0, 44)
-	hdr.BackgroundColor3 = Color3.fromRGB(215, 50, 50)
+	hdr.Size = UDim2.new(1, 0, 0, 40)
+	hdr.BackgroundColor3 = C.BG
 	hdr.BorderSizePixel = 0
-	corner(hdr, 12)
-	local hg = Instance.new("UIGradient", hdr)
-	hg.Color = ColorSequence.new(Color3.fromRGB(235, 70, 70), Color3.fromRGB(165, 30, 40))
-	hg.Rotation = 90
-	local title = hudText(hdr, "Steal Panel", 20, C.WHITE)
-	title.Size = UDim2.new(0.5, -8, 1, 0); title.Position = UDim2.new(0, 12, 0, 0)
-	local sortBtn = hudBtn(hdr, "Sort: " .. St.stealPriority, HUD_GREEN, 13)
-	sortBtn.Size = UDim2.new(0.5, -14, 0, 30); sortBtn.Position = UDim2.new(0.5, 6, 0.5, -15)
+	corner(hdr, 20)
+	local moon = Instance.new("Frame", hdr)
+	moon.Size = UDim2.new(0, 18, 0, 18); moon.Position = UDim2.new(0, 12, 0.5, -9)
+	moon.BackgroundColor3 = C.MOON2; moon.BorderSizePixel = 0; moon.ClipsDescendants = true
+	corner(moon, 9)
+	local shade = Instance.new("Frame", moon)
+	shade.Size = UDim2.new(0, 18, 0, 18); shade.Position = UDim2.new(0, 6, 0, -4)
+	shade.BackgroundColor3 = C.BG; shade.BorderSizePixel = 0
+	corner(shade, 9)
+	local title = label(hdr, "Steal Panel", UDim2.new(0.5, -40, 1, 0), C.WHITE, Enum.Font.GothamBold)
+	title.Position = UDim2.new(0, 36, 0, 0); title.TextSize = 14
+	liveGrad(title)
+	local sortBtn = moonBtn(hdr, "Sort: " .. St.stealPriority, C.GREEN, Color3.fromRGB(18, 40, 30), 10)
+	sortBtn.Size = UDim2.new(0.5, -14, 0, 24); sortBtn.Position = UDim2.new(0.5, 2, 0.5, -12)
+	local sep = Instance.new("Frame", frame)
+	sep.Size = UDim2.new(1, -24, 0, 1); sep.Position = UDim2.new(0, 12, 0, 40)
+	sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
 
+	-- two switch cards
 	local topRow = Instance.new("Frame", frame)
-	topRow.Size = UDim2.new(1, -16, 0, 34); topRow.Position = UDim2.new(0, 8, 0, 50)
+	topRow.Size = UDim2.new(1, -16, 0, 30); topRow.Position = UDim2.new(0, 8, 0, 46)
 	topRow.BackgroundTransparency = 1
-	local autoBtn = hudBtn(topRow, "Auto Steal: OFF", HUD_RED, 12)
-	autoBtn.Size = UDim2.new(0.5, -3, 1, 0)
-	local instBtn = hudBtn(topRow, "Instant Steal: OFF", HUD_RED, 12)
-	instBtn.Size = UDim2.new(0.5, -3, 1, 0); instBtn.Position = UDim2.new(0.5, 3, 0, 0)
+	local function switchCard(text, x, w)
+		local c = Instance.new("Frame", topRow)
+		c.Size = UDim2.new(w, -3, 1, 0); c.Position = UDim2.new(x, x > 0 and 3 or 0, 0, 0)
+		c.BackgroundColor3 = C.ROW; c.BackgroundTransparency = 0.35; c.BorderSizePixel = 0
+		corner(c, 10); addLivingStroke(c, 1)
+		local l = label(c, text, UDim2.new(1, -52, 1, 0), C.WHITE, Enum.Font.GothamBold)
+		l.Position = UDim2.new(0, 8, 0, 0); l.TextSize = 10
+		liveGrad(l)
+		local pill, btn, set = makeSwitch(c, false)
+		pill.Position = UDim2.new(1, -46, 0.5, -10)
+		return btn, set
+	end
+	local autoBtn, autoSet = switchCard("Auto Steal", 0, 0.5)
+	local instBtn, instSet = switchCard("Instant Steal", 0.5, 0.5)
 
-	local info = hudText(frame, "", 10, C.SILVER)
-	info.Size = UDim2.new(1, -16, 0, 14); info.Position = UDim2.new(0, 10, 0, 88)
+	local info = label(frame, "", UDim2.new(1, -20, 0, 14), C.DIM, Enum.Font.GothamMedium)
+	info.Position = UDim2.new(0, 12, 0, 80); info.TextSize = 9.5
 
 	local list = Instance.new("ScrollingFrame", frame)
-	list.Size = UDim2.new(1, -12, 1, -108); list.Position = UDim2.new(0, 6, 0, 104)
+	list.Size = UDim2.new(1, -8, 1, -100); list.Position = UDim2.new(0, 4, 0, 96)
 	list.BackgroundTransparency = 1; list.BorderSizePixel = 0
-	list.ScrollBarThickness = 4; list.ScrollBarImageColor3 = Color3.fromRGB(140, 140, 165)
+	list.ScrollBarThickness = 3; list.ScrollBarImageColor3 = C.ACCENT
 	list.CanvasSize = UDim2.new(0, 0, 0, 0); list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	local ll = Instance.new("UIListLayout", list)
 	ll.Padding = UDim.new(0, 5); ll.SortOrder = Enum.SortOrder.LayoutOrder
-	local emptyLbl = hudText(list, "No egg matches your filters", 12, C.SILVER, Enum.TextXAlignment.Center)
-	emptyLbl.Size = UDim2.new(1, 0, 0, 30); emptyLbl.LayoutOrder = 1e6
+	local lpad = Instance.new("UIPadding", list)
+	lpad.PaddingLeft = UDim.new(0, 4); lpad.PaddingRight = UDim.new(0, 6); lpad.PaddingBottom = UDim.new(0, 8)
+	local emptyLbl = label(list, "No egg matches your filters", UDim2.new(1, 0, 0, 30), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+	emptyLbl.TextSize = 11; emptyLbl.LayoutOrder = 1e6
 
 	Win.Drag(hdr, frame)
 	hdr.InputBegan:Connect(function(inp)
@@ -2490,7 +2531,6 @@ do
 		frame.Visible = true; St.winSteal = true
 	end
 
-	-- Sort button cycles Steal Priority (same 5 options as Chilli Hub)
 	local SORTS = {"Best Rarity", "Biggest Weight", "Best Mutation", "Highest Value", "Lowest Value"}
 	stealSetSort = function(v)
 		St.stealPriority = v; saveConfig()
@@ -2500,11 +2540,6 @@ do
 		local idx = table.find(SORTS, St.stealPriority) or 0
 		stealSetSort(SORTS[idx % #SORTS + 1])
 	end)
-
-	local function paintToggle(btn, on, text)
-		btn.Text = text .. (on and ": ON" or ": OFF")
-		btn.BackgroundColor3 = on and HUD_GREEN or HUD_RED
-	end
 	autoBtn.MouseButton1Click:Connect(function()
 		St.autoFarm = not St.autoFarm
 		if not St.autoFarm then Steal.Abort() end
@@ -2525,8 +2560,8 @@ do
 		return string.format("%d", n)
 	end
 	local function commas(n)
-		local s = string.format("%.0f", n)
-		local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+		local s2 = string.format("%.0f", n)
+		local out = s2:reverse():gsub("(%d%d%d)", "%1,"):reverse()
 		return (out:gsub("^,", ""))
 	end
 	local function weightText(cat, scale)
@@ -2539,31 +2574,31 @@ do
 	local function buildRow()
 		local r = {}
 		local f = Instance.new("Frame", list)
-		f.Size = UDim2.new(1, -6, 0, 64)
-		f.BackgroundColor3 = Color3.fromRGB(72, 74, 96)
+		f.Size = UDim2.new(1, 0, 0, 58)
+		f.BackgroundColor3 = C.ROW; f.BackgroundTransparency = 0.3
 		f.BorderSizePixel = 0
-		corner(f, 8)
-		r.stroke = Instance.new("UIStroke", f)
-		r.stroke.Color = Color3.fromRGB(28, 28, 42); r.stroke.Thickness = 2
+		corner(f, 10)
+		r.stroke = addLivingStroke(f, 1)
 		r.frame = f
 		r.icon = Instance.new("ImageLabel", f)
-		r.icon.Size = UDim2.fromOffset(52, 52); r.icon.Position = UDim2.new(0, 6, 0.5, -26)
+		r.icon.Size = UDim2.fromOffset(46, 46); r.icon.Position = UDim2.new(0, 6, 0.5, -23)
 		r.icon.BackgroundTransparency = 1; r.icon.ScaleType = Enum.ScaleType.Fit
-		r.name = hudText(f, "", 14, C.WHITE)
-		r.name.Size = UDim2.new(1, -170, 0, 18); r.name.Position = UDim2.new(0, 64, 0, 5)
-		r.value = hudText(f, "", 12, Color3.fromRGB(120, 255, 90))
-		r.value.Size = UDim2.new(1, -170, 0, 16); r.value.Position = UDim2.new(0, 64, 0, 24)
-		r.detail = hudText(f, "", 11, Color3.fromRGB(95, 170, 255))
-		r.detail.Size = UDim2.new(1, -170, 0, 16); r.detail.Position = UDim2.new(0, 64, 0, 41)
-		r.steal = hudBtn(f, "Steal", HUD_GREEN, 15)
-		r.steal.Size = UDim2.new(0, 68, 0, 34); r.steal.Position = UDim2.new(1, -108, 0.5, -17)
-		r.star = hudBtn(f, utf8.char(9733), HUD_GRAY, 16)
-		r.star.Size = UDim2.new(0, 34, 0, 34); r.star.Position = UDim2.new(1, -38, 0.5, -17)
-		r.star.TextColor3 = C.WHITE
+		r.name = label(f, "", UDim2.new(1, -150, 0, 16), C.WHITE, Enum.Font.GothamBold)
+		r.name.Position = UDim2.new(0, 58, 0, 5); r.name.TextSize = 12
+		r.name.TextTruncate = Enum.TextTruncate.AtEnd
+		r.value = label(f, "", UDim2.new(1, -150, 0, 14), C.GREEN, Enum.Font.GothamBold)
+		r.value.Position = UDim2.new(0, 58, 0, 22); r.value.TextSize = 10.5
+		r.detail = label(f, "", UDim2.new(1, -150, 0, 14), C.ACCENT2, Enum.Font.GothamMedium)
+		r.detail.Position = UDim2.new(0, 58, 0, 37); r.detail.TextSize = 9.5
+		r.detail.TextTruncate = Enum.TextTruncate.AtEnd
+		r.steal = moonBtn(f, "Steal", C.GREEN, Color3.fromRGB(18, 40, 30), 11)
+		r.steal.Size = UDim2.new(0, 56, 0, 26); r.steal.Position = UDim2.new(1, -92, 0.5, -13)
+		r.star = moonBtn(f, utf8.char(9733), C.SILVER, Color3.fromRGB(20, 32, 54), 13)
+		r.star.Size = UDim2.new(0, 26, 0, 26); r.star.Position = UDim2.new(1, -32, 0.5, -13)
 		r.skip = Instance.new("TextButton", f)
-		r.skip.Size = UDim2.new(0, 16, 0, 16); r.skip.Position = UDim2.new(1, -20, 0, 2)
-		r.skip.BackgroundTransparency = 1; r.skip.Text = "x"; r.skip.TextSize = 12
-		r.skip.Font = HUDF; r.skip.TextColor3 = HUD_RED
+		r.skip.Size = UDim2.new(0, 16, 0, 14); r.skip.Position = UDim2.new(1, -18, 0, 2)
+		r.skip.BackgroundTransparency = 1; r.skip.Text = "x"; r.skip.TextSize = 11
+		r.skip.Font = Enum.Font.GothamBold; r.skip.TextColor3 = C.RED
 		r.steal.MouseButton1Click:Connect(function()
 			if r.uid then Steal.StealNow(r.uid); St.autoFarm = true; saveConfig() end
 		end)
@@ -2584,17 +2619,16 @@ do
 			r.frame.LayoutOrder = i
 			local img = _Egg.Icon(egg.cat)
 			if img and r.icon.Image ~= img then r.icon.Image = img end
-			local rs = _Egg.RarityStyle(egg.cat)
 			r.name.Text = _Egg.DisplayName(egg.cat)
-			r.name.TextColor3 = rs.color
+			r.name.TextColor3 = _Egg.RarityStyle(egg.cat).color
 			r.value.Text = "$" .. short(egg.value) .. "/s"
 			local wt = weightText(egg.cat, egg.scale)
 			r.detail.Text = string.format("x%.2f%s", egg.scale or 1, wt ~= "" and ("  ·  " .. wt) or "")
 			local now = Steal.current == egg.uid
 			local forced = Steal.force == egg.uid
-			r.stroke.Color = (now or forced) and Color3.fromRGB(255, 200, 60) or Color3.fromRGB(28, 28, 42)
+			r.frame.BackgroundColor3 = (now or forced) and Color3.fromRGB(24, 44, 34) or C.ROW
 			r.steal.Text = now and "Now" or "Steal"
-			r.star.BackgroundColor3 = forced and Color3.fromRGB(255, 190, 40) or HUD_GRAY
+			r.star.TextColor3 = forced and C.GOLD or C.SILVER
 		end
 		for uid, r in pairs(rows) do
 			if not seen[uid] then r.frame:Destroy(); rows[uid] = nil end
@@ -2602,11 +2636,12 @@ do
 		emptyLbl.Visible = next(seen) == nil
 	end
 
+	local lastAuto, lastInst = false, false
 	task.spawn(function()
 		while true do
 			task.wait(0.4)
-			paintToggle(autoBtn, St.autoFarm == true, "Auto Steal")
-			paintToggle(instBtn, St.instantSteal == true, "Instant Steal")
+			if lastAuto ~= (St.autoFarm == true) then lastAuto = St.autoFarm == true; autoSet(lastAuto) end
+			if lastInst ~= (St.instantSteal == true) then lastInst = St.instantSteal == true; instSet(lastInst) end
 			if frame.Visible then
 				pcall(refresh)
 				info.Text = St.autoFarm and (Steal.status .. (Steal.detail ~= "" and (" · " .. Steal.detail) or "")) or (#cachedEggs .. " eggs in the world")
@@ -2631,13 +2666,13 @@ do
 		for i = 1, count do steps[i] = {At = startAt + (i - 1) * gap, To = "home"} end
 		steps[#steps + 1] = {At = finalAt, To = "start"}
 		return {Target = "home", LineOffset = 8, Height = 0, OffsetX = 0, OffsetZ = 0, Jitter = 0, Limp = false,
-			Facing = "Zero", Freeze = true, StartAt = 0, HopRandom = 0.085, HoldRandom = 0.395,
+			Facing = "Zero", Freeze = true, Disguise = true, StartAt = 0, HopRandom = 0.085, HoldRandom = 0.395,
 			Steps = steps, ReleaseAt = releaseAt, BusyLimit = busyLimit}
 	end
 	local CFG = {
 		Default = buildSteps(25, 0, 0.05, 1.27, 1.52, 2.5),
 		LightDark = {Target = "line", LineOffset = 8, Height = 45, OffsetX = -90, OffsetZ = -35, Jitter = 0, Limp = true,
-			Facing = "Zero", Freeze = false, StartAt = 0, HopRandom = 0, HoldRandom = 0,
+			Facing = "Zero", Freeze = false, Disguise = true, StartAt = 0, HopRandom = 0, HoldRandom = 0,
 			Steps = {{At = 0.1, To = "home"}, {At = 0.33, To = "home"}, {At = 0.75, To = "start"}},
 			ReleaseAt = 0.8, BusyLimit = 2.5},
 	}
@@ -2682,6 +2717,59 @@ do
 		return out, acc + math.max((cfg.ReleaseAt or 0) - last, 0)
 	end
 
+	local guardModel -- defined below
+	-- Disguise (Chilli Hub): frozen copies of you (and the guard holding you)
+	-- stay where you were while the real character is hidden locally
+	local function disguiseStart(ch)
+		local d = {hidden = {}, copies = {}, links = {}}
+		local list = {ch}
+		local gm = guardModel()
+		if gm then list[#list + 1] = gm end
+		for _, m in ipairs(list) do
+			for _, x in ipairs(m:GetDescendants()) do
+				if x:IsA("BasePart") or x:IsA("Decal") or x:IsA("Texture") then d.hidden[#d.hidden + 1] = x end
+			end
+			local ok, clone = pcall(function()
+				local arch = {}
+				for _, x in ipairs(m:GetDescendants()) do arch[x] = x.Archivable; pcall(function() x.Archivable = true end) end
+				local a0 = m.Archivable; m.Archivable = true
+				local c = m:Clone()
+				m.Archivable = a0
+				for x, v in pairs(arch) do pcall(function() x.Archivable = v end) end
+				return c
+			end)
+			if ok and clone then
+				clone.Name = tostring(math.random(1e6, 9e6))
+				for _, x in ipairs(clone:GetDescendants()) do
+					if x:IsA("LuaSourceContainer") or x:IsA("Sound") or x:IsA("ForceField") or x:IsA("JointInstance")
+						or x:IsA("Constraint") or x:IsA("WeldConstraint") then
+						pcall(function() x:Destroy() end)
+					elseif x:IsA("BasePart") then
+						x.Anchored = true; x.CanCollide = false; x.CanQuery = false; x.CanTouch = false
+					elseif x:IsA("Humanoid") then
+						x.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+						x.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+					end
+				end
+				clone.Parent = workspace
+				d.copies[#d.copies + 1] = clone
+			end
+		end
+		local function hide()
+			for _, x in ipairs(d.hidden) do pcall(function() x.LocalTransparencyModifier = 1 end) end
+		end
+		hide()
+		d.links[1] = RunService.RenderStepped:Connect(hide)
+		d.links[2] = RunService.Heartbeat:Connect(hide)
+		return d
+	end
+	local function disguiseStop(d)
+		if not d then return end
+		for _, l in ipairs(d.links) do pcall(function() l:Disconnect() end) end
+		for _, x in ipairs(d.hidden) do pcall(function() x.LocalTransparencyModifier = 0 end) end
+		for _, c in ipairs(d.copies) do pcall(function() c:Destroy() end) end
+	end
+
 	local flash -- set by the card below
 	local function releaseCamera(saved)
 		if not saved then return end
@@ -2702,6 +2790,11 @@ do
 			savedCam = {cam = cam, type = cam.CameraType}
 			local cf = cam.CFrame
 			pcall(function() cam.CameraType = Enum.CameraType.Scriptable; cam.CFrame = cf end)
+		end
+		local disguise = nil
+		if cfg.Disguise ~= false then
+			local okd, dd = pcall(disguiseStart, ch)
+			if okd then disguise = dd end
 		end
 		local t0 = os.clock()
 		local function tp(pos, r)
@@ -2729,6 +2822,7 @@ do
 		waitUntil(releaseAt)
 		pcall(function() hum.PlatformStand = wasPS end)
 		releaseCamera(savedCam)
+		disguiseStop(disguise)
 		AG.Busy = false; AG.Active = false
 		if flash then flash(alive() and AG.Carrying) end
 	end
@@ -2766,21 +2860,22 @@ do
 		end
 	end)
 	-- a guard that grabbed you is a Model with a "Hitbox" welded to your body
-	local function guardHolding()
+	guardModel = function()
 		local root = MV.Root()
-		if not root then return false end
+		if not root then return nil end
 		for _, m in ipairs(workspace:GetChildren()) do
 			if m:IsA("Model") and m:FindFirstChild("Hitbox") then
 				for _, d in ipairs(m:GetDescendants()) do
 					if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("RigidConstraint") then
 						local ok, a, b = pcall(function() return d.Part0, d.Part1 end)
-						if ok and (a == root or b == root) then return true end
+						if ok and (a == root or b == root) then return m end
 					end
 				end
 			end
 		end
-		return false
+		return nil
 	end
+	local function guardHolding() return guardModel() ~= nil end
 	task.spawn(function()
 		while true do
 			task.wait(0.1)
@@ -2795,53 +2890,47 @@ do
 		end
 	end)
 
-	-- the card
+	-- the card (Moon Hub look: living stroke, gradient text, pill switch)
 	local card = Instance.new("Frame", gui)
 	card.Name = "MoonEggAntiGuard"
-	card.Size = UDim2.new(0, 210, 0, 48)
+	card.Size = UDim2.new(0, 200, 0, 46)
 	card.Position = UDim2.new(0, 12, 0.7, 0)
-	card.BackgroundColor3 = Color3.fromRGB(38, 44, 28)
+	card.BackgroundColor3 = C.ROW
+	card.BackgroundTransparency = 0.15
 	card.BorderSizePixel = 0
 	card.Active = true
 	card.ZIndex = 30
 	corner(card, 14)
-	local cst = Instance.new("UIStroke", card)
-	cst.Color = Color3.fromRGB(48, 46, 56); cst.Thickness = 2
+	local cstroke = addLivingStroke(card, 1.5)
+	local cgrad = cstroke:FindFirstChildOfClass("UIGradient")
 	local ico = Instance.new("Frame", card)
-	ico.Size = UDim2.fromOffset(30, 30); ico.Position = UDim2.new(0, 8, 0.5, -15)
+	ico.Size = UDim2.fromOffset(26, 26); ico.Position = UDim2.new(0, 10, 0.5, -13)
 	ico.BackgroundColor3 = C.MOON2; ico.BorderSizePixel = 0; ico.ClipsDescendants = true
-	corner(ico, 15)
+	corner(ico, 13)
 	local shade = Instance.new("Frame", ico)
-	shade.Size = UDim2.fromOffset(30, 30); shade.Position = UDim2.fromOffset(9, -6)
-	shade.BackgroundColor3 = Color3.fromRGB(38, 44, 28); shade.BorderSizePixel = 0
-	corner(shade, 15)
-	local brand = Instance.new("TextLabel", card)
-	brand.BackgroundTransparency = 1; brand.Text = "MoonEgg"; brand.TextSize = 11
-	brand.Font = Enum.Font.GothamBold; brand.TextColor3 = Color3.fromRGB(255, 170, 130)
-	brand.TextXAlignment = Enum.TextXAlignment.Left
-	brand.Size = UDim2.new(1, -110, 0, 14); brand.Position = UDim2.new(0, 46, 0, 8)
-	local nm = Instance.new("TextLabel", card)
-	nm.BackgroundTransparency = 1; nm.Text = "Anti Guard"; nm.TextSize = 15
-	nm.Font = Enum.Font.GothamBlack; nm.TextColor3 = C.WHITE
-	nm.TextXAlignment = Enum.TextXAlignment.Left
-	nm.Size = UDim2.new(1, -110, 0, 18); nm.Position = UDim2.new(0, 46, 0, 22)
-	local track = Instance.new("TextButton", card)
-	track.Size = UDim2.fromOffset(48, 24); track.Position = UDim2.new(1, -58, 0.5, -12)
-	track.Text = ""; track.AutoButtonColor = false; track.BorderSizePixel = 0
-	corner(track, 12)
-	local knob = Instance.new("Frame", track)
-	knob.Size = UDim2.fromOffset(18, 18); knob.BackgroundColor3 = Color3.fromRGB(245, 245, 250)
-	knob.BorderSizePixel = 0; corner(knob, 9)
+	shade.Size = UDim2.fromOffset(26, 26); shade.Position = UDim2.fromOffset(8, -5)
+	shade.BackgroundColor3 = C.ROW; shade.BorderSizePixel = 0
+	corner(shade, 13)
+	local brand = label(card, "MoonEgg", UDim2.new(1, -110, 0, 13), C.MOON2, Enum.Font.GothamBold)
+	brand.Position = UDim2.new(0, 44, 0, 8); brand.TextSize = 9.5
+	local nm = label(card, "Anti Guard", UDim2.new(1, -110, 0, 18), C.WHITE, Enum.Font.GothamBold)
+	nm.Position = UDim2.new(0, 44, 0, 20); nm.TextSize = 13
+	liveGrad(nm)
+	local pill, track, setSwitch = makeSwitch(card, AG.Enabled)
+	pill.Position = UDim2.new(1, -52, 0.5, -10)
 	local flashing = false
 	local function render()
-		track.BackgroundColor3 = AG.Enabled and Color3.fromRGB(255, 72, 72) or Color3.fromRGB(70, 70, 82)
-		knob.Position = AG.Enabled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-		if not flashing then cst.Color = AG.Enabled and Color3.fromRGB(255, 110, 70) or Color3.fromRGB(48, 46, 56) end
+		setSwitch(AG.Enabled)
+		if not flashing then
+			cstroke.Color = C.DEEP3
+			if cgrad then cgrad.Enabled = true end
+		end
 	end
 	render()
 	flash = function(good)
 		flashing = true
-		cst.Color = good and Color3.fromRGB(80, 220, 140) or Color3.fromRGB(255, 70, 70)
+		if cgrad then cgrad.Enabled = false end
+		cstroke.Color = good and C.GREEN or C.RED
 		task.delay(1.6, function() flashing = false; render() end)
 	end
 	track.MouseButton1Click:Connect(function()
@@ -2966,20 +3055,31 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoEquip", "Auto Equip Best", function(on) end)
 
--- Auto Claim — confirmed remotes, no cost (collects earnings already owed)
+-- Auto Claim / Auto Claim Index — Chilli Hub (aide_3 ~24860-24928):
+-- offline money is collected when there is some pending (AskCollect), the
+-- index rewards are redeemed every 15 s (Codex AskRedeemAll + limited egg).
 task.spawn(function()
-	local lastClaim = 0
+	local lastIdx = 0
 	while true do
 		task.wait(1)
-		if St.autoClaim and (os.clock()-lastClaim) >= 5 then
-			lastClaim = os.clock()
-			_invokeRF("RF/AwayEarnings/AskCollect")
+		if St.autoClaim then
+			local d = _M.Save and _M.Save.Get and _M.Save.Get()
+			local pending = type(d) == "table" and tonumber(d.PendingOfflineMoney) or nil
+			if pending == nil then
+				local ok, r = _invokeRF("RF/AwayEarnings/PendingCheck")
+				pending = (ok and r ~= false and r ~= nil) and 1 or 0
+			end
+			if pending > 0 then _invokeRF("RF/AwayEarnings/AskCollect") end
+		end
+		if (St.autoClaim or St.autoClaimIndex) and os.clock() - lastIdx >= 15 then
+			lastIdx = os.clock()
 			_invokeRF("RF/Codex/AskRedeemAll")
-			_invokeRF("RF/GroupPerk/RedeemPerk")
+			_invokeRF("RF/Codex/AskRedeemLimitedEgg")
 		end
 	end
 end)
 makeRow(farmPage, "autoClaim", "Auto Claim", function(on) end)
+makeRow(farmPage, "autoClaimIndex", "Auto Claim Index", function(on) end)
 
 sectionHeader(farmPage, "Upgrades")
 
@@ -3046,67 +3146,189 @@ local function _readOwnerEggs(filterFn)
 end
 
 sectionHeader(farmPage, "Auto Place Egg")
--- Chilli Hub: AskPlaceEgg with inventory egg uids, gated by Place Egg
--- Rule and filtered/ordered exactly like aide_3 ~7118-7285 (Place Egg
--- Rule/Order, Place Rarities, Place Specific Eggs, Min Place Value).
-task.spawn(function()
-	while true do
-		task.wait(_AD_jitter(1.5))
-		if St.autoPlace then
-			pcall(function()
-				local rule = St.placeRule
-				local gateOk = true
-				if rule == "Steal Idle" or rule == "After Steal" then
-					gateOk = not St.autoFarm or not _farmMoving
-				elseif rule == "Night Only" then
-					local ok2, ct = pcall(function() return game:GetService("Lighting").ClockTime end)
-					gateOk = ok2 and (ct < 6 or ct > 18)
-				end
-				if not gateOk then return end
-
-				local hasRaritySet = next(St.placeRarities) ~= nil
-				local hasEggSet = next(St.placeSpecificEggs) ~= nil
-				local minVal = St.placeMinValueK * 1000
-				local items = _readOwnerEggs(function(rec)
-					if rec.Placement ~= nil then return false end
-					local cat = rec.AssetCategory
-					if hasRaritySet and not St.placeRarities[_Egg.RarityLabel(cat)] then return false end
-					if hasEggSet and not St.placeSpecificEggs[tostring(cat)] then return false end
-					if minVal > 0 and _Egg.Value(cat, rec.AssetScale, rec.Mutations) < minVal then return false end
-					return true
-				end)
-				local list = {}
-				if items then
-					for _, it in ipairs(items) do table.insert(list, it) end
-				else
-					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), nil)) do
-						table.insert(list, {uid = it.uid, rec = {}})
-					end
-				end
-
-				local order = St.placeOrder
-				if order ~= "Backpack Order" then
-					table.sort(list, function(a, b)
-						if order == "Highest Value" then
-							return _Egg.Value(a.rec.AssetCategory, a.rec.AssetScale, a.rec.Mutations)
-								> _Egg.Value(b.rec.AssetCategory, b.rec.AssetScale, b.rec.Mutations)
-						end
-						local av, bv = tonumber(a.rec.AssetScale) or 0, tonumber(b.rec.AssetScale) or 0
-						if order == "Smallest Size" then return av < bv end
-						return av > bv
-					end)
-				end
-
-				for _, it in ipairs(list) do
-					if not St.autoPlace then break end
-					_invokeRF("RF/EggWorld/AskPlaceEgg", it.uid, CFrame.new())
-					task.wait(_AD_jitter(0.5))
-				end
-			end)
+-- Auto Place Egg — Chilli Hub (aide_3 ~7096-7800): bag eggs (Placement == nil)
+-- filtered by rarity / species / value and sorted; the character goes to the
+-- pen, wears the egg (EggState.WearEggTool) and calls RF/EggWorld/AskPlaceEgg
+-- {Uid, LocalCFrame} on free grid spots (x -24..8, z 4..30, step 4, at least
+-- 5 studs from the eggs already there); at most 30 eggs are placed.
+local Place = {failed = {}, status = "Pen status unknown", busy = false}
+do
+	local function ownPlot()
+		local plots = workspace:FindFirstChild("Plots")
+		if not plots then return nil end
+		for _, child in ipairs(plots:GetChildren()) do
+			local sign = child:FindFirstChild("PlotSign")
+			sign = sign and sign:FindFirstChild("PlayerPlotSign")
+			sign = sign and sign:FindFirstChild("Frame")
+			sign = sign and sign:FindFirstChild("PlayerName")
+			if sign and sign:IsA("TextLabel") then
+				local t = string.lower(sign.Text)
+				if t == string.lower(LP.Name) or t == string.lower(LP.DisplayName) then return child end
+			end
 		end
+		return nil
 	end
-end)
-makeRow(farmPage, "autoPlace", "Auto Place Egg", function(on) end)
+	local function penAnchor()
+		local plot = ownPlot()
+		if not plot then return nil end
+		local tu = plot:FindFirstChild("ToUpdate")
+		local pen = tu and tu:FindFirstChild("StarterPen") or plot:FindFirstChild("CenterPoint")
+		if not pen then return nil end
+		local ok, cf = pcall(function() return pen:IsA("Model") and pen:GetPivot() or pen.CFrame end)
+		return ok and cf or nil
+	end
+	local function isNight()
+		local ac = _M.AreaEggCycle
+		if type(ac) == "table" and type(ac.IsNightPhase) == "function" then
+			local ok, r = pcall(ac.IsNightPhase, workspace:GetServerTimeNow())
+			return ok and r == true
+		end
+		return false
+	end
+	local function gate()
+		local rule = St.placeRule
+		if rule == "Steal Idle" then return not MV.farming and not MV.carry.on end
+		if rule == "After Steal" then return Steal.lastFinished ~= nil and os.clock() - Steal.lastFinished <= 12 end
+		if rule == "Night Only" then return isNight() end
+		return true
+	end
+	local function bagOrder()
+		local out, n = {}, 0
+		local bp = LP:FindFirstChildOfClass("Backpack")
+		if bp then
+			for _, c in ipairs(bp:GetChildren()) do
+				local u = c:GetAttribute("UID")
+				if type(u) == "string" then n = n + 1; out[u] = n end
+			end
+		end
+		return out
+	end
+	local function ownerRecords()
+		local es = _M.EggState
+		if type(es) ~= "table" or type(es.ReadOwnerEggs) ~= "function" then return nil end
+		local ok, res = pcall(es.ReadOwnerEggs, LP.UserId)
+		return ok and type(res) == "table" and res or nil
+	end
+	local function candidates(recs)
+		local hasRar = next(St.placeRarities) ~= nil
+		local hasEgg = next(St.placeSpecificEggs) ~= nil
+		local minVal = St.placeMinValueK * 1000
+		local bag = bagOrder()
+		local list = {}
+		for uid, rec in pairs(recs) do
+			if type(rec) == "table" and rec.Placement == nil and not Place.failed[uid] then
+				local cat = rec.AssetCategory
+				local val = _Egg.Value(cat, rec.AssetScale, rec.Mutations)
+				if (not hasRar or St.placeRarities[_Egg.RarityLabel(cat)])
+					and (not hasEgg or St.placeSpecificEggs[tostring(cat)])
+					and (minVal <= 0 or val >= minVal) then
+					list[#list + 1] = {Uid = uid, Scale = tonumber(rec.AssetScale) or 0, Income = val, Slot = bag[uid] or math.huge}
+				end
+			end
+		end
+		local order = St.placeOrder
+		table.sort(list, function(a, b)
+			if order == "Highest Value" and a.Income ~= b.Income then return a.Income > b.Income end
+			if order == "Smallest Size" and a.Scale ~= b.Scale then return a.Scale < b.Scale end
+			if order == "Backpack Order" and a.Slot ~= b.Slot then return a.Slot < b.Slot end
+			return a.Scale > b.Scale
+		end)
+		return list
+	end
+	local function freeSpots(recs)
+		local taken = {}
+		for _, rec in pairs(recs) do
+			local pl = type(rec) == "table" and rec.Placement
+			local lcf = type(pl) == "table" and pl.LocalCFrame
+			if typeof(lcf) == "CFrame" then taken[#taken + 1] = Vector2.new(lcf.Position.X, lcf.Position.Z) end
+		end
+		local spots = {}
+		for x = -24, 8, 4 do
+			for z = 4, 30, 4 do
+				local v, free = Vector2.new(x, z), true
+				for _, t in ipairs(taken) do if (t - v).Magnitude < 5 then free = false; break end end
+				if free then spots[#spots + 1] = CFrame.new(x, 0, z) end
+			end
+		end
+		for i = #spots, 2, -1 do
+			local j = math.random(1, i)
+			spots[i], spots[j] = spots[j], spots[i]
+		end
+		return spots
+	end
+	local function placedCount(recs)
+		local n = 0
+		for _, rec in pairs(recs) do if type(rec) == "table" and rec.Placement ~= nil then n = n + 1 end end
+		return n
+	end
+	local function pass()
+		local recs = ownerRecords()
+		if not recs then Place.status = "Pen status unknown"; return end
+		local placed = placedCount(recs)
+		local list = candidates(recs)
+		Place.status = string.format("Eggs placed %d/30  -  %d in bag", placed, #list)
+		if #list == 0 or placed >= 30 or not gate() then return end
+		local anchorCF = penAnchor()
+		if not anchorCF then Place.status = "Pen not found"; return end
+		if MV.farming or MV.other then return end
+		MV.other = true
+		MV.Shield("place", true)
+		MV.GodMode(true)
+		local es = _M.EggState
+		local okAll, err = pcall(function()
+			local root = MV.Root()
+			if not root then return end
+			local anchor = anchorCF.Position
+			if (root.Position - anchor).Magnitude > 26 then
+				_invokeRF("RF/Treadmill/AskDoff")
+				MV.Go(anchor + Vector3.new(0, 3, 0), 12, 60, function() return not St.autoPlace or MV.farming end)
+			end
+			local spots = freeSpots(recs)
+			local doneN = 0
+			for _, egg in ipairs(list) do
+				if not St.autoPlace or placed + doneN >= 30 or #spots == 0 then break end
+				local r2 = MV.Root()
+				if not r2 or (r2.Position - anchor).Magnitude > 34 then Place.status = "Pen out of reach, stopping this pass"; break end
+				local okW, resW = pcall(es.WearEggTool, egg.Uid)
+				if okW and resW ~= false then
+					task.wait(0.15)
+					local tries, placedOk = 0, false
+					while tries < 8 and #spots > 0 do
+						tries = tries + 1
+						local spot = table.remove(spots)
+						local ok2, res2 = _invokeRF("RF/EggWorld/AskPlaceEgg", {Uid = egg.Uid, LocalCFrame = spot})
+						if ok2 and res2 ~= false then placedOk = true; break end
+					end
+					if placedOk then doneN = doneN + 1 else Place.failed[egg.Uid] = true end
+				else
+					Place.failed[egg.Uid] = true
+				end
+			end
+			if type(es.DoffEggTool) == "function" then pcall(es.DoffEggTool) end
+		end)
+		if not okAll then Place.status = "Stopped: " .. tostring(err) end
+		MV.Stop(); MV.GodMode(false); MV.Shield("place", false)
+		MV.other = false
+	end
+	task.spawn(function()
+		while true do
+			task.wait(_AD_jitter(1.5))
+			if St.autoPlace and not Place.busy then
+				Place.busy = true
+				pcall(pass)
+				Place.busy = false
+			end
+		end
+	end)
+end
+makeRow(farmPage, "autoPlace", "Auto Place Egg", function(on) table.clear(Place.failed) end)
+do
+	local f = Instance.new("Frame", farmPage)
+	f.Size = UDim2.new(1, -12, 0, 22); f.BackgroundTransparency = 1
+	local l = label(f, Place.status, UDim2.new(1, -8, 1, 0), C.DIM, Enum.Font.GothamMedium)
+	l.Position = UDim2.new(0, 8, 0, 0); l.TextSize = 9
+	task.spawn(function() while true do task.wait(1); l.Text = Place.status end end)
+end
 do
 	local PLACE_RULE = {"Always","Steal Idle","After Steal","Night Only"}
 	makeCarousel(farmPage, "Place Egg Rule", PLACE_RULE, PLACE_RULE, St.placeRule, function(v)
@@ -3152,195 +3374,293 @@ end)
 makeRow(farmPage, "stayOnTreadmill", "Stay On Treadmill", function(on) end)
 
 sectionHeader(farmPage, "Auto Sell")
--- Chilli Hub exact rule set (aide_3 ~8901, 9280-9470):
--- Sell Rule combines a rarity check (<= Max Rarity) and a value check
--- (< Value Threshold) via Rarity Only / Value Only / Rarity And Value /
--- Rarity Or Value. 0 = that check is off (always passes).
-function _Egg.SellRulePass(rule, rarity, maxRarity, value, valueThreshold)
-	local passRarity = (maxRarity <= 0) or (rarity <= maxRarity)
-	local passValue = (valueThreshold <= 0) or (value < valueThreshold)
-	if rule == "Value Only" then return passValue end
-	if rule == "Rarity And Value" then return passRarity and passValue end
-	if rule == "Rarity Or Value" then return passRarity or passValue end
-	return passRarity
-end
-
-task.spawn(function()
-	while true do
-		task.wait(_AD_jitter(3.0))
-		if St.autoSellPet then
-			pcall(function()
-				local hasMut = St.keepMutatedSell
-				local maxRarity, valThresh = St.sellPetMaxRarity, St.sellPetValueK * 1000
-				local items = _readOwnerEggs(function(rec)
-					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
-					if St.sellPetBlacklist[tostring(rec.AssetCategory)] then return false end
-					local value = _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations)
-					return _Egg.SellRulePass(St.sellPetRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
-				end)
-				local uids = {}
-				if items then
-					for _, it in ipairs(items) do table.insert(uids, it.uid) end
-				else
-					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
-						return not _isMutated(i)
-					end)) do table.insert(uids, it.uid) end
+-- Auto Sell — Chilli Hub (aide_3 ~8990-9500). PETS come from Save.Inventory
+-- (not in a fuse, not favourite, not equipped, not blacklisted, mutated ones
+-- kept) and are sold as {Assets = uids}; EGGS come from the bag
+-- (EggState.ReadOwnerEggs, not placed, not the one in hand) and are sold as
+-- {Eggs = uids}. Rule: Rarity Only (rarity <= Max Rarity), Value Only (value
+-- threshold on and value below it), Rarity And Value, Rarity Or Value.
+-- Max Rarity starts at 3, the value check is OFF at 0.
+local Sell = {petPreview = "Pet matches", eggPreview = "Egg matches", busy = false}
+do
+	local function rarityNum(cat)
+		local e = _Egg.DirEntry(cat)
+		local r = type(e) == "table" and e.Rarity
+		return type(r) == "table" and tonumber(r.RarityNumber or r.Rank) or math.huge
+	end
+	local function pass(rule, cat, value, maxRarity, thr)
+		local byRarity = rarityNum(cat) <= maxRarity
+		local byValue = thr > 0 and value < thr
+		if rule == "Value Only" then return byValue end
+		if rule == "Rarity And Value" then return byRarity and byValue end
+		if rule == "Rarity Or Value" then return byRarity or byValue end
+		return byRarity
+	end
+	local function hasMut(m) return type(m) == "table" and next(m) ~= nil end
+	local function short(n)
+		local u, i = {"", "K", "M", "B", "T", "Qa", "Qi"}, 1
+		n = tonumber(n) or 0
+		while math.abs(n) >= 1000 and i < #u do n = n / 1000; i = i + 1 end
+		return string.format(i == 1 and "$%.0f%s" or "$%.2f%s", n, u[i])
+	end
+	local function petList()
+		local ok, d = pcall(function() return _M.Save.Get() end)
+		local out, total = {}, 0
+		if not ok or type(d) ~= "table" then return out, total end
+		local equipped = {}
+		if type(d.EquippedAssets) == "table" then for _, u in pairs(d.EquippedAssets) do equipped[u] = true end end
+		for uid, pet in pairs(d.Inventory or {}) do
+			if type(pet) == "table" and pet.InFuse ~= true and pet.IsFavorite ~= true and not equipped[uid]
+				and not St.sellPetBlacklist[tostring(pet.Category)]
+				and not (St.keepMutatedPets and hasMut(pet.Mutations)) then
+				local v = _Egg.Value(pet.Category, pet.Scale, pet.Mutations)
+				if pass(St.sellPetRule, pet.Category, v, St.sellPetMaxRarity, St.sellPetValueK * 1000) then
+					out[#out + 1] = uid
+					total = total + v * 100
 				end
-				if #uids > 0 then
-					_fireRE("RE/PetSatchel/SellSelection", {Eggs = {}, Assets = uids})
+			end
+		end
+		return out, total
+	end
+	local function eggList()
+		local out, total = {}, 0
+		local es = _M.EggState
+		if type(es) ~= "table" or type(es.ReadOwnerEggs) ~= "function" then return out, total end
+		local ok, recs = pcall(es.ReadOwnerEggs, LP.UserId)
+		if not ok or type(recs) ~= "table" then return out, total end
+		local held = LP.Character and LP.Character:FindFirstChildWhichIsA("Tool")
+		held = held and held:GetAttribute("UID") or nil
+		for uid, rec in pairs(recs) do
+			if type(rec) == "table" and rec.Placement == nil and uid ~= held
+				and not St.sellEggBlacklist[tostring(rec.AssetCategory)]
+				and not (St.keepMutatedEggs and hasMut(rec.Mutations)) then
+				local v = _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations)
+				if pass(St.sellEggRule, rec.AssetCategory, v, St.sellEggMaxRarity, St.sellEggValueK * 1000) then
+					out[#out + 1] = uid
+					total = total + v * 100
+				end
+			end
+		end
+		return out, total
+	end
+	local function send(pets, eggs)
+		local r = _getRemote("RE/PetSatchel/SellSelection")
+		if not r or not r:IsA("RemoteEvent") then return end
+		local n, i = math.max(#pets, #eggs), 1
+		while i <= n do
+			local a, e = {}, {}
+			for k = i, i + 29 do
+				if pets[k] then a[#a + 1] = pets[k] end
+				if eggs[k] then e[#e + 1] = eggs[k] end
+			end
+			pcall(function() r:FireServer({Eggs = e, Assets = a}) end)
+			i = i + 30
+			if i <= n then task.wait(0.3) end
+		end
+	end
+	Sell.SellPets = function() send((petList()), {}) end
+	Sell.SellEggs = function() send({}, (eggList())) end
+	task.spawn(function()
+		while true do
+			task.wait(3)
+			pcall(function()
+				local pets, pTotal = petList()
+				local eggs, eTotal = eggList()
+				Sell.petPreview = string.format("Pet matches  -  %d pets for %s", #pets, short(pTotal))
+				Sell.eggPreview = string.format("Egg matches  -  %d eggs for %s", #eggs, short(eTotal))
+				if (St.autoSellPet or St.autoSellEgg) and not Sell.busy then
+					Sell.busy = true
+					send(St.autoSellPet and pets or {}, St.autoSellEgg and eggs or {})
+					Sell.busy = false
 				end
 			end)
 		end
-	end
-end)
+	end)
+end
+local function sellPreviewRow(get)
+	local f = Instance.new("Frame", farmPage)
+	f.Size = UDim2.new(1, -12, 0, 20); f.BackgroundTransparency = 1
+	local l = label(f, get(), UDim2.new(1, -8, 1, 0), C.DIM, Enum.Font.GothamMedium)
+	l.Position = UDim2.new(0, 8, 0, 0); l.TextSize = 9
+	task.spawn(function() while true do task.wait(1); l.Text = get() end end)
+end
+local SELL_RULE = {"Rarity Only","Value Only","Rarity And Value","Rarity Or Value"}
+local function sellRarityOpts()
+	local opts, valueOf = _Egg.RarityDropdownOptions()
+	local out = {}
+	for i = 2, #opts do out[#out + 1] = opts[i] end
+	return out, valueOf
+end
+local function labelFor(opts, valueOf, n)
+	for _, o in ipairs(opts) do if valueOf[o] == n then return o end end
+	return opts[1]
+end
+sellPreviewRow(function() return Sell.petPreview end)
 makeRow(farmPage, "autoSellPet", "Auto Sell Pet", function(on) end)
+makeButton(farmPage, "Sell Pets Now", "Sell", function() task.spawn(Sell.SellPets) end)
+makeCarousel(farmPage, "Sell Pet Rule", SELL_RULE, SELL_RULE, St.sellPetRule, function(v) St.sellPetRule = v; saveConfig() end)
 do
-	local SELL_RULE = {"Rarity Only","Value Only","Rarity And Value","Rarity Or Value"}
-	makeCarousel(farmPage, "Sell Pet Rule", SELL_RULE, SELL_RULE, St.sellPetRule, function(v)
-		St.sellPetRule = v; saveConfig()
+	local opts, valueOf = sellRarityOpts()
+	makeCarousel(farmPage, "Pet Max Rarity", opts, opts, labelFor(opts, valueOf, St.sellPetMaxRarity), function(v)
+		St.sellPetMaxRarity = valueOf[v] or 3; saveConfig()
 	end)
-	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
-	makeCarousel(farmPage, "Pet Max Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
-		St.sellPetMaxRarity = rarityValueOf[v] or 0; saveConfig()
-	end)
-	makeSlider(farmPage, "sellPetValueK", "Pet Sell Value", 0, 50000, "%dk")
-	makeMultiSelect(farmPage, "Blacklist Sell Pets", _Egg.SpeciesOptions, St.sellPetBlacklist, function() saveConfig() end, _Egg.Icon)
 end
-
-task.spawn(function()
-	while true do
-		task.wait(_AD_jitter(3.0))
-		if St.autoSellEgg then
-			pcall(function()
-				local hasMut = St.keepMutatedSell
-				local maxRarity, valThresh = St.sellEggMaxRarity, St.sellEggValueK * 1000
-				local items = _readOwnerEggs(function(rec)
-					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
-					if St.sellEggBlacklist[tostring(rec.AssetCategory)] then return false end
-					local value = _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations)
-					return _Egg.SellRulePass(St.sellEggRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
-				end)
-				local uids = {}
-				if items then
-					for _, it in ipairs(items) do table.insert(uids, it.uid) end
-				else
-					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
-						return not _isMutated(i)
-					end)) do table.insert(uids, it.uid) end
-				end
-				if #uids > 0 then
-					_fireRE("RE/PetSatchel/SellSelection", {Eggs = uids, Assets = {}})
-				end
-			end)
-		end
-	end
-end)
+makeSlider(farmPage, "sellPetValueK", "Pet Value Threshold", 0, 50000, "%dk")
+makeRow(farmPage, "keepMutatedPets", "Keep Mutated Pets", function(on) end)
+makeMultiSelect(farmPage, "Blacklist Sell Pets", _Egg.SpeciesOptions, St.sellPetBlacklist, function() saveConfig() end, _Egg.Icon)
+sellPreviewRow(function() return Sell.eggPreview end)
 makeRow(farmPage, "autoSellEgg", "Auto Sell Egg", function(on) end)
+makeButton(farmPage, "Sell Eggs Now", "Sell", function() task.spawn(Sell.SellEggs) end)
+makeCarousel(farmPage, "Sell Egg Rule", SELL_RULE, SELL_RULE, St.sellEggRule, function(v) St.sellEggRule = v; saveConfig() end)
 do
-	local SELL_RULE = {"Rarity Only","Value Only","Rarity And Value","Rarity Or Value"}
-	makeCarousel(farmPage, "Sell Egg Rule", SELL_RULE, SELL_RULE, St.sellEggRule, function(v)
-		St.sellEggRule = v; saveConfig()
+	local opts, valueOf = sellRarityOpts()
+	makeCarousel(farmPage, "Egg Max Rarity", opts, opts, labelFor(opts, valueOf, St.sellEggMaxRarity), function(v)
+		St.sellEggMaxRarity = valueOf[v] or 3; saveConfig()
 	end)
-	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
-	makeCarousel(farmPage, "Egg Max Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
-		St.sellEggMaxRarity = rarityValueOf[v] or 0; saveConfig()
-	end)
-	makeSlider(farmPage, "sellEggValueK", "Egg Sell Value", 0, 50000, "%dk")
-	makeMultiSelect(farmPage, "Blacklist Sell Eggs", _Egg.SpeciesOptions, St.sellEggBlacklist, function() saveConfig() end, _Egg.Icon)
 end
+makeSlider(farmPage, "sellEggValueK", "Egg Value Threshold", 0, 50000, "%dk")
+makeRow(farmPage, "keepMutatedEggs", "Keep Mutated Eggs", function(on) end)
+makeMultiSelect(farmPage, "Blacklist Sell Eggs", _Egg.SpeciesOptions, St.sellEggBlacklist, function() saveConfig() end, _Egg.Icon)
 
 sectionHeader(farmPage, "Auto Fuse Machine")
--- Chilli Hub: fuses 3 SAME-SPECIES pets (aide_3 ~9702-9908:
--- groups inventory by Category, needs #group>=3). LoadPet x3 → BeginFuse
--- → wait → FinishFuse, EjectPet on failure if the machine can't finish.
-task.spawn(function()
-	while true do
-		task.wait(_AD_jitter(4.0))
-		if St.autoFuse then
-			pcall(function()
-				local hasSpeciesSet = next(St.fuseSpecificSpecies) ~= nil
-				local maxRarity = St.fuseMaxRarity
-				local items = _readOwnerEggs(function(rec)
-					if St.skipMutatedFuse and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
-					if hasSpeciesSet and not St.fuseSpecificSpecies[tostring(rec.AssetCategory)] then return false end
-					if maxRarity > 0 and _Egg.Rarity(rec.AssetCategory) > maxRarity then return false end
-					return true
-				end)
-				local pool = {}
-				if items then
-					for _, it in ipairs(items) do table.insert(pool, it) end
-				else
-					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
-						if St.skipMutatedFuse then return not _isMutated(i) end
-						return true
-					end)) do
-						local cat = it.inst:GetAttribute("Category") or it.inst:GetAttribute("EggType") or it.inst.Name
-						table.insert(pool, {uid = it.uid, rec = {
-							AssetCategory = cat, AssetScale = it.inst:GetAttribute("Scale"),
-						}})
-					end
+-- Auto Fuse Machine — Chilli Hub (aide_3 ~9500-9990). Works on the PET
+-- inventory of Save.Get(): three pets of one species go into the machine
+-- (RF/Fusery/LoadPet x3, 0.35 s apart) and RF/Fusery/BeginFuse starts it;
+-- while Save.FusionLocked the machine is busy and, once FusionEggReward is
+-- there, the finish remote collects the egg. Pets in the machine that can't
+-- finish a fuse are ejected (Eject Incomplete Slots).
+local Fuse = {failed = {}, busy = false, nextFinish = 0}
+do
+	local function saveData()
+		local ok, d = pcall(function() return _M.Save and _M.Save.Get and _M.Save.Get() end)
+		return ok and type(d) == "table" and d or nil
+	end
+	local function rarityOf(cat)
+		local e = _Egg.DirEntry(cat)
+		local r = type(e) == "table" and e.Rarity
+		return type(r) == "table" and tonumber(r.RarityNumber or r.Rank) or math.huge
+	end
+	local function income(pet)
+		return _Egg.Value(pet.Category, pet.Scale, pet.Mutations)
+	end
+	local function okPet(uid, pet, equipped)
+		if type(pet) ~= "table" or pet.IsFavorite == true or equipped[uid] then return false end
+		local maxR = St.fuseMaxRarity > 0 and St.fuseMaxRarity or 6
+		if rarityOf(pet.Category) > maxR then return false end
+		if next(St.fuseSpecificSpecies) ~= nil and not St.fuseSpecificSpecies[tostring(pet.Category)] then return false end
+		if St.skipMutatedFuse and type(pet.Mutations) == "table" and next(pet.Mutations) ~= nil then return false end
+		return (Fuse.failed[uid] or 0) <= os.clock()
+	end
+	local function plan(d)
+		local inv = type(d.Inventory) == "table" and d.Inventory or {}
+		local equipped = {}
+		if type(d.EquippedAssets) == "table" then for _, u in pairs(d.EquippedAssets) do equipped[u] = true end end
+		local slots = {}
+		for i = 1, 3 do
+			local u = type(d.FusionSlots) == "table" and d.FusionSlots[i] or nil
+			if u ~= nil and type(inv[u]) == "table" then slots[#slots + 1] = u end
+		end
+		local groups = {}
+		for uid, pet in pairs(inv) do
+			if type(pet) == "table" and pet.InFuse ~= true and okPet(uid, pet, equipped) then
+				local c = tostring(pet.Category)
+				groups[c] = groups[c] or {}
+				table.insert(groups[c], {Uid = uid, Item = pet, Income = income(pet)})
+			end
+		end
+		local function sortGroup(g)
+			table.sort(g, function(a, b)
+				if a.Income ~= b.Income then
+					if St.fusePetsToUse == "Highest To Lowest" then return a.Income > b.Income end
+					return a.Income < b.Income
 				end
-
-				local groups = {}
-				for _, it in ipairs(pool) do
-					local cat = tostring(it.rec.AssetCategory or "?")
-					groups[cat] = groups[cat] or {}
-					table.insert(groups[cat], it)
-				end
-
-				local candidates = {}
-				for cat, list in pairs(groups) do
-					if #list >= 3 then table.insert(candidates, {cat=cat, list=list}) end
-				end
-				if #candidates == 0 then return end
-
-				local mode = St.fusePriorityMode
-				table.sort(candidates, function(a, b)
-					if mode == "Highest Rarity First" then
-						local ar, br = _Egg.Rarity(a.cat), _Egg.Rarity(b.cat)
-						if ar ~= br then return ar > br end
-					elseif mode == "Most Copies First" then
-						if #a.list ~= #b.list then return #a.list > #b.list end
-					elseif mode == "Lowest Value First" then
-						local av = _Egg.Value(a.cat, a.list[1].rec.AssetScale, a.list[1].rec.Mutations)
-						local bv = _Egg.Value(b.cat, b.list[1].rec.AssetScale, b.list[1].rec.Mutations)
-						if av ~= bv then return av < bv end
-					else
-						local ar, br = _Egg.Rarity(a.cat), _Egg.Rarity(b.cat)
-						if ar ~= br then return ar < br end
-					end
-					return a.cat < b.cat
-				end)
-				local chosen = candidates[1]
-
-				-- Pets To Use: which 3 copies of the chosen species get consumed
-				table.sort(chosen.list, function(a, b)
-					local av = _Egg.Value(chosen.cat, a.rec.AssetScale, a.rec.Mutations)
-					local bv = _Egg.Value(chosen.cat, b.rec.AssetScale, b.rec.Mutations)
-					if St.fusePetsToUse == "Highest To Lowest" then return av > bv end
-					return av < bv
-				end)
-
-				_invokeRF("RF/Fusery/LoadPet", chosen.list[1].uid)
-				task.wait(_AD_jitter(0.35))
-				_invokeRF("RF/Fusery/LoadPet", chosen.list[2].uid)
-				task.wait(_AD_jitter(0.35))
-				_invokeRF("RF/Fusery/LoadPet", chosen.list[3].uid)
-				task.wait(_AD_jitter(0.35))
-				local ok = _invokeRF("RF/Fusery/BeginFuse")
-				if ok then
-					task.wait(_AD_jitter(2.0))
-					_invokeRF("RF/Fusery/FinishFuse")
-				elseif St.fuseEjectIncomplete then
-					_invokeRF("RF/Fusery/EjectPet", chosen.list[1].uid)
-					_invokeRF("RF/Fusery/EjectPet", chosen.list[2].uid)
-					_invokeRF("RF/Fusery/EjectPet", chosen.list[3].uid)
-				end
+				return tostring(a.Uid) < tostring(b.Uid)
 			end)
 		end
+		if #slots > 0 then
+			local cat = tostring(inv[slots[1]].Category)
+			local same = true
+			for _, u in ipairs(slots) do
+				if tostring(inv[u].Category) ~= cat or not okPet(u, inv[u], equipped) then same = false end
+			end
+			local g = groups[cat] or {}
+			if same and #slots + #g >= 3 then
+				sortGroup(g)
+				local load = {}
+				for i = 1, 3 - #slots do load[#load + 1] = g[i].Uid end
+				return {Category = cat, Load = load}
+			end
+			if St.fuseEjectIncomplete then return {Category = cat, Eject = slots} end
+			return nil, "Machine holds pets that cannot finish a fuse"
+		end
+		local bestKey, bestCat
+		local mode = St.fusePriorityMode
+		for cat, g in pairs(groups) do
+			if #g >= 3 then
+				local r = rarityOf(cat)
+				local total = 0
+				for _, x in ipairs(g) do total = total + x.Income end
+				local key
+				if mode == "Highest Rarity First" then key = {-r, -#g}
+				elseif mode == "Most Copies First" then key = {-#g, r}
+				elseif mode == "Lowest Value First" then key = {total / #g, r}
+				else key = {r, -#g} end
+				if not bestKey or key[1] < bestKey[1] or (key[1] == bestKey[1] and (key[2] < bestKey[2] or (key[2] == bestKey[2] and cat < bestCat))) then
+					bestKey, bestCat = key, cat
+				end
+			end
+		end
+		if not bestCat then return nil, "No three matching pets" end
+		local g = groups[bestCat]
+		sortGroup(g)
+		return {Category = bestCat, Load = {g[1].Uid, g[2].Uid, g[3].Uid}, Items = {g[1].Item, g[2].Item, g[3].Item}}
 	end
-end)
-makeRow(farmPage, "autoFuse", "Auto Fuse", function(on) end)
+	local function tick()
+		local d = saveData()
+		if not d then return end
+		if d.FusionLocked == true then
+			if type(d.FusionEggReward) == "table" and os.clock() >= Fuse.nextFinish then
+				_invokeRF("RF/Fusery/Finishaide")
+			end
+			return
+		end
+		local p = plan(d)
+		if not p then return end
+		if p.Eject then
+			for _, u in ipairs(p.Eject) do
+				if not St.autoFuse then return end
+				_invokeRF("RF/Fusery/EjectPet", u)
+				task.wait(0.35)
+			end
+			return
+		end
+		local k = _M.FuseKernel
+		if p.Items and type(k) == "table" and type(k.PriceFor) == "function" then
+			local okp, price = pcall(k.PriceFor, p.Items)
+			if okp and tonumber(price) and (tonumber(d.Money) or 0) < price then return end
+		end
+		for _, u in ipairs(p.Load) do
+			if not St.autoFuse then return end
+			local ok, res = _invokeRF("RF/Fusery/LoadPet", u)
+			if not ok or res == false then Fuse.failed[u] = os.clock() + 6; return end
+			task.wait(0.35)
+		end
+		if not St.autoFuse then return end
+		local ok, res = _invokeRF("RF/Fusery/BeginFuse")
+		if ok and res ~= false then Fuse.nextFinish = os.clock() + 1 end
+	end
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			if St.autoFuse and not Fuse.busy then
+				Fuse.busy = true
+				pcall(tick)
+				Fuse.busy = false
+			end
+		end
+	end)
+end
+makeRow(farmPage, "autoFuse", "Auto Fuse Machine", function(on) table.clear(Fuse.failed) end)
 do
 	local FUSE_PRIORITY = {"Lowest Rarity First","Highest Rarity First","Most Copies First","Lowest Value First"}
 	makeCarousel(farmPage, "Fuse Priority Mode", FUSE_PRIORITY, FUSE_PRIORITY, St.fusePriorityMode, function(v)
@@ -3359,79 +3679,126 @@ do
 end
 
 sectionHeader(farmPage, "Auto Favorite")
--- Chilli Hub exact rule set (aide_3 ~10497-10615): each
--- of Min Rarity / Mutations / Min Value is an independent check that can
--- be off (0 or empty = skip); Favorite Rule combines the active ones via
--- Match Any / Match All. Always Favorite Species bypasses the rule.
-function _Egg.MutationCheck(mutSet, mutations)
-	if next(mutSet) == nil then return true end
-	local hasMut = type(mutations) == "table" and next(mutations) ~= nil
-	if mutSet["Any Mutation"] and hasMut then return true end
-	if mutSet["No Mutation"] and not hasMut then return true end
-	if type(mutations) == "table" then
-		for name in pairs(mutations) do
-			if mutSet[tostring(name)] then return true end
+-- Auto Favorite — Chilli Hub (aide_3 ~10200-10700). Works on the PET inventory
+-- of Save.Get(): three independent checks (Favorite Min Rarity, Favorite
+-- Mutations, Min Favorite Value) combined by the Favorite Rule (Match All is
+-- the default, Match Any); "Always Favorite Species" bypasses the rule. A pet
+-- is marked with RE/PetSatchel/WriteFavourite(uid, true/false), at most 20
+-- per pass, and not again for 20 seconds.
+local Fav = {recent = {}, busy = false, preview = "Favorite matches  -  0 pets"}
+do
+	local function saveData()
+		local ok, d = pcall(function() return _M.Save.Get() end)
+		return ok and type(d) == "table" and d or nil
+	end
+	local function rarityOf(cat)
+		local e = _Egg.DirEntry(cat)
+		local r = type(e) == "table" and e.Rarity
+		return type(r) == "table" and tonumber(r.RarityNumber or r.Rank) or 0
+	end
+	local function mutSet(pet)
+		local out = {}
+		if type(pet.Mutations) == "table" then
+			for k, v in pairs(pet.Mutations) do
+				if type(k) == "string" and v ~= false then out[k] = true elseif type(v) == "string" then out[v] = true end
+			end
+		end
+		if type(pet.BaseMutation) == "string" and pet.BaseMutation ~= "" then out[pet.BaseMutation] = true end
+		return out
+	end
+	local function matches(pet)
+		if St.favoriteAlwaysSpecies[tostring(pet.Category)] then return true end
+		local active, passed = 0, 0
+		if St.favoriteMinRarity > 0 then
+			active = active + 1
+			if rarityOf(pet.Category) >= St.favoriteMinRarity then passed = passed + 1 end
+		end
+		if next(St.favoriteMutations) ~= nil then
+			active = active + 1
+			local ms = mutSet(pet)
+			local hit = false
+			if St.favoriteMutations["Any Mutation"] and next(ms) ~= nil then hit = true end
+			if not hit then for k in pairs(ms) do if St.favoriteMutations[k] then hit = true; break end end end
+			if hit then passed = passed + 1 end
+		end
+		if St.favoriteMinValueK > 0 then
+			active = active + 1
+			if _Egg.Value(pet.Category, pet.Scale, pet.Mutations) >= St.favoriteMinValueK * 1000 then passed = passed + 1 end
+		end
+		if active == 0 then return false end
+		if St.favoriteRule == "Match Any" then return passed > 0 end
+		return passed == active
+	end
+	local function toMark(d)
+		local out, total = {}, 0
+		for uid, pet in pairs(d.Inventory or {}) do
+			if type(pet) == "table" and matches(pet) then
+				total = total + 1
+				if pet.IsFavorite ~= true and (Fav.recent[uid] or 0) <= os.clock() then out[#out + 1] = uid end
+			end
+		end
+		return out, total
+	end
+	local function equippedList(d, favorite, spareMatching)
+		local out = {}
+		local inv = d.Inventory or {}
+		for _, uid in pairs(d.EquippedAssets or {}) do
+			local pet = inv[uid]
+			if type(pet) == "table" then
+				if favorite then
+					if pet.IsFavorite ~= true then out[#out + 1] = uid end
+				elseif pet.IsFavorite == true and not (spareMatching and matches(pet)) then
+					out[#out + 1] = uid
+				end
+			end
+		end
+		return out
+	end
+	local function write(list, value)
+		local r = _getRemote("RE/PetSatchel/WriteFavourite")
+		if not r or not r:IsA("RemoteEvent") then return end
+		for i, uid in ipairs(list) do
+			if i > 20 then break end
+			Fav.recent[uid] = os.clock() + 20
+			pcall(function() r:FireServer(uid, value) end)
+			task.wait(0.12)
 		end
 	end
-	return false
+	Fav.MarkNow = function() local d = saveData(); if d then write((toMark(d)), true) end end
+	Fav.EquippedNow = function(v) local d = saveData(); if d then write(equippedList(d, v, false), v) end end
+	task.spawn(function()
+		while true do
+			task.wait(1.5)
+			pcall(function()
+				local d = saveData()
+				if not d then return end
+				local list, total = toMark(d)
+				local fav = 0
+				for _, p in pairs(d.Inventory or {}) do if type(p) == "table" and p.IsFavorite == true then fav = fav + 1 end end
+				Fav.preview = string.format("Favorite matches  -  %d pets, %d to mark  |  %d favorited", total, #list, fav)
+				if Fav.busy then return end
+				Fav.busy = true
+				if St.autoFavorite and #list > 0 then
+					write(list, true)
+				elseif St.autoFavoriteEquipped then
+					write(equippedList(d, true, false), true)
+				elseif St.autoUnfavoriteEquipped then
+					write(equippedList(d, false, St.autoFavorite), false)
+				end
+				Fav.busy = false
+			end)
+		end
+	end)
 end
-task.spawn(function()
-	while true do
-		task.wait(_AD_jitter(3.5))
-		if St.autoFavoriteEquipped or St.autoUnfavoriteEquipped then
-			pcall(function()
-				local tool = LP.Character and LP.Character:FindFirstChildWhichIsA("Tool")
-				local equippedUid = tool and (tool:GetAttribute("UID") or tool:GetAttribute("Uid"))
-				if equippedUid then
-					if St.autoFavoriteEquipped then
-						_fireRE("RE/PetSatchel/WriteFavourite", tostring(equippedUid), true)
-					elseif St.autoUnfavoriteEquipped then
-						_fireRE("RE/PetSatchel/WriteFavourite", tostring(equippedUid), false)
-					end
-				end
-			end)
-		end
-		if St.autoFavorite then
-			pcall(function()
-				local items = _readOwnerEggs(function(rec)
-					local cat = rec.AssetCategory
-					local rarityActive = St.favoriteMinRarity > 0
-					local rarityPass = rarityActive and (_Egg.Rarity(cat) >= St.favoriteMinRarity)
-					local mutActive = next(St.favoriteMutations) ~= nil
-					local mutPass = mutActive and _Egg.MutationCheck(St.favoriteMutations, rec.Mutations)
-					local valActive = St.favoriteMinValueK > 0
-					local valPass = valActive and (_Egg.Value(cat, rec.AssetScale, rec.Mutations) >= St.favoriteMinValueK * 1000)
-
-					local matched
-					if not (rarityActive or mutActive or valActive) then
-						matched = false
-					elseif St.favoriteRule == "Match Any" then
-						matched = (rarityActive and rarityPass) or (mutActive and mutPass) or (valActive and valPass)
-					else
-						matched = (not rarityActive or rarityPass) and (not mutActive or mutPass) and (not valActive or valPass)
-					end
-
-					local alwaysFav = St.favoriteAlwaysSpecies[tostring(cat)] == true
-					return matched or alwaysFav
-				end)
-				local uids = {}
-				if items then
-					for _, it in ipairs(items) do table.insert(uids, it.uid) end
-				else
-					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
-						return _isMutated(i)
-					end)) do table.insert(uids, it.uid) end
-				end
-				for _, uid in ipairs(uids) do
-					if not St.autoFavorite then break end
-					_fireRE("RE/PetSatchel/WriteFavourite", uid, true)
-					task.wait(_AD_jitter(0.3))
-				end
-			end)
-		end
-	end
-end)
-makeRow(farmPage, "autoFavorite", "Auto Favorite", function(on) end)
+do
+	local f = Instance.new("Frame", farmPage)
+	f.Size = UDim2.new(1, -12, 0, 20); f.BackgroundTransparency = 1
+	local l = label(f, Fav.preview, UDim2.new(1, -8, 1, 0), C.DIM, Enum.Font.GothamMedium)
+	l.Position = UDim2.new(0, 8, 0, 0); l.TextSize = 9
+	task.spawn(function() while true do task.wait(1); l.Text = Fav.preview end end)
+end
+makeRow(farmPage, "autoFavorite", "Auto Favorite Pet", function(on) table.clear(Fav.recent) end)
+makeButton(farmPage, "Favorite Pets Now", "Favorite", function() task.spawn(Fav.MarkNow) end)
 do
 	local FAV_RULE = {"Match Any","Match All"}
 	makeCarousel(farmPage, "Favorite Rule", FAV_RULE, FAV_RULE, St.favoriteRule, function(v)
@@ -3439,17 +3806,29 @@ do
 	end)
 	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
 	local favRarityOpts = {"Off"}
-	for i = 1, #rarityOptions do table.insert(favRarityOpts, rarityOptions[i]) end
-	makeCarousel(farmPage, "Favorite Min Rarity", favRarityOpts, favRarityOpts, "Off", function(v)
+	for i = 2, #rarityOptions do table.insert(favRarityOpts, rarityOptions[i]) end
+	local cur = "Off"
+	for _, o in ipairs(favRarityOpts) do if o ~= "Off" and rarityValueOf[o] == St.favoriteMinRarity then cur = o end end
+	makeCarousel(farmPage, "Favorite Min Rarity", favRarityOpts, favRarityOpts, cur, function(v)
 		St.favoriteMinRarity = (v == "Off") and 0 or (rarityValueOf[v] or 0); saveConfig()
 	end)
 	makeMultiSelect(farmPage, "Favorite Mutations", function()
-		return {"Any Mutation", "No Mutation"}
+		local opts = {"Any Mutation"}
+		local ids = _M.Mutations and _M.Mutations.IdSet
+		if type(ids) == "table" then
+			local names = {}
+			for k in pairs(ids) do names[#names + 1] = tostring(k) end
+			table.sort(names)
+			for _, n in ipairs(names) do opts[#opts + 1] = n end
+		end
+		return opts
 	end, St.favoriteMutations, function() saveConfig() end)
 	makeSlider(farmPage, "favoriteMinValueK", "Min Favorite Value", 0, 50000, "%dk")
 	makeMultiSelect(farmPage, "Always Favorite Species", _Egg.SpeciesOptions, St.favoriteAlwaysSpecies, function() saveConfig() end, _Egg.Icon)
 	makeRow(farmPage, "autoFavoriteEquipped", "Auto Favorite Equipped", function(on) end)
 	makeRow(farmPage, "autoUnfavoriteEquipped", "Auto Unfavorite Equipped", function(on) end)
+	makeButton(farmPage, "Favorite Equipped Now", "Favorite", function() task.spawn(Fav.EquippedNow, true) end)
+	makeButton(farmPage, "Unfavorite Equipped Now", "Unfavorite", function() task.spawn(Fav.EquippedNow, false) end)
 end
 
 -- ============================================================
@@ -3648,46 +4027,223 @@ do
 		if on then startMech() else stopMech() end
 	end)
 
-	-- ---------- Scrambled Mutation (Chilli Hub ~14685-15090) ----------
+	-- ---------- Scrambled Mutation (Chilli Hub ~14183-15090) ----------
+	-- The Scrambled consumable is a Tool (ItemType "MutationConsumable",
+	-- uses in its "Uses" attribute or "[X3]" in the name). The targets are
+	-- the eggs placed in YOUR pen; the character flies to the chosen egg's
+	-- slot, holds the tool and calls RF/BossMastery/AskUseMutationConsumable
+	-- with the egg's uid, again and again until the charges are gone.
 	sectionHeader(ev, "Dr Scramble Event")
-	local scrStatus = statusRow("Off")
+	local Scr = {State = "idle", Status = "Idle", Detail = "Turn it on to start applying Scrambled", Left = 0,
+		Pen = 0, Match = 0, Tries = 0, Hits = 0, Locked = nil, Cooldown = 0, Busy = false, Color = C.SILVER}
+	local SCR_COL = {idle = C.DIM, work = C.GOLD, good = C.GREEN, stop = C.RED}
+	local scrCard = Instance.new("Frame", ev)
+	scrCard.Size = UDim2.new(1, -12, 0, 62)
+	scrCard.BackgroundColor3 = C.ROW; scrCard.BackgroundTransparency = 0.25; scrCard.BorderSizePixel = 0
+	corner(scrCard, 10); addLivingStroke(scrCard, 1)
+	local scrTitle = label(scrCard, Scr.Status, UDim2.new(1, -16, 0, 18), C.DIM, Enum.Font.GothamBold)
+	scrTitle.Position = UDim2.new(0, 10, 0, 4); scrTitle.TextSize = 11.5
+	local scrEgg = label(scrCard, Scr.Detail, UDim2.new(1, -16, 0, 16), C.WHITE, Enum.Font.GothamMedium)
+	scrEgg.Position = UDim2.new(0, 10, 0, 23); scrEgg.TextSize = 10; scrEgg.TextTruncate = Enum.TextTruncate.AtEnd
+	local scrMeta = label(scrCard, "", UDim2.new(1, -16, 0, 14), C.SILVER2, Enum.Font.GothamMedium)
+	scrMeta.Position = UDim2.new(0, 10, 0, 42); scrMeta.TextSize = 9
+	makeDivider(ev)
+	local function scrPaint()
+		scrTitle.Text = Scr.Status; scrTitle.TextColor3 = SCR_COL[Scr.State] or C.DIM
+		scrEgg.Text = Scr.Detail; scrEgg.TextColor3 = Scr.Color or C.WHITE
+		scrMeta.Text = string.format("Charges %d  Eggs %d/%d  Tries %d  Applied %d", Scr.Left, Scr.Match, Scr.Pen, Scr.Tries, Scr.Hits)
+	end
+
+	local function scrTool()
+		local function isScr(t)
+			if not t or not t:IsA("Tool") then return false end
+			if tostring(t:GetAttribute("ItemType")) ~= "MutationConsumable" then return false end
+			local id = t:GetAttribute("MutationId") or t:GetAttribute("MutationTemplate")
+			if id ~= nil then return tostring(id) == "Scrambled" end
+			return string.find(string.lower(t.Name), "scrambled", 1, true) ~= nil
+		end
+		local ch = LP.Character
+		if ch then for _, c in ipairs(ch:GetChildren()) do if isScr(c) then return c end end end
+		local bp = LP:FindFirstChildOfClass("Backpack")
+		if bp then for _, c in ipairs(bp:GetChildren()) do if isScr(c) then return c end end end
+		return nil
+	end
+	local function scrUses(t)
+		if not t then return 0 end
+		local n = tonumber(t:GetAttribute("Uses"))
+		if n ~= nil then return n end
+		return tonumber(string.match(t.Name, "%[X(%d+)%]")) or 1
+	end
+	local function penEggs()
+		local es = _M.EggState
+		local out = {}
+		if type(es) ~= "table" or type(es.ReadOwnerEggs) ~= "function" then return out end
+		local ok, res = pcall(es.ReadOwnerEggs, LP.UserId)
+		if not ok or type(res) ~= "table" then return out end
+		for key, rec in pairs(res) do
+			if type(rec) == "table" and rec.Placement ~= nil then
+				rec.Uid = rec.Uid or key
+				out[#out + 1] = rec
+			end
+		end
+		return out
+	end
+	local function hasScrambled(rec)
+		if tostring(rec.BaseMutation or "") == "Scrambled" then return true end
+		if type(rec.Mutations) == "table" then
+			for k, m in pairs(rec.Mutations) do
+				if m == "Scrambled" or (k == "Scrambled" and m ~= false) then return true end
+			end
+		end
+		return false
+	end
+	local function income(rec)
+		local e = _Egg.DirEntry(rec.AssetCategory)
+		local rate = type(e) == "table" and tonumber(e.EarningRate) or 0
+		local sc = tonumber(rec.AssetScale) or 0
+		if rate <= 0 or sc <= 0 then return 0 end
+		return rate * (sc > 5 and (sc / 5) ^ 1.2 * 19.637875755794113 or sc ^ 1.85)
+	end
+	local function pickTarget()
+		local pen, match, best, bestScore = 0, 0, nil, -1
+		local minVal = St.mutationMinValueK * 1000
+		local hasTargets = next(St.mutationTargetEggs) ~= nil
+		for _, rec in ipairs(penEggs()) do
+			pen = pen + 1
+			local skip = hasScrambled(rec)
+				or _Egg.Rarity(rec.AssetCategory) < St.mutationMinRarity
+				or (minVal > 0 and income(rec) < minVal)
+				or (hasTargets and St.mutationTargetEggs[tostring(rec.AssetCategory)] ~= true)
+			if not skip then
+				match = match + 1
+				local score
+				if St.mutationPriority == "Best Rarity" then score = _Egg.Rarity(rec.AssetCategory) * 1000 + (tonumber(rec.AssetScale) or 0)
+				elseif St.mutationPriority == "Biggest Size" then score = tonumber(rec.AssetScale) or 0
+				else score = income(rec) end
+				if score > bestScore or (score == bestScore and best and rec.Uid == Scr.Locked) then best, bestScore = rec, score end
+			end
+		end
+		Scr.Pen, Scr.Match = pen, match
+		return best
+	end
+	local function slotPos(rec)
+		local slots = workspace:FindFirstChild("AreaEggSlotsClient")
+		local slot = slots and rec.Uid and slots:FindFirstChild(tostring(rec.Uid))
+		if slot then
+			local ok, p = pcall(function() return slot:GetPivot().Position end)
+			if ok and typeof(p) == "Vector3" then return p end
+		end
+		return nil
+	end
+	local function scrDetail(rec)
+		if not rec then Scr.Detail = "No egg matches the filters"; Scr.Color = C.SILVER; return end
+		local rs = _Egg.RarityStyle(rec.AssetCategory)
+		Scr.Detail = string.format("%s   %.2f kg   %s", _Egg.DisplayName(rec.AssetCategory), tonumber(rec.AssetScale) or 0,
+			string.upper(_Egg.RarityName(rec.AssetCategory)))
+		Scr.Color = rs.color
+	end
+	local function grip(tool)
+		local ch, hum = LP.Character, MV.Hum()
+		if not ch or not hum or not tool or tool.Parent == nil then return false end
+		if tool.Parent ~= ch then
+			pcall(function() hum:EquipTool(tool) end)
+			if tool.Parent ~= ch then pcall(function() tool.Parent = ch end) end
+			task.wait(0.2)
+		end
+		return tool.Parent == ch
+	end
+	local function scrOver() return not St.autoUseScrambled or MV.farming end
+	local function reach(rec)
+		local pos = slotPos(rec)
+		if not pos then return false end
+		local root = MV.Root()
+		if not root then return false end
+		if (root.Position - pos).Magnitude <= 6 then return true end
+		_invokeRF("RF/Treadmill/AskDoff")
+		local ok = MV.Go(pos + Vector3.new(0, 3, 0), 3, 40, scrOver)
+		root = MV.Root()
+		return ok and root ~= nil and (root.Position - pos).Magnitude <= 10
+	end
+	local function scrApply(rec, tool)
+		if not grip(tool) then
+			Scr.State, Scr.Status, Scr.Cooldown = "work", "Could not hold Scrambled", os.clock() + 2
+			return false
+		end
+		local remote = _getRemote("RF/BossMastery/AskUseMutationConsumable")
+		if not remote or not remote:IsA("RemoteFunction") then
+			Scr.State, Scr.Status, Scr.Cooldown = "stop", "Mutation remote is missing", os.clock() + 10
+			return false
+		end
+		Scr.State, Scr.Status = "work", "Applying Scrambled"
+		Scr.Tries = Scr.Tries + 1
+		local ok, res = pcall(function() return remote:InvokeServer(rec.Uid) end)
+		if not ok or type(res) ~= "table" then Scr.Cooldown = os.clock() + 10; return false end
+		if res.Success == true then
+			Scr.Status, Scr.State, Scr.Hits = "Scrambled applied", "good", Scr.Hits + 1
+			return true
+		end
+		local msg = tostring(res.Message or "")
+		Scr.Status = msg ~= "" and msg or "Try failed"
+		Scr.State = "work"
+		local low = string.lower(msg)
+		if string.find(low, "not found") or string.find(low, "invalid") then Scr.Cooldown = os.clock() + 3; return false end
+		return true
+	end
+	local function scrStep()
+		if MV.farming then
+			Scr.State, Scr.Status, Scr.Cooldown = "work", "Auto Steal goes first", os.clock() + 2
+			return
+		end
+		if os.clock() < Scr.Cooldown then return end
+		local tool = scrTool()
+		local left = scrUses(tool)
+		if not tool or left <= 0 then
+			Scr.State, Scr.Status, Scr.Left = "idle", "Need a Scrambled consumable", 0
+			Scr.Detail, Scr.Color, Scr.Cooldown = "Buy Scrambled from the event shop", C.SILVER, os.clock() + 5
+			return
+		end
+		Scr.Left = left
+		local target = pickTarget()
+		if not target then
+			Scr.State, Scr.Status = "stop", "Waiting"
+			scrDetail(nil)
+			Scr.Cooldown = os.clock() + 1
+			return
+		end
+		Scr.Busy = true
+		MV.other = true
+		MV.Shield("mutation", true)
+		MV.GodMode(true)
+		local ok, err = pcall(function()
+			while not scrOver() do
+				tool = scrTool(); left = scrUses(tool)
+				if not tool or left <= 0 then break end
+				Scr.Left = left
+				target = pickTarget()
+				if not target then Scr.State = "stop"; scrDetail(nil); break end
+				if target.Uid ~= Scr.Locked then Scr.Locked = target.Uid; Scr.Status = "New target picked" end
+				scrDetail(target)
+				if not reach(target) then Scr.Status = "Could not reach the egg"; Scr.Cooldown = os.clock() + 3; break end
+				if scrOver() then break end
+				if scrApply(target, tool) then task.wait(0.35) else break end
+			end
+		end)
+		if not ok then Scr.Status, Scr.State, Scr.Cooldown = "Stopped: " .. tostring(err), "work", os.clock() + 3 end
+		MV.Stop()
+		MV.GodMode(false)
+		MV.Shield("mutation", false)
+		MV.other = false
+		Scr.Busy = false
+	end
 	task.spawn(function()
 		while true do
-			task.wait(_AD_jitter(3.0))
+			task.wait(0.25)
 			if St.autoUseScrambled then
-				pcall(function()
-					local hasTargetSet = next(St.mutationTargetEggs) ~= nil
-					local minVal = St.mutationMinValueK * 1000
-					local items = _readOwnerEggs(function(rec)
-						if rec.Placement ~= nil then return false end
-						if type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
-						local cat = rec.AssetCategory
-						if _Egg.Rarity(cat) < St.mutationMinRarity then return false end
-						if hasTargetSet and not St.mutationTargetEggs[tostring(cat)] then return false end
-						if minVal > 0 and _Egg.Value(cat, rec.AssetScale, rec.Mutations) < minVal then return false end
-						return true
-					end)
-					if items and #items > 0 then
-						local priority = St.mutationPriority
-						table.sort(items, function(a, b)
-							if priority == "Best Rarity" then
-								return _Egg.Rarity(a.rec.AssetCategory) > _Egg.Rarity(b.rec.AssetCategory)
-							elseif priority == "Biggest Size" then
-								return (tonumber(a.rec.AssetScale) or 0) > (tonumber(b.rec.AssetScale) or 0)
-							end
-							return _Egg.Value(a.rec.AssetCategory, a.rec.AssetScale, a.rec.Mutations)
-								> _Egg.Value(b.rec.AssetCategory, b.rec.AssetScale, b.rec.Mutations)
-						end)
-						local ok, res = _invokeRF("RF/BossMastery/AskUseMutationConsumable", items[1].uid)
-						scrStatus.Text = (ok and res ~= false) and ("Used on " .. assetName(items[1].rec.AssetCategory))
-							or "No Scrambled Mutation left (buy one in the event shop)"
-					else
-						scrStatus.Text = "No egg matches the filters"
-					end
-				end)
-			else
-				scrStatus.Text = "Off"
+				pcall(scrStep)
+			elseif Scr.State ~= "idle" then
+				Scr.State, Scr.Status, Scr.Detail, Scr.Left = "idle", "Idle", "Turn it on to start applying Scrambled", 0
 			end
+			if eventsWin.frame.Visible and not eventsWin.minimized then pcall(scrPaint) end
 		end
 	end)
 	makeRow(ev, "autoUseScrambled", "Auto Use Scrambled Mutation", function(on) end)
@@ -3707,44 +4263,55 @@ end
 
 
 sectionHeader(farmPage, "Progression")
--- Auto Buy Trail
+-- Auto Buy Trail — Chilli Hub (aide_3 ~24700-24760): Data.Trails.Directory
+-- sorted by price, the cheapest unowned trail that is affordable is bought
+-- with RF/Trailwear/AskPurchase; a refused one is not retried.
+local _trailFailed = {}
 task.spawn(function()
 	while true do
-		task.wait(_AD_jitter(6.0))
-		if St.autoBuyTrail and _M.Trails then
+		task.wait(_AD_jitter(4.0))
+		if St.autoBuyTrail then
 			pcall(function()
-				local list = _M.Trails.TRAILS or _M.Trails.List or _M.Trails
-				if type(list) == "table" then
-					local money = 0
-					pcall(function() local d = _M.Save and _M.Save.Get and _M.Save.Get(); money = d and d.Money or 0 end)
-					for id, cfg in pairs(list) do
-						if not St.autoBuyTrail then break end
-						if type(cfg) == "table" and cfg.Price and cfg.Price <= money then
-							_invokeRF("RF/Trailwear/AskPurchase", id)
-							task.wait(_AD_jitter(0.5))
-						end
+				local dir = _M.Trails and _M.Trails.Directory
+				local d = _M.Save and _M.Save.Get and _M.Save.Get()
+				if type(dir) ~= "table" or type(d) ~= "table" then return end
+				local list = {}
+				for k, t in pairs(dir) do
+					if type(t) == "table" then list[#list + 1] = {Id = tostring(t._id or k), Price = tonumber(t.Price) or math.huge} end
+				end
+				table.sort(list, function(x, y) return x.Price < y.Price end)
+				local owned = type(d.TrailInventory) == "table" and d.TrailInventory or {}
+				local money = tonumber(d.Money) or 0
+				for _, t in ipairs(list) do
+					if owned[t.Id] ~= true and not _trailFailed[t.Id] and t.Price <= money then
+						local ok, res = _invokeRF("RF/Trailwear/AskPurchase", t.Id)
+						if not (ok and res ~= false) then _trailFailed[t.Id] = true end
+						break
 					end
 				end
 			end)
 		end
 	end
 end)
-makeRow(farmPage, "autoBuyTrail", "Auto Buy Trail", function(on) end)
+makeRow(farmPage, "autoBuyTrail", "Auto Buy Trail", function(on) table.clear(_trailFailed) end)
 
--- Auto Upgrade Base
+-- Auto Upgrade Base — Chilli Hub (aide_3 ~24790-24830): Data.Bases.BASES[next level]
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(3.0))
 		if St.autoUpgradeBase then
 			pcall(function()
 				local d = _M.Save and _M.Save.Get and _M.Save.Get()
-				if d then
-					local nextLevel = (d.BaseUpgradeLevel or 0) + 1
-					local cfg = _M.Bases and _M.Bases.BASES and _M.Bases.BASES[nextLevel]
-					if cfg and d.Money and d.Money >= (cfg.Cost or math.huge) then
-						_fireRE("RE/Homestead/AskBaseTierRaise")
-					end
+				local B = _M.Bases
+				if type(d) ~= "table" or type(B) ~= "table" or type(B.BASES) ~= "table" then return end
+				local lvl = tonumber(d.BaseUpgradeLevel) or 0
+				if type(B.GetMaxBaseLevel) == "function" then
+					local ok, mx = pcall(B.GetMaxBaseLevel)
+					if ok and tonumber(mx) and lvl >= mx then return end
 				end
+				local cfg = B.BASES[lvl + 1]
+				local price = type(cfg) == "table" and tonumber(cfg.Price or cfg.Cost) or nil
+				if price and (tonumber(d.Money) or 0) >= price then _fireRE("RE/Homestead/AskBaseTierRaise") end
 			end)
 		end
 	end
