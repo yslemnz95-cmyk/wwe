@@ -747,7 +747,7 @@ local St = {
 	fpsCap           = 0,
 	optimizer        = false,
 	fpsPingHud       = false,
-	serverHopMode    = "Manual",
+	serverHopMode    = "Least Players",
 	autoRejoin       = true,
 }
 
@@ -1663,33 +1663,6 @@ task.spawn(function()
 		isFarmingEgg = false
 	end
 	_farmFullStopRef = _farmFullStop
-
-	-- Tollbox grab engine: mirrors yslem_hub AutoSteal approach.
-	-- Per-prompt data is cached on first encounter: extract internal
-	-- PromptButtonHoldBegan / Triggered handlers via getconnections()
-	-- so we can fire them directly (most reliable), then fall through to
-	-- fireproximityprompt → InputHoldBegin/End as progressively coarser
-	-- fallbacks.
-	local _stealData  = {}
-	local _HOLD_DUR   = 0.12  -- seconds, matches typical hold-prompt threshold
-
-	local function _initStealData(prompt)
-		if _stealData[prompt] then return end
-		local d = {hold={}, trigger={}, useFallback=true}
-		_stealData[prompt] = d
-		pcall(function()
-			if type(getconnections) ~= "function" then return end
-			for _, c in ipairs(getconnections(prompt.PromptButtonHoldBegan)) do
-				if c.Function then table.insert(d.hold, c.Function) end
-			end
-			for _, c in ipairs(getconnections(prompt.Triggered)) do
-				if c.Function then table.insert(d.trigger, c.Function) end
-			end
-			if #d.hold > 0 or #d.trigger > 0 then
-				d.useFallback = false
-			end
-		end)
-	end
 
 	-- Find the CarryAreaEgg ProximityPrompt on the nearest SmartPromptPart
 	-- within maxDist studs of eggPos (Chilli Hub exact technique).
@@ -3513,6 +3486,78 @@ makeButton(miscPage, "Copy Player ID", "Copy", function()
 	end)
 end)
 
+makeButton(miscPage, "Copy Job ID", "Copy", function()
+	pcall(function()
+		setclipboard(tostring(game.JobId))
+		setStatus("Job ID copied", C.GREEN)
+		task.delay(2, function() setStatus("Idle", C.DIM) end)
+	end)
+end)
+
+do
+	local SERVER_HOP_MODE = {"Most Players","Random","Least Players"}
+	makeCarousel(miscPage, "Server Hop Mode", SERVER_HOP_MODE, SERVER_HOP_MODE, St.serverHopMode, function(v)
+		St.serverHopMode = v; saveConfig()
+	end)
+end
+
+makeRow(miscPage, "autoRejoin", "Auto Rejoin When Disconnect", function(on) end)
+game:BindToClose(function()
+	if St.autoRejoin then
+		pcall(function() game:GetService("TeleportService"):Teleport(game.PlaceId, LP) end)
+	end
+end)
+
+-- FPS Cap — 0 = uncapped (executor default)
+do
+	local row, setVal = makeSlider(miscPage, "fpsCap", "FPS Cap", 0, 240, "%d")
+	local last = St.fpsCap
+	task.spawn(function()
+		while true do
+			if St.fpsCap ~= last then
+				last = St.fpsCap
+				pcall(function() setfpscap(last <= 0 and 9999 or last) end)
+			end
+			task.wait(0.2)
+		end
+	end)
+end
+
+-- Optimizer — same effect-stripping technique as visual tab's FPS
+-- Boost, exposed here under Chilli Hub's own name (aide_3 ~26461).
+makeRow(miscPage, "optimizer", "Optimizer", function(on) if on then applyFpsBoost() end end)
+
+-- FPS and Ping HUD
+do
+	local hud = Instance.new("Frame", gui)
+	hud.Name = "YE_FpsPingHud"
+	hud.Size = UDim2.new(0,86,0,34)
+	hud.Position = UDim2.new(0,8,0,8)
+	hud.BackgroundColor3 = C.BG; hud.BackgroundTransparency = 0.15
+	hud.BorderSizePixel = 0; hud.Visible = false
+	corner(hud, 8); addLivingStroke(hud, 1)
+	local fpsLbl = label(hud, "FPS --", UDim2.new(1,-8,0,16), C.GREEN, Enum.Font.GothamBold)
+	fpsLbl.Position = UDim2.new(0,4,0,2); fpsLbl.TextSize = 11
+	local pingLbl = label(hud, "Ping --ms", UDim2.new(1,-8,0,14), C.SILVER, Enum.Font.Gotham)
+	pingLbl.Position = UDim2.new(0,4,0,18); pingLbl.TextSize = 9.5
+
+	local frames, lastT = 0, os.clock()
+	RunService.RenderStepped:Connect(function()
+		if not St.fpsPingHud then return end
+		frames = frames + 1
+		local now = os.clock()
+		if now - lastT >= 1 then
+			fpsLbl.Text = string.format("FPS %d", math.floor(frames / (now - lastT)))
+			frames = 0; lastT = now
+			local ok, ping = pcall(function()
+				return math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+			end)
+			pingLbl.Text = ok and string.format("Ping %dms", ping) or "Ping --ms"
+		end
+	end)
+	makeRow(miscPage, "fpsPingHud", "FPS and Ping HUD", function(on) hud.Visible = on end)
+end
+
 -- Click TP
 do
 	local row = Instance.new("Frame", miscPage)
@@ -4134,13 +4179,20 @@ local function hopServer()
 			if data and data.data then
 				for _, srv in ipairs(data.data) do
 					if srv.id ~= game.JobId and srv.playing and srv.maxPlayers and srv.playing < srv.maxPlayers then
-						table.insert(candidates, srv.id)
+						table.insert(candidates, srv)
 					end
 				end
 			end
 		end)
 		if #candidates > 0 then
-			local pick = candidates[math.random(1, #candidates)]
+			-- Server Hop Mode (Chilli Hub exact options, aide_3 ~25201-25208)
+			local mode = St.serverHopMode
+			if mode == "Most Players" then
+				table.sort(candidates, function(a,b) return a.playing > b.playing end)
+			elseif mode == "Least Players" then
+				table.sort(candidates, function(a,b) return a.playing < b.playing end)
+			end
+			local pick = (mode == "Random") and candidates[math.random(1, #candidates)].id or candidates[1].id
 			setStatus("Hopper -> new server", C.GREEN)
 			pcall(function() game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, pick, LP) end)
 		else
