@@ -2249,7 +2249,7 @@ end)
 -- Sell Rule combines a rarity check (<= Max Rarity) and a value check
 -- (< Value Threshold) via Rarity Only / Value Only / Rarity And Value /
 -- Rarity Or Value. 0 = that check is off (always passes).
-local function _sellRulePass(rule, rarity, maxRarity, value, valueThreshold)
+function _Egg.SellRulePass(rule, rarity, maxRarity, value, valueThreshold)
 	local passRarity = (maxRarity <= 0) or (rarity <= maxRarity)
 	local passValue = (valueThreshold <= 0) or (value < valueThreshold)
 	if rule == "Value Only" then return passValue end
@@ -2269,7 +2269,7 @@ task.spawn(function()
 					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
 					if St.sellPetBlacklist[tostring(rec.AssetCategory)] then return false end
 					local value = _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations)
-					return _sellRulePass(St.sellPetRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
+					return _Egg.SellRulePass(St.sellPetRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
 				end)
 				local uids = {}
 				if items then
@@ -2321,7 +2321,7 @@ task.spawn(function()
 					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
 					if St.sellEggBlacklist[tostring(rec.AssetCategory)] then return false end
 					local value = _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations)
-					return _sellRulePass(St.sellEggRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
+					return _Egg.SellRulePass(St.sellEggRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
 				end)
 				local uids = {}
 				if items then
@@ -2362,53 +2362,178 @@ do
 	end, St.sellEggBlacklist, function() saveConfig() end)
 end
 
--- Auto Fuse — Chilli Hub: LoadPet x2 → BeginFuse → wait → FinishFuse
+-- Auto Fuse — Chilli Hub: fuses 3 SAME-SPECIES pets (aide_3 ~9702-9908:
+-- groups inventory by Category, needs #group>=3). LoadPet x3 → BeginFuse
+-- → wait → FinishFuse, EjectPet on failure if the machine can't finish.
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(4.0))
 		if St.autoFuse then
 			pcall(function()
-				-- Get items not mutated (skip mutated unless St.skipMutatedFuse is false)
+				local hasSpeciesSet = next(St.fuseSpecificSpecies) ~= nil
+				local maxRarity = St.fuseMaxRarity
 				local items = _readOwnerEggs(function(rec)
 					if St.skipMutatedFuse and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
+					if hasSpeciesSet and not St.fuseSpecificSpecies[tostring(rec.AssetCategory)] then return false end
+					if maxRarity > 0 and _Egg.Rarity(rec.AssetCategory) > maxRarity then return false end
 					return true
 				end)
-				local uids = {}
+				local pool = {}
 				if items then
-					for _, it in ipairs(items) do table.insert(uids, it.uid) end
+					for _, it in ipairs(items) do table.insert(pool, it) end
 				else
 					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
 						if St.skipMutatedFuse then return not _isMutated(i) end
 						return true
-					end)) do table.insert(uids, it.uid) end
-				end
-				if #uids >= 2 then
-					_invokeRF("RF/Fusery/LoadPet", uids[1])
-					task.wait(_AD_jitter(0.4))
-					_invokeRF("RF/Fusery/LoadPet", uids[2])
-					task.wait(_AD_jitter(0.4))
-					local ok = _invokeRF("RF/Fusery/BeginFuse")
-					if ok then
-						task.wait(_AD_jitter(2.0))
-						_invokeRF("RF/Fusery/FinishFuse")
-					else
-						_invokeRF("RF/Fusery/EjectPet")
+					end)) do
+						local cat = it.inst:GetAttribute("Category") or it.inst:GetAttribute("EggType") or it.inst.Name
+						table.insert(pool, {uid = it.uid, rec = {
+							AssetCategory = cat, AssetScale = it.inst:GetAttribute("Scale"),
+						}})
 					end
+				end
+
+				local groups = {}
+				for _, it in ipairs(pool) do
+					local cat = tostring(it.rec.AssetCategory or "?")
+					groups[cat] = groups[cat] or {}
+					table.insert(groups[cat], it)
+				end
+
+				local candidates = {}
+				for cat, list in pairs(groups) do
+					if #list >= 3 then table.insert(candidates, {cat=cat, list=list}) end
+				end
+				if #candidates == 0 then return end
+
+				local mode = St.fusePriorityMode
+				table.sort(candidates, function(a, b)
+					if mode == "Highest Rarity First" then
+						local ar, br = _Egg.Rarity(a.cat), _Egg.Rarity(b.cat)
+						if ar ~= br then return ar > br end
+					elseif mode == "Most Copies First" then
+						if #a.list ~= #b.list then return #a.list > #b.list end
+					elseif mode == "Lowest Value First" then
+						local av = _Egg.Value(a.cat, a.list[1].rec.AssetScale, a.list[1].rec.Mutations)
+						local bv = _Egg.Value(b.cat, b.list[1].rec.AssetScale, b.list[1].rec.Mutations)
+						if av ~= bv then return av < bv end
+					else
+						local ar, br = _Egg.Rarity(a.cat), _Egg.Rarity(b.cat)
+						if ar ~= br then return ar < br end
+					end
+					return a.cat < b.cat
+				end)
+				local chosen = candidates[1]
+
+				-- Pets To Use: which 3 copies of the chosen species get consumed
+				table.sort(chosen.list, function(a, b)
+					local av = _Egg.Value(chosen.cat, a.rec.AssetScale, a.rec.Mutations)
+					local bv = _Egg.Value(chosen.cat, b.rec.AssetScale, b.rec.Mutations)
+					if St.fusePetsToUse == "Highest To Lowest" then return av > bv end
+					return av < bv
+				end)
+
+				_invokeRF("RF/Fusery/LoadPet", chosen.list[1].uid)
+				task.wait(_AD_jitter(0.35))
+				_invokeRF("RF/Fusery/LoadPet", chosen.list[2].uid)
+				task.wait(_AD_jitter(0.35))
+				_invokeRF("RF/Fusery/LoadPet", chosen.list[3].uid)
+				task.wait(_AD_jitter(0.35))
+				local ok = _invokeRF("RF/Fusery/BeginFuse")
+				if ok then
+					task.wait(_AD_jitter(2.0))
+					_invokeRF("RF/Fusery/FinishFuse")
+				elseif St.fuseEjectIncomplete then
+					_invokeRF("RF/Fusery/EjectPet", chosen.list[1].uid)
+					_invokeRF("RF/Fusery/EjectPet", chosen.list[2].uid)
+					_invokeRF("RF/Fusery/EjectPet", chosen.list[3].uid)
 				end
 			end)
 		end
 	end
 end)
 makeRow(farmPage, "autoFuse", "Auto Fuse", function(on) end)
+do
+	local FUSE_PRIORITY = {"Lowest Rarity First","Highest Rarity First","Most Copies First","Lowest Value First"}
+	makeCarousel(farmPage, "Fuse Priority Mode", FUSE_PRIORITY, FUSE_PRIORITY, St.fusePriorityMode, function(v)
+		St.fusePriorityMode = v; saveConfig()
+	end)
+	local PETS_TO_USE = {"Lowest To Highest","Highest To Lowest"}
+	makeCarousel(farmPage, "Pets To Use", PETS_TO_USE, PETS_TO_USE, St.fusePetsToUse, function(v)
+		St.fusePetsToUse = v; saveConfig()
+	end)
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	makeCarousel(farmPage, "Max Rarity to Fuse", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+		St.fuseMaxRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+	makeMultiSelect(farmPage, "Specific Species to Fuse", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.fuseSpecificSpecies, function() saveConfig() end)
+	makeRow(farmPage, "fuseEjectIncomplete", "Eject Incomplete Slots", function(on) end)
+end
 
--- Auto Favorite — Chilli Hub: WriteFavourite for mutated pets
+-- Auto Favorite — Chilli Hub exact rule set (aide_3 ~10497-10615): each
+-- of Min Rarity / Mutations / Min Value is an independent check that can
+-- be off (0 or empty = skip); Favorite Rule combines the active ones via
+-- Match Any / Match All. Always Favorite Species bypasses the rule.
+function _Egg.MutationCheck(mutSet, mutations)
+	if next(mutSet) == nil then return true end
+	local hasMut = type(mutations) == "table" and next(mutations) ~= nil
+	if mutSet["Any Mutation"] and hasMut then return true end
+	if mutSet["No Mutation"] and not hasMut then return true end
+	if type(mutations) == "table" then
+		for name in pairs(mutations) do
+			if mutSet[tostring(name)] then return true end
+		end
+	end
+	return false
+end
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(3.5))
+		if St.autoFavoriteEquipped or St.autoUnfavoriteEquipped then
+			pcall(function()
+				local tool = LP.Character and LP.Character:FindFirstChildWhichIsA("Tool")
+				local equippedUid = tool and (tool:GetAttribute("UID") or tool:GetAttribute("Uid"))
+				if equippedUid then
+					if St.autoFavoriteEquipped then
+						_fireRE("RE/PetSatchel/WriteFavourite", tostring(equippedUid), true)
+					elseif St.autoUnfavoriteEquipped then
+						_fireRE("RE/PetSatchel/WriteFavourite", tostring(equippedUid), false)
+					end
+				end
+			end)
+		end
 		if St.autoFavorite then
 			pcall(function()
 				local items = _readOwnerEggs(function(rec)
-					return type(rec.Mutations) == "table" and next(rec.Mutations) ~= nil
+					local cat = rec.AssetCategory
+					local rarityActive = St.favoriteMinRarity > 0
+					local rarityPass = rarityActive and (_Egg.Rarity(cat) >= St.favoriteMinRarity)
+					local mutActive = next(St.favoriteMutations) ~= nil
+					local mutPass = mutActive and _Egg.MutationCheck(St.favoriteMutations, rec.Mutations)
+					local valActive = St.favoriteMinValueK > 0
+					local valPass = valActive and (_Egg.Value(cat, rec.AssetScale, rec.Mutations) >= St.favoriteMinValueK * 1000)
+
+					local matched
+					if not (rarityActive or mutActive or valActive) then
+						matched = false
+					elseif St.favoriteRule == "Match Any" then
+						matched = (rarityActive and rarityPass) or (mutActive and mutPass) or (valActive and valPass)
+					else
+						matched = (not rarityActive or rarityPass) and (not mutActive or mutPass) and (not valActive or valPass)
+					end
+
+					local alwaysFav = St.favoriteAlwaysSpecies[tostring(cat)] == true
+					return matched or alwaysFav
 				end)
 				local uids = {}
 				if items then
@@ -2428,6 +2553,35 @@ task.spawn(function()
 	end
 end)
 makeRow(farmPage, "autoFavorite", "Auto Favorite", function(on) end)
+do
+	local FAV_RULE = {"Match Any","Match All"}
+	makeCarousel(farmPage, "Favorite Rule", FAV_RULE, FAV_RULE, St.favoriteRule, function(v)
+		St.favoriteRule = v; saveConfig()
+	end)
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	local favRarityOpts = {"Off"}
+	for i = 1, #rarityOptions do table.insert(favRarityOpts, rarityOptions[i]) end
+	makeCarousel(farmPage, "Favorite Min Rarity", favRarityOpts, favRarityOpts, "Off", function(v)
+		St.favoriteMinRarity = (v == "Off") and 0 or (rarityValueOf[v] or 0); saveConfig()
+	end)
+	makeMultiSelect(farmPage, "Favorite Mutations", function()
+		return {"Any Mutation", "No Mutation"}
+	end, St.favoriteMutations, function() saveConfig() end)
+	makeSlider(farmPage, "favoriteMinValueK", "Min Favorite Value", 0, 50000, "%dk")
+	makeMultiSelect(farmPage, "Always Favorite Species", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.favoriteAlwaysSpecies, function() saveConfig() end)
+	makeRow(farmPage, "autoFavoriteEquipped", "Auto Favorite Equipped", function(on) end)
+	makeRow(farmPage, "autoUnfavoriteEquipped", "Auto Unfavorite Equipped", function(on) end)
+end
 
 -- Auto Lab Trade-In
 task.spawn(function()
