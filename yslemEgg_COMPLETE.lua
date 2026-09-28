@@ -1,5 +1,5 @@
 -- ============================================================
--- yslemEgg — Steal An Egg Hub
+-- MoonEgg — Steal An Egg Hub
 -- Complete rebuild — new UI + unified movement engine + anti-detect
 -- ============================================================
 
@@ -64,9 +64,9 @@ end)
 
 -- kill previous instance (clean relaunch)
 pcall(function()
-	local old = game:GetService("CoreGui"):FindFirstChild("yslemEggGui")
+	local old = game:GetService("CoreGui"):FindFirstChild("MoonEggGui")
 	if old then old:Destroy() end
-	local old2 = LP.PlayerGui:FindFirstChild("yslemEggGui")
+	local old2 = LP.PlayerGui:FindFirstChild("MoonEggGui")
 	if old2 then old2:Destroy() end
 end)
 
@@ -128,7 +128,7 @@ local _MODULE_NAMES = {
 	"Assets","Mutations",
 }
 do
-	local lines = {"[yslemEgg] Game module status:"}
+	local lines = {"[MoonEgg] Game module status:"}
 	for _, name in ipairs(_MODULE_NAMES) do
 		if _ModuleStatus[name] then
 			table.insert(lines, "  OK        "..name.."  (".._ModuleFound[name]..")")
@@ -145,14 +145,14 @@ if _M.SlotId then
 		local keys = {}
 		for k, v in pairs(_M.SlotId) do table.insert(keys, tostring(k).." ("..typeof(v)..")") end
 		table.sort(keys)
-		print("[yslemEgg] AreaEggSlotIdentity — available keys:\n  "..table.concat(keys, "\n  "))
+		print("[MoonEgg] AreaEggSlotIdentity — available keys:\n  "..table.concat(keys, "\n  "))
 	end)
 end
 
 -- ============================================================
 -- CONFIRMED REMOTES (ReplicatedStorage.Packages.Networking)
 -- ============================================================
--- The yslemEgg analysis report listed the game's real Remote* instances
+-- The original analysis report listed the game's real Remote* instances
 -- live — their Name already contains the full "path" as a slash
 -- string (e.g. an instance literally named
 -- "RF/AwayEarnings/AskCollect", parented directly under Networking,
@@ -355,6 +355,19 @@ do
 		end
 		return rate * scaleFactor * mult
 	end
+	-- The egg/pet's own icon, straight from the game's asset directory
+	-- (aide_3 ~20756-20760: dir[category].Icon -> rbxassetid://<id>) —
+	-- a real id read live from game data, never guessed.
+	function _Egg.Icon(assetCategory)
+		local e = dirEntry(assetCategory)
+		local icon = e and e.Icon
+		if icon == nil then return nil end
+		icon = tostring(icon)
+		if icon == "" then return nil end
+		if tonumber(icon) then return "rbxassetid://"..icon end
+		if icon:sub(1,4) == "rbx" then return icon end
+		return nil
+	end
 	-- Builds the "N - DisplayName" rarity dropdown list (Any first),
 	-- exactly like Chilli Hub's tbl8/tbl9 pair. Falls back to the fixed
 	-- 10-tier list if the Directory hasn't loaded yet.
@@ -478,13 +491,13 @@ task.spawn(function()
 		if not ok then
 			if not _snapshotDebugPrinted then
 				_snapshotDebugPrinted = true
-				print("[yslemEgg] AskFieldEggSnapshot: unavailable or returned non-table")
+				print("[MoonEgg] AskFieldEggSnapshot: unavailable or returned non-table")
 			end
 		else
 			if not _snapshotDebugPrinted then
 				_snapshotDebugPrinted = true
 				local dumpOk, dump = pcall(function() return HttpService:JSONEncode(snap) end)
-				print("[yslemEgg] AskFieldEggSnapshot (first result):")
+				print("[MoonEgg] AskFieldEggSnapshot (first result):")
 				print(dumpOk and dump:sub(1, 800) or "<not serializable>")
 			end
 			-- Seed _fieldEggNet from snap.Records (Chilli Hub format).
@@ -757,7 +770,7 @@ local St = {
 -- Deliberately excluded: Bypass Anti-Cheat (never re-applied alone on
 -- load — a risky action on the character) and AimBat (aggressive
 -- behavior, must only start on a fresh click).
-local CONFIG_FILE = "yslemEgg_Config.json"
+local CONFIG_FILE = "MoonEgg_Config.json"
 local function loadConfig()
 	local ok, raw = pcall(function()
 		if isfile and isfile(CONFIG_FILE) then return readfile(CONFIG_FILE) end
@@ -1328,18 +1341,23 @@ end
 -- CONSTRUCTION DE L'INTERFACE
 -- ============================================================
 local gui = Instance.new("ScreenGui")
-gui.Name = "yslemEggGui"
+gui.Name = "MoonEggGui"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 pcall(function() gui.Parent = game:GetService("CoreGui") end)
 if not gui.Parent then gui.Parent = LP.PlayerGui end
 
--- Main window — compact size (reduced from the original 300x340), spawns centered on screen.
+-- Main window — widened/heightened from the original compact 248x268:
+-- the full Chilli Hub filter set (rarity dropdowns, multi-selects,
+-- value sliders) needs more breathing room per row and a lot more
+-- rows overall than the base yslemEgg feature set did. Still small
+-- enough for a phone screen, scrolls for the rest. Spawns centered.
+local WIN_W, WIN_H = 268, 340
 local main = Instance.new("Frame", gui)
 main.Name = "Main"
-main.Size = UDim2.new(0,248,0,268)
-main.Position = UDim2.new(0.5,-124,0.5,-134)
+main.Size = UDim2.new(0,WIN_W,0,WIN_H)
+main.Position = UDim2.new(0.5,-WIN_W/2,0.5,-WIN_H/2)
 main.BackgroundColor3 = C.BG
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
@@ -1355,11 +1373,31 @@ header.BackgroundColor3 = C.BG
 header.BorderSizePixel = 0
 corner(header, 20)
 
+-- Moon badge — procedural crescent (a moon-colored disc with a
+-- darker disc offset over it), not an external image: no asset id to
+-- go stale or fail to load, same trick the rest of the UI already
+-- uses for every other visual (gradients/strokes, no images at all).
+do
+	local moonBadge = Instance.new("Frame", header)
+	moonBadge.Size = UDim2.new(0,20,0,20)
+	moonBadge.Position = UDim2.new(0,12,0.5,-10)
+	moonBadge.BackgroundColor3 = C.MOON2
+	moonBadge.BorderSizePixel = 0
+	moonBadge.ClipsDescendants = true
+	corner(moonBadge, 10)
+	local moonShade = Instance.new("Frame", moonBadge)
+	moonShade.Size = UDim2.new(0,20,0,20)
+	moonShade.Position = UDim2.new(0,6,0,-4)
+	moonShade.BackgroundColor3 = C.BG
+	moonShade.BorderSizePixel = 0
+	corner(moonShade, 10)
+end
+
 local titleLbl = Instance.new("TextLabel", header)
 titleLbl.BackgroundTransparency = 1
-titleLbl.Size = UDim2.new(1,-50,1,0)
-titleLbl.Position = UDim2.new(0,12,0,0)
-titleLbl.Text = "yslemEgg"
+titleLbl.Size = UDim2.new(1,-72,1,0)
+titleLbl.Position = UDim2.new(0,38,0,0)
+titleLbl.Text = "MoonEgg"
 titleLbl.TextSize = 14
 titleLbl.Font = Enum.Font.GothamBold
 titleLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -1405,7 +1443,7 @@ local TABS = {"Farm","Speed","Visual","Misc"}
 local tabBtns, tabFlashes = {}, {}
 for _, name in ipairs(TABS) do
 	local btn = Instance.new("TextButton", tabBar)
-	btn.Size = UDim2.new(0,40,0,24)
+	btn.Size = UDim2.new(0,46,0,24)
 	btn.BackgroundColor3 = Color3.fromRGB(18,22,30)
 	btn.BackgroundTransparency = 0.5
 	btn.Text = name; btn.TextSize = 10
@@ -1485,8 +1523,8 @@ local function setStatus(_txt, _col) end
 -- MULTI-SELECT OVERLAY — matches Chilli Hub's CreateMultiDropdown
 -- widgets (Target Areas, Target/Place/Hatch Specific Eggs, ESP Show
 -- Info, Blacklist Sell, Specific Species to Fuse, Favorite
--- Mutations/Species). yslemEgg_1.lua's design system has no
--- multi-select primitive, so this adds one reusable overlay in the
+-- Mutations/Species). The base design system has no multi-select
+-- primitive, so this adds one reusable overlay in the
 -- same visual language (rows, living stroke, corner radius) instead
 -- of a one-off per feature.
 -- ============================================================
@@ -3053,11 +3091,27 @@ local function startESP()
 				bb.Size = UDim2.fromOffset(180*sizeMul, 48*sizeMul); bb.AlwaysOnTop = true; bb.MaxDistance = ESP_MAX_DIST
 				bb.Parent = p
 
+				-- ESP Show Info's "Icon" is the egg's real icon image,
+				-- read live from the game's own asset directory (never a
+				-- guessed asset id) — aide_3 ~20756-20760.
+				local iconId = info.Icon and _Egg.Icon(r.mutation) or nil
+				local textXOff = 0
+				if iconId then
+					local iconSz = 22 * sizeMul
+					local img = Instance.new("ImageLabel", bb)
+					img.Size = UDim2.fromOffset(iconSz, iconSz)
+					img.Position = UDim2.new(0,0,0,1)
+					img.BackgroundTransparency = 1
+					img.Image = iconId
+					img.ZIndex = 2
+					textXOff = iconSz + 4
+				end
+
 				-- ESP Show Info picks which lines render, exactly like
 				-- Chilli Hub's field list (Icon/Name/Rarity/Mutation/
 				-- Value/Weight/Size/Sell Price/Distance/Area/State).
 				local lines = {}
-				if info.Name or info.Icon then
+				if info.Name then
 					table.insert(lines, {text = tostring(r.cat or "Egg"), color = col, size = 12, bold = true})
 				end
 				if info.Rarity then
@@ -3092,7 +3146,7 @@ local function startESP()
 				for _, ln in ipairs(lines) do
 					local h = ln.size + 6
 					local lbl = Instance.new("TextLabel", bb)
-					lbl.Size = UDim2.new(1,0,0,h); lbl.Position = UDim2.new(0,0,0,y)
+					lbl.Size = UDim2.new(1,-textXOff,0,h); lbl.Position = UDim2.new(0,textXOff,0,y)
 					lbl.BackgroundTransparency = 1
 					lbl.Font = ln.bold and Enum.Font.GothamBold or Enum.Font.Gotham
 					lbl.TextSize = ln.size; lbl.TextStrokeTransparency = 0
@@ -3100,7 +3154,7 @@ local function startESP()
 					lbl.TextTruncate = Enum.TextTruncate.AtEnd
 					y = y + h
 				end
-				bb.Size = UDim2.fromOffset(180*sizeMul, math.max(y, 18))
+				bb.Size = UDim2.fromOffset(180*sizeMul, math.max(y, 22*sizeMul))
 
 				table.insert(_espParts, p)
 			end)
@@ -3297,6 +3351,7 @@ local function stopEspPlayers() if _espPlayerConn then _espPlayerConn:Disconnect
 local function startEspPlayers()
 	stopEspPlayers()
 	local _t = 0
+	local _espAvatarCache = {}
 	_espPlayerConn = RunService.Heartbeat:Connect(function(dt)
 		if not St.espPlayers then return end
 		_t = _t + dt; if _t < 2 then return end; _t = 0
@@ -3317,13 +3372,35 @@ local function startEspPlayers()
 						local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
 						if hrp then text = text .. "  ·  " .. math.floor((hrp.Position - myPos).Magnitude) .. "m" end
 					end
+					local avaSz = 18 * sizeMul
 					local bb = Instance.new("BillboardGui")
-					bb.Size = UDim2.fromOffset(140*sizeMul, 20*sizeMul)
+					bb.Size = UDim2.fromOffset(140*sizeMul + avaSz, 20*sizeMul)
 					bb.StudsOffset = Vector3.new(0,2,0)
 					bb.AlwaysOnTop = true
 					bb.Parent = head
+					-- Real avatar headshot thumbnail (Players:GetUserThumbnailAsync),
+					-- cached per userId so it's fetched once, not every 2s tick.
+					if St.espPlayerInfo then
+						local cached = _espAvatarCache[plr.UserId]
+						if cached == nil then
+							_espAvatarCache[plr.UserId] = false
+							task.spawn(function()
+								local ok, content = pcall(Players.GetUserThumbnailAsync, Players, plr.UserId,
+									Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+								if ok then _espAvatarCache[plr.UserId] = content end
+							end)
+						elseif cached then
+							local img = Instance.new("ImageLabel", bb)
+							img.Size = UDim2.fromOffset(avaSz, avaSz)
+							img.Position = UDim2.new(0,0,0,0)
+							img.BackgroundTransparency = 1
+							img.Image = cached
+							corner(img, avaSz/2)
+						end
+					end
 					local l = Instance.new("TextLabel", bb)
-					l.Size = UDim2.new(1,0,1,0); l.BackgroundTransparency = 1
+					l.Size = UDim2.new(1,-avaSz,1,0); l.Position = UDim2.new(0,avaSz,0,0)
+					l.BackgroundTransparency = 1
 					l.Text = text; l.TextColor3 = C.WHITE; l.Font = Enum.Font.GothamBold
 					l.TextSize = 12*sizeMul; l.TextStrokeTransparency = 0
 					table.insert(_espPlayerParts, bb)
@@ -4360,15 +4437,15 @@ do
 	end)
 end
 
-local minimized, fullHeight = false, 268
+local minimized, fullHeight = false, WIN_H
 minBtn.MouseButton1Click:Connect(function()
 	minimized = not minimized
 	if minimized then
-		TweenService:Create(main, TweenInfo.new(0.2), {Size=UDim2.new(0,248,0,42)}):Play()
+		TweenService:Create(main, TweenInfo.new(0.2), {Size=UDim2.new(0,WIN_W,0,42)}):Play()
 		contentArea.Visible = false; sep.Visible = false; tabBar.Visible = false
 		minBtn.Text = "+"
 	else
-		TweenService:Create(main, TweenInfo.new(0.2), {Size=UDim2.new(0,248,0,fullHeight)}):Play()
+		TweenService:Create(main, TweenInfo.new(0.2), {Size=UDim2.new(0,WIN_W,0,fullHeight)}):Play()
 		contentArea.Visible = true; sep.Visible = true; tabBar.Visible = true
 		minBtn.Text = "–"
 	end
@@ -4397,4 +4474,4 @@ if _savedConfig then
 	if St.speedOn then startSpeed(); if speedRefresh then speedRefresh() end end
 end
 
-print("[yslemEgg] Loaded — full rebuild — RightShift hide/show | Dock: Speed, AimBat, Bypass, Lock")
+print("[MoonEgg] Loaded — full rebuild — RightShift hide/show | Dock: Speed, AimBat, Bypass, Lock")
