@@ -743,6 +743,7 @@ local St = {
 	espEggSizePct    = 75,
 	espGuardSizePct  = 100,
 	espLostParts     = false,
+	espPlayerInfo    = false,
 	espPlayerSizePct = 100,
 
 	-- Misc
@@ -3017,8 +3018,26 @@ local function startESP()
 			myPos = mr and mr.Position
 		end
 
-		local total, readyCount, rareCount, lockedCount = #cachedEggs, 0, 0, 0
-		for _, r in ipairs(cachedEggs) do
+		-- ESP Own Base Eggs: merge in the separately-scanned own-slot list.
+		local pool = cachedEggs
+		if St.espOwnBase and #_ownBaseEggs > 0 then
+			pool = {}
+			for _, r in ipairs(cachedEggs) do table.insert(pool, r) end
+			for _, r in ipairs(_ownBaseEggs) do table.insert(pool, r) end
+		end
+
+		-- ESP Min Rarity / Min Value filters (Chilli Hub exact fields).
+		local minVal = St.espMinValueK * 1000
+		local filtered = {}
+		for _, r in ipairs(pool) do
+			if (r.rarity or _Egg.Rarity(r.mutation)) >= St.espMinRarity
+				and (r.value or _Egg.Value(r.mutation, r.scale, r.mutTable)) >= minVal then
+				table.insert(filtered, r)
+			end
+		end
+
+		local total, readyCount, rareCount, lockedCount = #filtered, 0, 0, 0
+		for _, r in ipairs(filtered) do
 			if r.enabled then readyCount = readyCount + 1 end
 			if r.tags and #r.tags > 0 then rareCount = rareCount + 1 end
 			if not areaUnlocked(r.area) then lockedCount = lockedCount + 1 end
@@ -3032,14 +3051,18 @@ local function startESP()
 		local ESP_MAX_SHOWN, ESP_MAX_DIST = 20, 220
 		local shown = {}
 		if myPos then
-			for _, r in ipairs(cachedEggs) do
+			for _, r in ipairs(filtered) do
 				local d = (r.pos - myPos).Magnitude
 				if d <= ESP_MAX_DIST then table.insert(shown, {r=r, d=d}) end
 			end
 			table.sort(shown, function(a,b) return a.d < b.d end)
 		else
-			for _, r in ipairs(cachedEggs) do shown[#shown+1] = {r=r, d=0} end
+			for _, r in ipairs(filtered) do shown[#shown+1] = {r=r, d=0} end
 		end
+
+		local sizePct = St.espFixedSize and 100 or St.espEggSizePct
+		local sizeMul = sizePct / 100
+		local info = St.espShowInfo
 
 		for i = 1, math.min(ESP_MAX_SHOWN, #shown) do
 			local r = shown[i].r
@@ -3057,49 +3080,57 @@ local function startESP()
 				p.Parent = workspace
 
 				local bb = Instance.new("BillboardGui")
-				bb.Size = UDim2.fromOffset(180,48); bb.AlwaysOnTop = true; bb.MaxDistance = ESP_MAX_DIST
+				bb.Size = UDim2.fromOffset(180*sizeMul, 48*sizeMul); bb.AlwaysOnTop = true; bb.MaxDistance = ESP_MAX_DIST
 				bb.Parent = p
 
-				-- 3 lines: name (rarity if known), status, weight+distance+zone
-				local nameLbl = Instance.new("TextLabel", bb)
-				nameLbl.Size = UDim2.new(1,0,0,18)
-				nameLbl.BackgroundTransparency = 1; nameLbl.Font = Enum.Font.GothamBold
-				nameLbl.TextSize = 12; nameLbl.TextStrokeTransparency = 0
-				nameLbl.TextColor3 = col; nameLbl.Text = tostring(r.cat or "Egg")
-				nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
-
-				local detailLbl = Instance.new("TextLabel", bb)
-				detailLbl.Size = UDim2.new(1,0,0,16); detailLbl.Position = UDim2.new(0,0,0,18)
-				detailLbl.BackgroundTransparency = 1; detailLbl.Font = Enum.Font.GothamMedium
-				detailLbl.TextSize = 10; detailLbl.TextStrokeTransparency = 0
-				detailLbl.TextColor3 = C.WHITE
-
-				local metaLbl = Instance.new("TextLabel", bb)
-				metaLbl.Size = UDim2.new(1,0,0,14); metaLbl.Position = UDim2.new(0,0,0,36)
-				metaLbl.BackgroundTransparency = 1; metaLbl.Font = Enum.Font.Gotham
-				metaLbl.TextSize = 9; metaLbl.TextStrokeTransparency = 0.1
-				metaLbl.TextColor3 = C.SILVER
-
-				-- Line 2: status only (no more duplicating the name, which
-				-- already carries the rarity via r.cat).
-				if notReady then
-					detailLbl.Text = "GROWING"
-				elseif not unlocked then
-					local A = AREA[r.area]
-					detailLbl.Text = "LOCKED ".._shortNum(A and A.reqSP)
-				else
-					detailLbl.Text = "READY"
+				-- ESP Show Info picks which lines render, exactly like
+				-- Chilli Hub's field list (Icon/Name/Rarity/Mutation/
+				-- Value/Weight/Size/Sell Price/Distance/Area/State).
+				local lines = {}
+				if info.Name or info.Icon then
+					table.insert(lines, {text = tostring(r.cat or "Egg"), color = col, size = 12, bold = true})
+				end
+				if info.Rarity then
+					table.insert(lines, {text = _Egg.RarityName(r.mutation), color = C.SILVER, size = 10})
+				end
+				if info.Mutation and r.mutTable and next(r.mutTable) then
+					local names = {}
+					for k in pairs(r.mutTable) do table.insert(names, tostring(k)) end
+					table.insert(lines, {text = table.concat(names, ", "), color = C.GOLD, size = 10})
+				end
+				if info.State then
+					if notReady then table.insert(lines, {text = "GROWING", color = C.WHITE, size = 10})
+					elseif not unlocked then
+						local A = AREA[r.area]
+						table.insert(lines, {text = "LOCKED ".._shortNum(A and A.reqSP), color = C.RED, size = 10})
+					else table.insert(lines, {text = "READY", color = C.WHITE, size = 10}) end
+				end
+				local metaParts = {}
+				if info.Weight and r.weight then table.insert(metaParts, r.weight.."kg") end
+				if info.Size and r.scale then table.insert(metaParts, string.format("%.1fx", r.scale)) end
+				if info.Value and r.value and r.value > 0 then table.insert(metaParts, _shortNum(r.value).."/s") end
+				if info.Distance and myPos then table.insert(metaParts, math.floor((r.pos - myPos).Magnitude).."m") end
+				if info.Area then table.insert(metaParts, tostring(r.area or "?")) end
+				if #metaParts > 0 then
+					table.insert(lines, {text = table.concat(metaParts, "  ·  "), color = C.SILVER, size = 9})
+				end
+				if #lines == 0 then
+					table.insert(lines, {text = tostring(r.cat or "Egg"), color = col, size = 12, bold = true})
 				end
 
-				-- Line 3: weight (only if a real kg value was read in-game
-				-- — never an estimate) + distance + zone.
-				local metaParts = {}
-				if r.weight then table.insert(metaParts, r.weight.."kg") end
-				local distTxt = "?m"
-				if myPos then distTxt = math.floor((r.pos - myPos).Magnitude).."m" end
-				table.insert(metaParts, distTxt)
-				table.insert(metaParts, tostring(r.area or "?"))
-				metaLbl.Text = table.concat(metaParts, "  ·  ")
+				local y = 0
+				for _, ln in ipairs(lines) do
+					local h = ln.size + 6
+					local lbl = Instance.new("TextLabel", bb)
+					lbl.Size = UDim2.new(1,0,0,h); lbl.Position = UDim2.new(0,0,0,y)
+					lbl.BackgroundTransparency = 1
+					lbl.Font = ln.bold and Enum.Font.GothamBold or Enum.Font.Gotham
+					lbl.TextSize = ln.size; lbl.TextStrokeTransparency = 0
+					lbl.TextColor3 = ln.color; lbl.Text = ln.text
+					lbl.TextTruncate = Enum.TextTruncate.AtEnd
+					y = y + h
+				end
+				bb.Size = UDim2.fromOffset(180*sizeMul, math.max(y, 18))
 
 				table.insert(_espParts, p)
 			end)
@@ -3126,6 +3157,20 @@ do
 	_espStatsLbl = label(row, "ESP inactive", UDim2.new(1,0,1,0), C.DIM, Enum.Font.Gotham)
 	_espStatsLbl.TextSize = 10.5
 	makeDivider(visualPage)
+end
+
+-- ESP filter/display widgets — exact Chilli Hub set (aide_3 ~19423-19620).
+do
+	makeRow(visualPage, "espFixedSize", "ESP Fixed Size", function(on) end)
+	makeRow(visualPage, "espOwnBase", "ESP Own Base Eggs", function(on) end)
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	makeCarousel(visualPage, "ESP Min Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+		St.espMinRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+	local ESP_INFO_FIELDS = {"Icon","Name","Rarity","Mutation","Value","Weight","Size","Distance","Area","State"}
+	makeMultiSelect(visualPage, "ESP Show Info", function() return ESP_INFO_FIELDS end, St.espShowInfo, function() saveConfig() end)
+	makeSlider(visualPage, "espMinValueK", "Min ESP Value", 0, 50000, "%dk")
+	makeSlider(visualPage, "espEggSizePct", "ESP Egg Size", 50, 200, "%d%%")
 end
 
 local _origBright = nil
@@ -3221,6 +3266,7 @@ local function startEspGuards()
 			folder = folder and folder:FindFirstChild("Areas")
 			folder = folder and folder:FindFirstChild("GuardAreas")
 			if not folder then return end
+			local sizeMul = St.espGuardSizePct / 100
 			for _, a in ipairs(folder:GetChildren()) do
 				local guard = a:FindFirstChild("Guard")
 				if guard then
@@ -3229,6 +3275,34 @@ local function startEspGuards()
 					h.FillTransparency = 0.6
 					h.Parent = guard
 					table.insert(_espGuardParts, h)
+
+					local gp = guard:FindFirstChildWhichIsA("BasePart", true)
+					if gp then
+						local bb = Instance.new("BillboardGui")
+						bb.Size = UDim2.fromOffset(90*sizeMul, 16*sizeMul)
+						bb.StudsOffset = Vector3.new(0,3,0); bb.AlwaysOnTop = true
+						bb.Parent = gp
+						local l = Instance.new("TextLabel", bb)
+						l.Size = UDim2.new(1,0,1,0); l.BackgroundTransparency = 1
+						l.Text = "GUARD"; l.TextColor3 = C.RED; l.Font = Enum.Font.GothamBold
+						l.TextSize = 11*sizeMul; l.TextStrokeTransparency = 0
+						table.insert(_espGuardParts, bb)
+					end
+				elseif St.espLostParts then
+					-- "Lost Parts": mark guard areas whose Guard is currently
+					-- absent (despawned/on cooldown) — shows where one will
+					-- reappear, dimmer than an active guard marker.
+					local ap = a:FindFirstChildWhichIsA("BasePart", true)
+					if ap then
+						local bb = Instance.new("BillboardGui")
+						bb.Size = UDim2.fromOffset(90,16); bb.StudsOffset = Vector3.new(0,3,0); bb.AlwaysOnTop = true
+						bb.Parent = ap
+						local l = Instance.new("TextLabel", bb)
+						l.Size = UDim2.new(1,0,1,0); l.BackgroundTransparency = 1
+						l.Text = "(no guard)"; l.TextColor3 = C.DIM; l.Font = Enum.Font.Gotham
+						l.TextSize = 10; l.TextStrokeTransparency = 0.2
+						table.insert(_espGuardParts, bb)
+					end
 				end
 			end
 		end)
@@ -3237,6 +3311,10 @@ end
 makeRow(visualPage, "espGuards", "ESP Guards", function(on)
 	if on then startEspGuards() else stopEspGuards() end
 end)
+do
+	makeSlider(visualPage, "espGuardSizePct", "ESP Guard Size", 50, 200, "%d%%")
+	makeRow(visualPage, "espLostParts", "ESP Lost Parts", function(on) end)
+end
 
 -- ESP Players
 local _espPlayerParts = {}
@@ -3253,19 +3331,31 @@ local function startEspPlayers()
 		if not St.espPlayers then return end
 		_t = _t + dt; if _t < 2 then return end; _t = 0
 		clearEspPlayers()
+		local sizeMul = St.espPlayerSizePct / 100
+		local myPos = nil
+		do
+			local mc = LP.Character
+			local mr = mc and mc:FindFirstChild("HumanoidRootPart")
+			myPos = mr and mr.Position
+		end
 		for _, plr in ipairs(Players:GetPlayers()) do
 			if plr ~= LP and plr.Character then
 				local head = plr.Character:FindFirstChild("Head")
 				if head then
+					local text = plr.Name
+					if St.espPlayerInfo and myPos then
+						local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+						if hrp then text = text .. "  ·  " .. math.floor((hrp.Position - myPos).Magnitude) .. "m" end
+					end
 					local bb = Instance.new("BillboardGui")
-					bb.Size = UDim2.fromOffset(120,20)
+					bb.Size = UDim2.fromOffset(140*sizeMul, 20*sizeMul)
 					bb.StudsOffset = Vector3.new(0,2,0)
 					bb.AlwaysOnTop = true
 					bb.Parent = head
 					local l = Instance.new("TextLabel", bb)
 					l.Size = UDim2.new(1,0,1,0); l.BackgroundTransparency = 1
-					l.Text = plr.Name; l.TextColor3 = C.WHITE; l.Font = Enum.Font.GothamBold
-					l.TextSize = 12; l.TextStrokeTransparency = 0
+					l.Text = text; l.TextColor3 = C.WHITE; l.Font = Enum.Font.GothamBold
+					l.TextSize = 12*sizeMul; l.TextStrokeTransparency = 0
 					table.insert(_espPlayerParts, bb)
 				end
 			end
@@ -3275,6 +3365,10 @@ end
 makeRow(visualPage, "espPlayers", "ESP Players", function(on)
 	if on then startEspPlayers() else stopEspPlayers() end
 end)
+do
+	makeRow(visualPage, "espPlayerInfo", "ESP Player Info", function(on) end)
+	makeSlider(visualPage, "espPlayerSizePct", "ESP Player Size", 50, 200, "%d%%")
+end
 
 -- ============================================================
 -- MISC TAB
