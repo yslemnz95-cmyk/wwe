@@ -129,7 +129,7 @@ local _MODULE_NAMES = {
 	"EggCmds","Network","Ragdoll","GuardEscapePrediction","GuardChasePolicy",
 	"ResolveGuardSpeedRequirement","SpeedPowerProjection","Guards","Areas",
 	"AreaEggSlotIdentity","Save","Constants","Bases","Treadmills","Trails","EggState",
-	"Assets","Mutations","TreadmillUtil","EggRecords","AreaEggCycle","FuseKernel",
+	"Assets","Mutations","TreadmillUtil","EggRecords","AreaEggCycle","FuseKernel","Gears",
 }
 do
 	local lines = {"[MoonEgg] Game module status:"}
@@ -821,7 +821,13 @@ local St = {
 	autoUnfavoriteEquipped = false,
 
 	-- Combat
-	hitSweep         = 20,
+	hitSweep         = 60,
+	hitTween         = 400,
+	hitMaxSpeed      = 750,
+	hitLead          = -275,
+	hitPicked        = "",
+	autoHitHolders   = false,
+	autoHitSpecific  = false,
 
 	-- ESP
 	espFixedSize     = false,
@@ -3995,37 +4001,281 @@ do
 		end
 	end)
 
-	-- ---------- Mech boss ----------
+	-- ---------- Mech boss (Chilli Hub ~10696-11480) ----------
+	-- Timer to the next Mech portal; when it is open: walk to it, touch it and
+	-- EnterArena; inside, circle the boss at 18 studs on the safest of 16 points
+	-- (hazards from RE/ScrambleBoss/Hazard are dodged), swing the bat / second
+	-- gear alternately, break the grab, chase Dr Scramble in the human phase, and
+	-- leave through LeaveTeleport once it is over.
 	sectionHeader(ev, "Mech Boss")
 	local mechStatus = statusRow("Idle")
-	local _mechConn = nil
-	local function stopMech()
-		if _mechConn then _mechConn:Disconnect(); _mechConn = nil end
-		mechStatus.Text = "Off"
-	end
-	local function startMech()
-		stopMech()
-		mechStatus.Text = "Entering the arena..."
-		task.spawn(function() pcall(function() _invokeRF("RF/ScrambleBoss/EnterArena") end) end)
-		local t = 0
-		_mechConn = RunService.Heartbeat:Connect(function(dt)
-			if not St.autoMech then return end
-			t = t + dt; if t < 0.5 then return end; t = 0
-			pcall(function()
-				local boss = workspace:FindFirstChild("ScrambleBoss", true) or workspace:FindFirstChild("Mech", true)
-				local bossHRP = boss and (boss:IsA("Model") and boss.PrimaryPart or boss:FindFirstChild("HumanoidRootPart"))
-				if bossHRP then
-					mechStatus.Text = "Fighting the boss"
-					_fireRE("RE/BatSwing/Trigger", {serverTime = workspace:GetServerTimeNow(), targetCFrame = bossHRP.CFrame})
-				else
-					mechStatus.Text = "Waiting for the boss"
-				end
-			end)
-		end)
-	end
-	makeRow(ev, "autoMech", "Auto Mech Boss", function(on)
-		if on then startMech() else stopMech() end
+	local Mech = {Busy = false, Gen = 0, Hazards = {}, TravelSpeed = 250, Radius = 18, SwingGap = 0.12,
+		Interval = 1800, SwapIndex = 1, SwapSince = 0, MainHold = 0.3, SecondHold = 0.4, LastSwing = 0,
+		Status = "Idle", DefeatedAt = nil}
+	pcall(function()
+		local flags = require(game:GetService("ReplicatedStorage").Shared.Flags.ScrambleBossFlags)
+		local iv = type(flags.ScheduleIntervalSeconds) == "table" and tonumber(flags.ScheduleIntervalSeconds.Value) or nil
+		if iv and iv > 0 then Mech.Interval = iv end
 	end)
+	local HazardMod
+	pcall(function() HazardMod = require(game:GetService("ReplicatedStorage").Shared.Util.ScrambleBossHazards) end)
+	pcall(function()
+		local re = _getRemote("RE/ScrambleBoss/Hazard")
+		if re and re:IsA("RemoteEvent") then
+			re.OnClientEvent:Connect(function(h) if type(h) == "table" then Mech.Hazards[h.Id or (#Mech.Hazards + 1)] = h end end)
+		end
+	end)
+	LP.CharacterAdded:Connect(function() Mech.Respawned = true end)
+
+	local function arena() return workspace:FindFirstChild("ScrambleArena") end
+	local function portal() return workspace:FindFirstChild("ScrambleArenaPortal") end
+	local function inArena() return LP:GetAttribute("InBossArena") ~= nil and LP:GetAttribute("InBossArena") ~= false end
+	local function clock(sec) sec = math.max(0, math.floor(sec + 0.5)); return string.format("%d:%02d", math.floor(sec / 60), sec % 60) end
+	local function timer()
+		if portal() then return "Mech portal is open now" end
+		local now = workspace:GetServerTimeNow()
+		return "Next Mech portal in " .. clock(math.ceil(now / Mech.Interval) * Mech.Interval - now)
+	end
+	local function stealFirst()
+		if Place and Place.busy then return "Auto Place Egg goes first" end
+		if St.autoFarm and (MV.farming or MV.carry.on) then return "Auto Steal goes first" end
+		if MV.other and not Mech.Busy then return "Another helper goes first" end
+		return nil
+	end
+	local function hitboxOf(m)
+		if not m then return nil end
+		local hb = m:FindFirstChild("Hitbox", true)
+		if hb and hb:IsA("BasePart") then return hb end
+		for _, d in ipairs(m:GetDescendants()) do
+			if d:IsA("TouchTransmitter") and d.Parent and d.Parent:IsA("BasePart") then return d.Parent end
+		end
+	end
+	local function touch(part)
+		local root = MV.Root()
+		if root and part and type(firetouchinterest) == "function" then
+			pcall(function() firetouchinterest(root, part, 0); task.wait(0.05); firetouchinterest(root, part, 1) end)
+		end
+	end
+	local function hazardHit(pos, t)
+		if not HazardMod or type(HazardMod.Contains) ~= "function" then return false end
+		for k, h in pairs(Mech.Hazards) do
+			local at, warn = tonumber(h.At) or 0, tonumber(h.Warn) or 0
+			if t > at + 2 then Mech.Hazards[k] = nil
+			elseif t >= at - warn - 0.1 then
+				local ok, hit = pcall(HazardMod.Contains, h, pos, t)
+				if ok and hit then return true end
+			end
+		end
+		return false
+	end
+	local function gearTool()
+		for _, c in ipairs({LP.Character, LP:FindFirstChildOfClass("Backpack")}) do
+			if c then for _, t in ipairs(c:GetChildren()) do
+				if t:IsA("Tool") and tostring(t:GetAttribute("ItemType")) == "Gear" then return t end
+			end end
+		end
+	end
+	local function batTool()
+		for _, c in ipairs({LP.Character, LP:FindFirstChildOfClass("Backpack")}) do
+			if c then for _, t in ipairs(c:GetChildren()) do
+				if t:IsA("Tool") and (t:GetAttribute("IsBat") == true or (t:GetAttribute("ItemType") == nil and string.find(string.lower(t.Name), "bat", 1, true))) then return t end
+			end end
+		end
+	end
+	local function swing()
+		if os.clock() - Mech.LastSwing < Mech.SwingGap then return end
+		Mech.LastSwing = os.clock()
+		local hum = MV.Hum()
+		local bat, gear = batTool(), gearTool()
+		local tool
+		if gear and bat then
+			local hold = Mech.SwapIndex == 2 and Mech.SecondHold or Mech.MainHold
+			if os.clock() - Mech.SwapSince >= hold then Mech.SwapIndex = Mech.SwapIndex == 2 and 1 or 2; Mech.SwapSince = os.clock() end
+			tool = Mech.SwapIndex == 2 and gear or bat
+		else
+			tool = bat or gear
+		end
+		if not tool or not hum then return end
+		if tool.Parent ~= LP.Character then pcall(function() hum:EquipTool(tool) end) end
+		pcall(function() tool:Activate() end)
+	end
+	local function place(pos, look)
+		local ch, root = LP.Character, MV.Root()
+		if not ch or not root then return end
+		if (root.Position - pos).Magnitude > 3 then
+			pcall(function()
+				ch:PivotTo(CFrame.lookAt(pos, Vector3.new(look.X, pos.Y, look.Z)))
+				root.AssemblyLinearVelocity = Vector3.zero
+			end)
+		end
+	end
+	local function bossOf(ar)
+		local m = ar:FindFirstChild("Mech")
+		local hb = m and m:FindFirstChild("Hitbox")
+		if hb and hb:IsA("BasePart") then return hb.Position, m end
+		for _, c in ipairs(ar:GetChildren()) do
+			if c:IsA("Model") and c.Name ~= "Ball" and c.Name ~= "LeaveTeleport" and c.Name ~= "Structure" then
+				local h2 = c:FindFirstChild("Hitbox")
+				if h2 and h2:IsA("BasePart") then return h2.Position, c end
+			end
+		end
+	end
+	local function ballStep(ar, root)
+		local ball = ar:FindFirstChild("Ball")
+		if not ball then return false end
+		local ok, cf = pcall(function() return ball:GetBoundingBox() end)
+		if not ok then return false end
+		local pos = cf.Position
+		local floorY = (tonumber(ar:GetAttribute("FloorY")) or pos.Y) + 3
+		local core = tonumber(ar:GetAttribute("CoreHealth"))
+		if core and core > 0 then
+			local d = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
+			d = d.Magnitude > 1 and d.Unit or Vector3.new(1, 0, 0)
+			place(Vector3.new(pos.X, floorY, pos.Z) + d * 10, pos)
+			swing()
+			Mech.Status = string.format("Smashing the core  |  stage %s / 3  |  core %s", tostring(ar:GetAttribute("CoreStage") or 0), tostring(core))
+			return true
+		end
+		local d = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
+		if d.Magnitude > 18 or d.Magnitude < 6 then
+			local u = d.Magnitude < 1 and Vector3.new(1, 0, 0) or d.Unit
+			place(Vector3.new(pos.X, floorY, pos.Z) + u * 12, pos)
+		end
+		Mech.Status = "Ball phase, waiting for it to lock on"
+		return true
+	end
+	local function humanStep(ar, root)
+		local human = ar:FindFirstChild("ScrambleHuman")
+		if not human then return false end
+		local hrp = human:FindFirstChild("HumanoidRootPart") or human.PrimaryPart or human:FindFirstChildWhichIsA("BasePart")
+		local pos = hrp and hrp.Position or human:GetPivot().Position
+		local d = Vector3.new(root.Position.X - pos.X, 0, root.Position.Z - pos.Z)
+		local dir = d.Magnitude > 1 and d.Unit * 5 or Vector3.zero
+		local dest = Vector3.new(pos.X, root.Position.Y, pos.Z) + dir
+		pcall(function() LP.Character:PivotTo(CFrame.lookAt(dest, Vector3.new(pos.X, dest.Y, pos.Z))) end)
+		swing()
+		Mech.Status = string.format("Chasing Dr Scramble  |  hits %s / %s", tostring(ar:GetAttribute("HumanHits") or 0), tostring(ar:GetAttribute("HumanNeeded") or 3))
+		return true
+	end
+	local function fightStep()
+		local ar, root, hum = arena(), MV.Root(), MV.Hum()
+		if not ar or not root or not hum then return end
+		if tostring(ar:GetAttribute("GrabVictim")) == tostring(LP.UserId) then
+			hum.Jump = true; swing()
+			Mech.Status = "Grabbed, breaking free"
+			return
+		end
+		local phase = tostring(ar:GetAttribute("Phase"))
+		if phase == "Ball" and ballStep(ar, root) then return end
+		if phase == "Human" and humanStep(ar, root) then return end
+		local bossPos = bossOf(ar)
+		if not bossPos then
+			local left = (tonumber(ar:GetAttribute("SpawnsAt")) or 0) - workspace:GetServerTimeNow()
+			Mech.Status = left > 0 and ("In the arena  |  boss spawns in " .. clock(left)) or ("Phase " .. phase .. ", waiting for the boss")
+			return
+		end
+		local now = workspace:GetServerTimeNow()
+		local y = (tonumber(ar:GetAttribute("FloorY")) or bossPos.Y) + 3
+		local bestPos, bestScore
+		for i = 0, 15 do
+			local a = i / 16 * math.pi * 2
+			local p = Vector3.new(bossPos.X + math.cos(a) * Mech.Radius, y, bossPos.Z + math.sin(a) * Mech.Radius)
+			local score = (p - root.Position).Magnitude
+			if hazardHit(p, now) or hazardHit(p, now + 0.4) then score = score + 10000 end
+			if not bestScore or score < bestScore then bestScore, bestPos = score, p end
+		end
+		if bestPos then place(bestPos, bossPos) end
+		swing()
+		Mech.Status = string.format("Fighting %s  |  boss %d / %d", phase, math.floor((tonumber(ar:GetAttribute("Health")) or 0) + 0.5), math.floor((tonumber(ar:GetAttribute("MaxHealth")) or 0) + 0.5))
+	end
+	local function leaveArena()
+		local ar = arena()
+		local lt = ar and ar:FindFirstChild("LeaveTeleport")
+		local part = hitboxOf(lt) or (lt and lt:FindFirstChildWhichIsA("BasePart"))
+		if not part then return end
+		pcall(function() LP.Character:PivotTo(CFrame.new(part.Position + Vector3.new(0, 3, 0))) end)
+		task.wait(0.2)
+		touch(part)
+	end
+	local function enter(gen)
+		local pt = portal()
+		local part = hitboxOf(pt) or (pt and pt:FindFirstChildWhichIsA("BasePart"))
+		if not part then return false end
+		local stop = function() return gen ~= Mech.Gen or not St.autoMech or stealFirst() ~= nil end
+		Mech.Status = "Going to the Mech portal"
+		_invokeRF("RF/Treadmill/AskDoff")
+		local root = MV.Root()
+		if root and root.Position.X < (function()
+			local w = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+			w = w and w:FindFirstChild("Areas"); w = w and w:FindFirstChild("SeparationLine")
+			return w and w:IsA("BasePart") and w.Position.X or 552
+		end)() then
+			Mech.Status = Mech.Respawned and "Respawned, going out through the safe zone" or "Leaving the base through the safe zone"
+			MV.Go(_findSafeZonePos() + Vector3.new(0, 3, 0), 4, 20, stop, function() return Mech.TravelSpeed end)
+		end
+		Mech.Respawned = false
+		if stop() then return false end
+		MV.Go(part.Position, 14, 40, stop, function() return Mech.TravelSpeed end)
+		if stop() then return false end
+		touch(part)
+		task.wait(0.4)
+		if not inArena() then _invokeRF("RF/ScrambleBoss/EnterArena") end
+		local t0 = os.clock()
+		while not inArena() and os.clock() - t0 < 5 do task.wait(0.1) end
+		return inArena()
+	end
+	local function run(gen)
+		Mech.Busy = true
+		MV.other = true
+		MV.Shield("mech", true)
+		MV.GodMode(true)
+		pcall(function()
+			if not inArena() and not stealFirst() then enter(gen) end
+			while gen == Mech.Gen and St.autoMech and inArena() and not stealFirst() do
+				local ar = arena()
+				local phase = ar and tostring(ar:GetAttribute("Phase")) or ""
+				if phase == "Defeated" or phase == "Final" or phase == "Ended" or phase == "Won" then
+					Mech.Status = "Dr Scramble defeated, going back home"
+					Mech.DefeatedAt = Mech.DefeatedAt or os.clock()
+					if os.clock() - Mech.DefeatedAt > 15 then pcall(leaveArena); task.wait(2) end
+				else
+					pcall(fightStep)
+				end
+				RunService.Heartbeat:Wait()
+			end
+			if inArena() and stealFirst() then
+				Mech.Status = tostring(stealFirst()) .. ", leaving the arena"
+				pcall(leaveArena)
+				task.wait(1)
+			end
+		end)
+		Mech.DefeatedAt = nil
+		MV.Stop(); MV.GodMode(false); MV.Shield("mech", false)
+		MV.other = false
+		Mech.Busy = false
+	end
+	task.spawn(function()
+		while true do
+			task.wait(0.25)
+			if not St.autoMech then
+				Mech.Status = "Off  |  " .. timer()
+			elseif not Mech.Busy then
+				local sf = stealFirst()
+				if sf then
+					Mech.Status = sf
+				elseif inArena() then
+					Mech.Status = "In the arena"
+					task.spawn(run, Mech.Gen)
+				elseif portal() then
+					task.spawn(run, Mech.Gen)
+				else
+					Mech.Status = timer()
+				end
+			end
+			if eventsWin.frame.Visible and not eventsWin.minimized then mechStatus.Text = Mech.Status end
+		end
+	end)
+	makeRow(ev, "autoMech", "Auto Mech Boss", function(on) Mech.Gen = Mech.Gen + 1 end)
 
 	-- ---------- Scrambled Mutation (Chilli Hub ~14183-15090) ----------
 	-- The Scrambled consumable is a Tool (ItemType "MutationConsumable",
@@ -5225,84 +5475,300 @@ do
 end
 
 
--- Auto Hit Nearest / Auto Hit Aura — Chilli Hub's exclusive combat
--- target group (CreateExclusiveGroup MaxActive=1, aide_3 ~17855-17894):
--- turning one on switches the other off. Forward-declared so each
--- toggle's callback can stop+resync the other.
-local stopHitNearest, startHitNearest, stopHitAura, startHitAura
-local _hitRefresh = {}
-
-local _hitNearestConn = nil
-function stopHitNearest() if _hitNearestConn then _hitNearestConn:Disconnect(); _hitNearestConn = nil end end
-function startHitNearest()
-	stopHitNearest()
-	local _t = 0
-	_hitNearestConn = RunService.Heartbeat:Connect(function(dt)
-		if not St.autoHitNearest then return end
-		_t = _t + dt; if _t < 0.3 then return end; _t = 0
-		pcall(function()
-			local char = LP.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-			if not hrp then return end
-			local best, bestD = nil, math.huge
-			for _, plr in ipairs(Players:GetPlayers()) do
-				if plr ~= LP and plr.Character then
-					local h = plr.Character:FindFirstChild("HumanoidRootPart")
-					if h then
-						local d = (h.Position - hrp.Position).Magnitude
-						if d < bestD then bestD = d; best = h end
-					end
-				end
-			end
-			if best then
-				_fireRE("RE/BatSwing/Trigger", {serverTime = workspace:GetServerTimeNow(), targetCFrame = best.CFrame})
-			end
-		end)
-	end)
-end
+-- ============================================================
+-- COMBAT — Chilli Hub (aide_3 ~16716-18060). The hit is
+-- RE/BatSwing/Trigger:FireServer(targetPlayer, "userId:trace:timeMs") with a
+-- bat equipped, the target inside the bat's reach and the bat off cooldown.
+-- Hit Player modes (one at a time, like its exclusive group): Nearest Player,
+-- Egg Holders, Specific Player; Hit Aura hits whoever is in reach without
+-- moving. While chasing, the character is steered at Hit Tween / Hit Max Speed
+-- toward a point ahead of the target (Hit Lead), with the Humanoid Swap shield
+-- and no-clip held.
+-- ============================================================
 sectionHeader(miscPage, "Combat")
+local Combat = {status = "Idle", target = nil, moving = false, lastFire = 0, trace = 0, equipAt = 0, tracks = {}}
+_M.Gears = _tryRequire("Gears")
 do
-	local _, _, refresh = makeRow(miscPage, "autoHitNearest", "Auto Hit Nearest", function(on)
-		if on then
-			if St.autoHitAura then St.autoHitAura = false; stopHitAura(); if _hitRefresh.Aura then _hitRefresh.Aura() end end
-			startHitNearest()
-		else stopHitNearest() end
-	end)
-	_hitRefresh.Nearest = refresh
-end
-
-local _hitAuraConn = nil
-function stopHitAura() if _hitAuraConn then _hitAuraConn:Disconnect(); _hitAuraConn = nil end end
-function startHitAura()
-	stopHitAura()
-	local _t = 0
-	_hitAuraConn = RunService.Heartbeat:Connect(function(dt)
-		if not St.autoHitAura then return end
-		_t = _t + dt; if _t < 0.3 then return end; _t = 0
-		pcall(function()
-			local char = LP.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-			if not hrp then return end
-			for _, plr in ipairs(Players:GetPlayers()) do
-				if plr ~= LP and plr.Character then
-					local h = plr.Character:FindFirstChild("HumanoidRootPart")
-					if h and (h.Position - hrp.Position).Magnitude <= St.hitSweep then
-						_fireRE("RE/BatSwing/Trigger", {serverTime = workspace:GetServerTimeNow(), targetCFrame = h.CFrame})
+	local function sepX()
+		local w = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+		w = w and w:FindFirstChild("Areas")
+		w = w and w:FindFirstChild("SeparationLine")
+		return w and w:IsA("BasePart") and w.Position.X or 552
+	end
+	local function isBat(t)
+		if typeof(t) ~= "Instance" or not t:IsA("Tool") then return false end
+		if t:GetAttribute("IsBat") == true then return true end
+		local gname = t:GetAttribute("GearName")
+		if type(gname) == "string" then
+			local dir = _M.Gears and _M.Gears.Directory
+			local g = type(dir) == "table" and dir[gname]
+			if type(g) == "table" then return g.BatControllerData ~= nil end
+		end
+		if t:GetAttribute("ItemType") ~= nil then return false end
+		return string.find(string.lower(t.Name), "bat", 1, true) ~= nil
+	end
+	local function rangeBonus(t)
+		local dir = _M.Gears and _M.Gears.Directory
+		local g = type(dir) == "table" and dir[tostring(t:GetAttribute("GearName") or t.Name)]
+		local d = type(g) == "table" and g.BatControllerData
+		return type(d) == "table" and tonumber(d.RangeBonus) or 0
+	end
+	local function range(t) return 15 + 2 + (t and rangeBonus(t) or 0) end
+	local function pickBat()
+		local ch = LP.Character
+		local held = ch and ch:FindFirstChildWhichIsA("Tool")
+		if isBat(held) then return held end
+		local best, bestB = nil, -1
+		for _, cont in ipairs({ch, LP:FindFirstChildOfClass("Backpack")}) do
+			if cont then
+				for _, c in ipairs(cont:GetChildren()) do
+					if isBat(c) then
+						local b = rangeBonus(c)
+						if b > bestB then best, bestB = c, b end
 					end
 				end
 			end
+		end
+		return best
+	end
+	local function equip(bat)
+		local ch, hum = LP.Character, MV.Hum()
+		if not ch or not hum then return false end
+		if bat.Parent == ch then return true end
+		if os.clock() - Combat.equipAt < 0.2 then return false end
+		Combat.equipAt = os.clock()
+		pcall(function() hum:EquipTool(bat) end)
+		return bat.Parent == ch
+	end
+	local function ragdolled(plr) return (tonumber(plr:GetAttribute("RagdollEndTime")) or 0) > workspace:GetServerTimeNow() end
+	local function parts(plr)
+		local ch = plr and plr.Character
+		local root = ch and ch:FindFirstChild("HumanoidRootPart")
+		local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+		if not root or not hum or hum.Health <= 0 then return nil end
+		return ch, root
+	end
+	local function hittable(plr)
+		if not plr or plr == LP or plr.Parent ~= Players then return false end
+		local ch, root = parts(plr)
+		if not ch then return false end
+		if ch:GetAttribute("IsTrapped") == true or plr:GetAttribute("InBossArena") then return false end
+		return not (root.Position.X < sepX())
+	end
+	-- players carrying an egg = a non-guard model in the workspace welded to their body
+	local holders, holdersAt = {}, 0
+	local function scanHolders()
+		if os.clock() - holdersAt < 0.5 then return holders end
+		holdersAt = os.clock()
+		holders = {}
+		for _, m in ipairs(workspace:GetChildren()) do
+			if m:IsA("Model") and not m:FindFirstChild("Hitbox") and m ~= LP.Character then
+				for _, d in ipairs(m:GetDescendants()) do
+					if d:IsA("WeldConstraint") or d:IsA("JointInstance") then
+						local ok, a, b = pcall(function() return d.Part0, d.Part1 end)
+						if ok then
+							for _, plr in ipairs(Players:GetPlayers()) do
+								local ch = plr.Character
+								if plr ~= LP and ch and ((a and a:IsDescendantOf(ch)) or (b and b:IsDescendantOf(ch))) then holders[plr] = true end
+							end
+						end
+					end
+				end
+			end
+		end
+		return holders
+	end
+	local function track(plr, root)
+		local t = Combat.tracks[plr]
+		if not t then t = {samples = {}, smooth = Vector3.zero}; Combat.tracks[plr] = t end
+		local now = os.clock()
+		table.insert(t.samples, {now, root.Position})
+		while #t.samples > 2 and now - t.samples[1][1] > 0.12 do table.remove(t.samples, 1) end
+		local v = root.AssemblyLinearVelocity
+		local first = t.samples[1]
+		local dt = now - first[1]
+		if dt >= 0.03 then
+			local dv = (root.Position - first[2]) / dt
+			if dv.Magnitude <= 1500 and v.Magnitude <= dv.Magnitude * 1.4 then v = dv end
+		end
+		local flat = Vector3.new(v.X, 0, v.Z)
+		t.smooth = t.smooth:Lerp(flat, 0.25)
+		t.vel = v
+		return v, flat, t.smooth
+	end
+	local function plan(plr, root, me)
+		local vel, flat, smooth = track(plr, root)
+		local ping = math.clamp(LP:GetNetworkPing(), 0, 1)
+		local lead = math.clamp(St.hitLead / 1000, -0.4, 0.1)
+		local sweep = math.clamp(St.hitSweep / 100, 0, 2.5)
+		local pos = root.Position
+		local ahead = pos + flat * (ping + 0.36 + 0.18 + lead) + (smooth.Magnitude > 1 and smooth.Unit * 6 * sweep or Vector3.zero)
+		local heading = smooth.Magnitude > 1 and smooth.Unit or (function()
+			local d = Vector3.new(me.Position.X - pos.X, 0, me.Position.Z - pos.Z)
+			return d.Magnitude > 0.1 and d.Unit or Vector3.new(0, 0, 1)
+		end)()
+		local side = Vector3.new(-heading.Z, 0, heading.X)
+		if side:Dot(me.Position - ahead) < 0 then side = -side end
+		local now = os.clock()
+		local goal = ahead + side * (flat.Magnitude < 35 and 3 or 1.5) + Vector3.new(0, math.sin(now * 2 * math.pi / 1.1) * 2.5 * 0 + 0, 0)
+		goal = Vector3.new(goal.X, pos.Y, goal.Z)
+		return {Goal = goal, Velocity = flat, Face = pos, Current = pos, Historical = ahead}
+	end
+	local function steer(root, p, tween, maxSpeed, dt)
+		dt = math.max(dt, 1 / 240)
+		local v = p.Velocity
+		local want = v + (p.Goal - root.Position) / math.max(0.12, dt)
+		local cap = math.min(tween + v.Magnitude, maxSpeed)
+		if want.Magnitude > cap then want = want.Unit * cap end
+		local av = want + Vector3.new(0, workspace.Gravity * dt * 0.5, 0)
+		pcall(function()
+			local f = Vector3.new(p.Face.X - root.Position.X, 0, p.Face.Z - root.Position.Z)
+			if f.Magnitude > 0.05 then root.CFrame = CFrame.lookAt(root.Position, root.Position + f.Unit) end
+			root.AssemblyLinearVelocity = av
+			root.AssemblyAngularVelocity = Vector3.zero
 		end)
+	end
+	local function tryHit(plr, p)
+		if workspace:GetAttribute("PvPDisabled") == true then return "Player hits are off right now" end
+		local ch, me = LP.Character, MV.Root()
+		local hum = MV.Hum()
+		if not ch or not me or not hum or hum.Health <= 0 then return nil end
+		local bat = pickBat()
+		if not bat then return "No bat found, get any bat to hit players" end
+		if not equip(bat) then return "Equipping " .. tostring(bat:GetAttribute("GearName") or bat.Name) end
+		if not hittable(plr) or ragdolled(plr) then return nil end
+		local _, troot = parts(plr)
+		if not troot then return nil end
+		p = p or plan(plr, troot, me)
+		local reach = range(bat) - 1
+		local mine = me.Position - me.AssemblyLinearVelocity * 0.18
+		if (p.Historical - mine).Magnitude > reach and (p.Current - mine).Magnitude > reach then return nil end
+		local ping = math.clamp(LP:GetNetworkPing(), 0, 1)
+		local cd = tonumber(bat:GetAttribute("CooldownEndTime")) or 0
+		if workspace:GetServerTimeNow() < cd - ping * 0.5 then return nil end
+		if os.clock() - Combat.lastFire < math.max(0.12, ping * 1.5) then return nil end
+		local remote = _getRemote("RE/BatSwing/Trigger")
+		if not remote or not remote:IsA("RemoteEvent") then return "Bat remote is missing" end
+		Combat.lastFire = os.clock()
+		Combat.trace = Combat.trace + 1
+		local id = string.format("%d:%d:%d", LP.UserId, Combat.trace, math.floor(workspace:GetServerTimeNow() * 1000))
+		pcall(function() remote:FireServer(plr, id) end)
+		return "Hitting " .. plr.DisplayName
+	end
+	local function release()
+		if Combat.moving then
+			Combat.moving = false
+			MV.Stop(); MV.GodMode(false); MV.Shield("combat", false); MV.other = false
+		end
+	end
+	local function pickTarget(mode)
+		local me = MV.Root()
+		if not me then return nil end
+		if mode == "specific" then
+			local plr = St.hitPicked ~= "" and Players:FindFirstChild(St.hitPicked) or nil
+			if plr and hittable(plr) then return plr end
+			return nil, "Picked player is not reachable"
+		end
+		local best, bestD = nil, math.huge
+		local hs = mode == "holders" and scanHolders() or nil
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if hittable(plr) and not ragdolled(plr) and (not hs or hs[plr]) then
+				local _, r = parts(plr)
+				local d = (r.Position - me.Position).Magnitude
+				if d < bestD then best, bestD = plr, d end
+			end
+		end
+		if best then return best end
+		return nil, mode == "holders" and "Waiting for someone to hold an egg" or "No player to hit"
+	end
+	RunService.Heartbeat:Connect(function(dt)
+		local mode = St.autoHitNearest and "nearest" or St.autoHitHolders and "holders" or St.autoHitSpecific and "specific" or nil
+		if not mode and not St.autoHitAura then
+			if Combat.status ~= "Idle" then Combat.status = "Idle" end
+			release(); Combat.target = nil
+			return
+		end
+		local me = MV.Root()
+		local hum = MV.Hum()
+		if not me or not hum or hum.Health <= 0 then release(); Combat.status = "Waiting for your character"; return end
+		if St.autoHitAura and not mode then
+			release()
+			local bat = pickBat()
+			if not bat then Combat.status = "No bat found, get any bat to hit players"; return end
+			equip(bat)
+			local reach = range(bat) - 1
+			local victim
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if hittable(plr) and not ragdolled(plr) then
+					local _, r = parts(plr)
+					if r and (r.Position - me.Position).Magnitude <= reach then victim = plr; break end
+				end
+			end
+			if victim then
+				Combat.status = tryHit(victim) or ("Hitting " .. victim.DisplayName)
+			else
+				Combat.status = "No player in reach"
+			end
+			return
+		end
+		if MV.farming or MV.other and not Combat.moving then
+			release(); Combat.status = "Auto Steal goes first"; return
+		end
+		local target, why = pickTarget(mode)
+		Combat.target = target
+		if not target then release(); Combat.status = why or "No player to hit"; return end
+		local _, troot = parts(target)
+		if not troot then release(); return end
+		if not Combat.moving then
+			Combat.moving = true
+			MV.other = true
+			MV.Shield("combat", true)
+			MV.GodMode(true)
+		end
+		local p = plan(target, troot, me)
+		if not (mode ~= "specific" and MV.Ragdolled()) then steer(me, p, St.hitTween, St.hitMaxSpeed, dt) end
+		Combat.status = tryHit(target, p) or ("Chasing " .. target.DisplayName)
 	end)
 end
 do
-	local _, _, refresh = makeRow(miscPage, "autoHitAura", "Auto Hit Aura", function(on)
-		if on then
-			if St.autoHitNearest then St.autoHitNearest = false; stopHitNearest(); if _hitRefresh.Nearest then _hitRefresh.Nearest() end end
-			startHitAura()
-		else stopHitAura() end
+	local f = Instance.new("Frame", miscPage)
+	f.Size = UDim2.new(1, -12, 0, 20); f.BackgroundTransparency = 1
+	local l = label(f, "Hit Status: Idle", UDim2.new(1, -8, 1, 0), C.DIM, Enum.Font.GothamMedium)
+	l.Position = UDim2.new(0, 8, 0, 0); l.TextSize = 9
+	task.spawn(function() while true do task.wait(0.5); l.Text = "Hit Status: " .. Combat.status end end)
+end
+do
+	local KEYS = {"autoHitNearest", "autoHitHolders", "autoHitSpecific", "autoHitAura"}
+	local refreshers = {}
+	local function exclusive(active)
+		for _, k in ipairs(KEYS) do
+			if k ~= active and St[k] then St[k] = false; if refreshers[k] then refreshers[k]() end end
+		end
+	end
+	local defs = {
+		{"autoHitNearest", "Auto Hit Nearest Player"}, {"autoHitHolders", "Auto Hit Egg Holders"},
+		{"autoHitSpecific", "Auto Hit Specific Player"}, {"autoHitAura", "Hit Aura"},
+	}
+	for _, d in ipairs(defs) do
+		local _, _, refresh = makeRow(miscPage, d[1], d[2], function(on) if on then exclusive(d[1]) end end)
+		refreshers[d[1]] = refresh
+	end
+	local _, pickBtn = makeButton(miscPage, "Hit Player", St.hitPicked ~= "" and St.hitPicked or "Pick", function() end)
+	pickBtn.Size = UDim2.new(0, 96, 0, 18); pickBtn.Position = UDim2.new(1, -96, 0.5, -9)
+	pickBtn.MouseButton1Click:Connect(function()
+		local names = {}
+		for _, p in ipairs(Players:GetPlayers()) do if p ~= LP then names[#names + 1] = p.Name end end
+		table.sort(names)
+		if #names == 0 then St.hitPicked = ""; pickBtn.Text = "Nobody"; return end
+		local idx = table.find(names, St.hitPicked) or 0
+		St.hitPicked = names[idx % #names + 1]
+		pickBtn.Text = St.hitPicked
+		saveConfig()
 	end)
-	_hitRefresh.Aura = refresh
-	makeSlider(miscPage, "hitSweep", "Hit Sweep", 0, 100, "%d studs")
+	makeSlider(miscPage, "hitTween", "Hit Tween Speed", 100, 1000, "%d")
+	makeSlider(miscPage, "hitMaxSpeed", "Hit Max Speed", 100, 1000, "%d")
+	makeSlider(miscPage, "hitLead", "Hit Lead", -400, 100, "%d")
+	makeSlider(miscPage, "hitSweep", "Hit Sweep", 0, 250, "%d%%")
 end
 
 
