@@ -248,30 +248,25 @@ end
 --      computed EXIT_DIR (literally "the direction to exit a guarded
 --      zone" in this hub).
 -- ============================================================
-local _safeZonePos = nil
+-- Chilli Hub stealHome() exact logic: find the safe base delivery point.
+local _STEAL_HOME_PATHS = {
+	{Path={"GearGiver_Slap","Podium"}, Offset=Vector3.new(-16.415,21.072,-6.106)},
+	{Path={"World","Machines","RiftMachine","Rift","Meshes/VoidPortal_Cube.003"}, Offset=Vector3.new(-26.776,1.75,18.665)},
+	{Path={"__OBJECTS","Machines","RiftMachine","Rift","Meshes/VoidPortal_Cube.003"}, Offset=Vector3.new(-26.776,1.75,18.665)},
+}
 local function _findSafeZonePos()
-	if _safeZonePos then return _safeZonePos end
 	local found = nil
-	pcall(function()
-		for _, inst in ipairs(workspace:GetDescendants()) do
-			if inst.Name:lower():find("safe", 1, true) then
-				if inst:IsA("BasePart") then
-					found = inst.Position; break
-				elseif inst:IsA("Model") then
-					local ok, cf = pcall(function() return inst:GetPivot() end)
-					if ok and cf then found = cf.Position; break end
-				end
-			end
+	for _, entry in ipairs(_STEAL_HOME_PATHS) do
+		local obj = workspace
+		for _, name in ipairs(entry.Path) do
+			obj = obj and obj:FindFirstChild(name) or nil
 		end
-	end)
-	if not found then
-		pcall(function()
-			local sep = workspace.__OBJECTS.Areas.SeparationLine
-			found = sep.Position + EXIT_DIR * 50
-		end)
+		if obj and obj:IsA("BasePart") then
+			found = obj.CFrame:PointToWorldSpace(entry.Offset)
+			break
+		end
 	end
-	_safeZonePos = found
-	return found
+	return found or Vector3.new(528.7, 70.57, -364.11)
 end
 
 -- ============================================================
@@ -420,45 +415,34 @@ task.spawn(function()
 				print("[yslemEgg] AskFieldEggSnapshot (first result):")
 				print(dumpOk and dump:sub(1, 800) or "<not serializable>")
 			end
-			-- Seed _fieldEggNet with every egg in the snapshot.
-			-- Keyed by UID (string), so the farm loop can call
-			-- AskFieldEggCarry with the real id — never with a made-up one.
+			-- Seed _fieldEggNet from snap.Records (Chilli Hub format).
+			-- snap = {Records = [{Uid, State, BottomCFrame, AssetCategory, AssetScale, AreaId}]}
 			local now2 = tick()
 			pcall(function()
-				for uid, data in pairs(snap) do
-					local uid2 = tostring(uid)
-					if type(data) == "table" then
-						local cf2, pos2
-						if typeof(data.BoundsCFrame) == "CFrame" then
-							cf2 = data.BoundsCFrame; pos2 = cf2.Position
-						elseif typeof(data.BottomCFrame) == "CFrame" then
-							cf2 = data.BottomCFrame; pos2 = cf2.Position
-						elseif typeof(data.CFrame) == "CFrame" then
-							cf2 = data.CFrame; pos2 = cf2.Position
-						end
-						if pos2 then
-							local mutation = type(data.Mutation) == "string" and data.Mutation or nil
-							local nestScale = type(data.NestScale) == "number" and data.NestScale or nil
-							local zoneDir2 = data.Zone or data.Area or data.AreaName or data.Island or data.ZoneName
-							local zone = (type(zoneDir2)=="string" and zoneDir2~="") and zoneDir2 or _posToZone(pos2)
-							local tags2 = {}
-							local low2 = (mutation or ""):lower()
-							for _, kw in ipairs(_RARE_KEYWORDS) do
-								if low2:find(kw,1,true) then table.insert(tags2, kw) end
-							end
-							-- Use BottomCFrame as walk target when available.
-							local walkPos2 = (typeof(data.BottomCFrame)=="CFrame" and data.BottomCFrame.Position) or pos2
-							-- Only add if not already present (FieldEggShifted may have a
-							-- fresher entry with the same uid — don't overwrite it).
-							if not _fieldEggNet[uid2] then
-								_fieldEggNet[uid2] = {
-									pos=walkPos2, cf=cf2, mutation=mutation, nestScale=nestScale,
-									zone=zone, tags=tags2, uid=uid2,
-									t=now2, enabled=true, farmable=true,
-								}
-							end
-						end
+				local records = type(snap) == "table" and snap.Records or nil
+				if type(records) ~= "table" then return end
+				for _, record in ipairs(records) do
+					if type(record) ~= "table" then continue end
+					local uid2 = record.Uid and tostring(record.Uid) or nil
+					if not uid2 then continue end
+					local state = record.State
+					if state == "Claimed" or state == "Carried" then continue end
+					local cf2 = typeof(record.BottomCFrame) == "CFrame" and record.BottomCFrame or nil
+					if not cf2 then continue end
+					local pos2 = cf2.Position
+					local areaId = tostring(record.AreaId or "")
+					local assetCategory = tostring(record.AssetCategory or "")
+					local zone = (areaId ~= "") and areaId or _posToZone(pos2)
+					local tags2 = {}
+					local low2 = assetCategory:lower()
+					for _, kw in ipairs(_RARE_KEYWORDS) do
+						if low2:find(kw,1,true) then table.insert(tags2, kw) end
 					end
+					_fieldEggNet[uid2] = {
+						pos=pos2, cf=cf2, mutation=assetCategory, nestScale=tonumber(record.AssetScale),
+						zone=zone, tags=tags2, uid=uid2,
+						t=now2, enabled=true, farmable=true,
+					}
 				end
 			end)
 		end
@@ -1527,42 +1511,35 @@ task.spawn(function()
 		end)
 	end
 
-	local _canFireSignal = typeof(firesignal) == "function"
+	-- Find the CarryAreaEgg ProximityPrompt on the nearest SmartPromptPart
+	-- within maxDist studs of eggPos (Chilli Hub exact technique).
+	local function _findCarryPrompt(eggPos, maxDist)
+		maxDist = maxDist or 14
+		local best, bestDist = nil, maxDist
+		for _, child in ipairs(workspace:GetChildren()) do
+			if child.Name == "SmartPromptPart" and child:IsA("BasePart") then
+				local carryAreaEgg = child:FindFirstChild("CarryAreaEgg")
+				if carryAreaEgg and carryAreaEgg:IsA("ProximityPrompt") then
+					local d = (child.Position - eggPos).Magnitude
+					if d < bestDist then bestDist = d; best = carryAreaEgg end
+				end
+			end
+		end
+		return best
+	end
+
 	local function _tryGrab(target)
 		pcall(function()
-			if target.prompt then
-				-- A. fireproximityprompt — standard exploit primitive.
+			-- Primary: CarryAreaEgg on nearest SmartPromptPart (Chilli Hub technique).
+			local carryPrompt = _findCarryPrompt(target.pos)
+			if carryPrompt then
+				pcall(function() carryPrompt.HoldDuration = 0 end)
+				if fireproximityprompt then pcall(fireproximityprompt, carryPrompt) end
+			end
+			-- Fallback: explicit prompt from source-3 scan.
+			if target.prompt and target.prompt ~= carryPrompt then
+				pcall(function() target.prompt.HoldDuration = 0 end)
 				if fireproximityprompt then pcall(fireproximityprompt, target.prompt) end
-				-- B. firesignal on Triggered — proven fallback.
-				if _canFireSignal then pcall(firesignal, target.prompt.Triggered, LP) end
-				-- C. Tollbox extras: internal handlers via getconnections.
-				_initStealData(target.prompt)
-				local sd = _stealData[target.prompt]
-				if sd and not sd.useFallback then
-					if #sd.hold > 0 then
-						for _, f in ipairs(sd.hold) do task.spawn(f) end
-					end
-					if #sd.trigger > 0 then
-						for _, f in ipairs(sd.trigger) do task.spawn(f) end
-					end
-				else
-					-- D. InputHoldBegin/End — last-resort on executors without getconnections.
-					pcall(function()
-						target.prompt:InputHoldBegin()
-						task.wait(_HOLD_DUR)
-						target.prompt:InputHoldEnd()
-					end)
-				end
-			end
-			-- E. Direct RF carry (always).
-			if target.uid then
-				_invokeRF("RF/EggWorld/AskFieldEggCarry", target.uid)
-			end
-			-- F. ClickDetector fallback.
-			if target.part and fireclickdetector then
-				for _, d2 in ipairs(target.part:GetChildren()) do
-					if d2:IsA("ClickDetector") then pcall(fireclickdetector, d2) end
-				end
 			end
 		end)
 	end
