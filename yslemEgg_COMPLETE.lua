@@ -50,8 +50,11 @@ end
 local function _invoke(path, ...)
     local r = _remote(path)
     if r and r:IsA("RemoteFunction") then
-        local ok, res = pcall(function(...) return r:InvokeServer(...) end, ...)
-        if ok then return res end
+        local packed = table.pack(pcall(function(...) return r:InvokeServer(...) end, ...))
+        if packed[1] then
+            -- packed = {true, result1, result2, ...} -> return result1, result2, ...
+            return table.unpack(packed, 2, packed.n)
+        end
     end
     return nil
 end
@@ -756,7 +759,11 @@ local function _penAnchor()
             local sign = plot:FindFirstChild("PlotSign", true)
             local nameLbl = sign and sign:FindFirstChild("PlayerName", true)
             if nameLbl and nameLbl:IsA("TextLabel") and nameLbl.Text:lower() == lp.Name:lower() then
-                return plot:IsA("Model") and plot:GetPivot().Position or plot.Position
+                if plot:IsA("Model") then
+                    return plot:GetPivot().Position
+                elseif plot:IsA("BasePart") then
+                    return plot.Position
+                end
             end
         end
     end
@@ -1252,11 +1259,15 @@ do -- Anti Trap
         end
     end
     function PlayerFX.StartAntiTrap()
-        for _, trap in ipairs(CollectionService:GetTagged("PlacedTrap")) do neutralize(trap) end
         local conn = CollectionService:GetInstanceAddedSignal("PlacedTrap"):Connect(function(trap)
             if S.antiTrap then neutralize(trap) end
         end)
         table.insert(conns, conn)
+        -- Deferred: don't let the initial scan of existing tagged instances
+        -- block the script's main (non-yielding) load thread.
+        task.spawn(function()
+            for _, trap in ipairs(CollectionService:GetTagged("PlacedTrap")) do neutralize(trap) end
+        end)
     end
     function PlayerFX.StopAntiTrap()
         for _, c in ipairs(conns) do c:Disconnect() end
@@ -1278,13 +1289,22 @@ do -- Instant Prompts
         prompt.HoldDuration = 0
     end
     function PlayerFX.StartInstantPrompts()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") then apply(obj) end
-        end
         local conn = workspace.DescendantAdded:Connect(function(obj)
             if S.instantPrompts and obj:IsA("ProximityPrompt") then apply(obj) end
         end)
         table.insert(conns, conn)
+        -- Deferred + yielding: a full workspace:GetDescendants() scan can be
+        -- tens of thousands of instances in this game; running it inline
+        -- during script load risks tripping the "exhausted execution time"
+        -- watchdog, especially on mobile executors. Spawn it separately and
+        -- yield periodically while walking it.
+        task.spawn(function()
+            local all = workspace:GetDescendants()
+            for i, obj in ipairs(all) do
+                if obj:IsA("ProximityPrompt") then apply(obj) end
+                if i % 500 == 0 then task.wait() end
+            end
+        end)
     end
     function PlayerFX.StopInstantPrompts()
         for _, c in ipairs(conns) do c:Disconnect() end
@@ -1670,7 +1690,7 @@ local function _toggle(parent, text, key, order, onChange)
     end)
     return row, btn
 end
-local function _cycleDropdown(parent, text, key, options, order)
+local function _cycleDropdown(parent, text, key, options, order, onChange)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, 0, 0, 24)
     row.BackgroundTransparency = 1
@@ -1705,6 +1725,7 @@ local function _cycleDropdown(parent, text, key, options, order)
         S[key] = options[idx]
         btn.Text = tostring(options[idx])
         _saveSettings()
+        if onChange then onChange(S[key]) end
     end)
     return row
 end
@@ -2014,7 +2035,7 @@ do
     webhookBox.PlaceholderText = "https://discord.com/api/webhooks/..."
     webhookBox.TextColor3 = YELLOW
     webhookBox.TextSize = 9
-    webhookBox.Font = Enum.Font.Code
+    webhookBox.Font = Enum.Font.RobotoMono
     webhookBox.ClearTextOnFocus = false
     webhookBox.BorderSizePixel = 0
     webhookBox.Parent = webhookRow
@@ -2205,6 +2226,12 @@ end)
 --============================================================
 -- INITIAL STATE + CLEANUP
 --============================================================
+-- Yield here: everything above (module requires, UI construction) ran as one
+-- non-yielding chunk. A long enough chunk can trip the engine's "exhausted
+-- allowed execution time" watchdog, which kills the whole script with no
+-- visible error -- more likely on weaker/mobile executors. This resets it.
+task.wait()
+
 if S.speedBoost then PlayerFX.StartSpeedBoost() end
 if S.infiniteJump then PlayerFX.StartInfiniteJump() end
 if S.godMode then PlayerFX.StartGodMode() end
