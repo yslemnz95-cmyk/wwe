@@ -785,7 +785,12 @@ local _farmFullStopRef = function() end
 -- (do..end block: these variables are only used by the movement
 -- engine — releasing them from the root chunk's local count after
 -- "end", same 200-local limit as for the palette, see comment above)
-local startSpeed, stopSpeed
+--
+-- Auto Farm pathing only (proxy Part + AssemblyLinearVelocity). Speed
+-- Boost itself is a SEPARATE system below — matches the game's real
+-- Speed Boost technique (direct Humanoid.WalkSpeed override + treadmill
+-- dismount + RE/RigSync/AskRigWipe to stop the server correcting it
+-- back down), not a velocity proxy.
 do
 	local _proxy, _ownConn = nil, nil
 	local _ownTimer, _ownInterval = 0, 0.8 + math.random()*0.4
@@ -808,7 +813,7 @@ do
 		_proxy = p
 		_claimOwn(hrp)
 		_ownConn = hrp:GetPropertyChangedSignal("ReceiveAge"):Connect(function()
-			if St.speedOn or _farmMoving then task.defer(function() _claimOwn(hrp) end) end
+			if _farmMoving then task.defer(function() _claimOwn(hrp) end) end
 		end)
 		return p
 	end
@@ -822,8 +827,7 @@ do
 		local hrp = char:FindFirstChild("HumanoidRootPart")
 		if not hum or not hrp then _cleanProxy(); return end
 
-		local wantsMove = _farmMoving or St.speedOn
-		if not wantsMove then _cleanProxy(); return end
+		if not _farmMoving then _cleanProxy(); return end
 
 		local st = hum:GetState()
 		if hum.PlatformStand or st == Enum.HumanoidStateType.Physics
@@ -838,7 +842,7 @@ do
 
 		local px = _ensureProxy(hrp)
 
-		if _farmMoving and _farmTargetPos then
+		if _farmTargetPos then
 			local delta = _farmTargetPos - hrp.Position
 			local flat = Vector3.new(delta.X, 0, delta.Z)
 			if flat.Magnitude > 1 then
@@ -847,20 +851,70 @@ do
 			else
 				px.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
 			end
-		else -- St.speedOn
-			local md = hum.MoveDirection
-			if md.Magnitude > 0 then
-				local jit = 1 + (math.random()-0.5)*0.08
-				px.AssemblyLinearVelocity = Vector3.new(md.X*St.speed*jit, hrp.AssemblyLinearVelocity.Y, md.Z*St.speed*jit)
-			else
-				px.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
-			end
 		end
 	end)
 	LP.CharacterAdded:Connect(function() _cleanProxy() end)
+end
 
-	startSpeed = function() St.speedOn = true end
-	stopSpeed = function() St.speedOn = false; if not _farmMoving then _cleanProxy() end end
+-- ============================================================
+-- SPEED BOOST — matches the game's real technique: direct
+-- Humanoid.WalkSpeed override (not a velocity proxy), dismount the
+-- treadmill first (RF/Treadmill/AskDoff, invoked twice), then
+-- RE/RigSync/AskRigWipe to clear the server-side rig correction so
+-- the override isn't snapped back down.
+-- ============================================================
+local startSpeed, stopSpeed
+do
+	local _origWalkSpeed = nil
+	local _speedActive = false
+	local _speedConn = nil
+
+	local function _dismountTreadmill()
+		local r = _getRemote("RF/Treadmill/AskDoff")
+		if r and r:IsA("RemoteFunction") then
+			for _ = 1, 2 do pcall(function() r:InvokeServer() end) end
+		end
+	end
+	local function _wipeRig()
+		local r = _getRemote("RE/RigSync/AskRigWipe")
+		if r and r:IsA("RemoteEvent") then pcall(function() r:FireServer() end) end
+	end
+	local function _applySpeed()
+		local char = LP.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if not hum then return end
+		if _origWalkSpeed == nil then _origWalkSpeed = hum.WalkSpeed end
+		hum.WalkSpeed = St.speed
+	end
+
+	startSpeed = function()
+		St.speedOn = true
+		_speedActive = true
+		_dismountTreadmill()
+		_applySpeed()
+		_wipeRig()
+		if _speedConn then _speedConn:Disconnect() end
+		_speedConn = RunService.Heartbeat:Connect(function()
+			if not _speedActive then return end
+			local char = LP.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hum and hum.WalkSpeed ~= St.speed then _applySpeed(); _wipeRig() end
+		end)
+		LP.CharacterAdded:Connect(function()
+			if not _speedActive then return end
+			_origWalkSpeed = nil
+			task.defer(function() _applySpeed(); _wipeRig() end)
+		end)
+	end
+	stopSpeed = function()
+		St.speedOn = false
+		_speedActive = false
+		if _speedConn then _speedConn:Disconnect(); _speedConn = nil end
+		local char = LP.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum and _origWalkSpeed then hum.WalkSpeed = _origWalkSpeed end
+		_origWalkSpeed = nil
+	end
 end
 
 -- ============================================================
@@ -2070,27 +2124,40 @@ local function _applyRagdollModuleOverride(on)
 		end
 	end
 end
-local _ragConn = nil
+-- The game itself drives ragdoll through a "RagdollEndTime" attribute
+-- on the LocalPlayer (set to a future serverTime while ragdolled) — this
+-- is the actual signal the game's own systems react to, not just the
+-- Humanoid state. Reacting to it directly (restore Health + cancel
+-- state) is faster and more reliable than only polling GetState().
+local _ragConn, _ragAttrConn = nil, nil
+local function _ragdollCounter()
+	if not St.antiRagdoll then return end
+	local char = LP.Character; if not char then return end
+	local hum = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
+	pcall(function()
+		if hum.Health > 0 and hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+	end)
+	local st = hum:GetState()
+	if st==Enum.HumanoidStateType.Physics or st==Enum.HumanoidStateType.Ragdoll
+		or st==Enum.HumanoidStateType.FallingDown then
+		hum:ChangeState(Enum.HumanoidStateType.Running)
+	end
+end
 local function stopAntiRag()
 	if _ragConn then _ragConn:Disconnect(); _ragConn = nil end
+	if _ragAttrConn then _ragAttrConn:Disconnect(); _ragAttrConn = nil end
 	_applyRagdollModuleOverride(false)
 end
 local function startAntiRag()
 	stopAntiRag()
 	_applyRagdollModuleOverride(true)
+	_ragAttrConn = LP:GetAttributeChangedSignal("RagdollEndTime"):Connect(_ragdollCounter)
 	local _t = 0
 	_ragConn = RunService.Heartbeat:Connect(function()
 		if not St.antiRagdoll then return end
 		local now = tick(); if now-_t < 0.1 then return end; _t = now
+		_ragdollCounter()
 		local char = LP.Character; if not char then return end
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			local st = hum:GetState()
-			if st==Enum.HumanoidStateType.Physics or st==Enum.HumanoidStateType.Ragdoll
-				or st==Enum.HumanoidStateType.FallingDown then
-				hum:ChangeState(Enum.HumanoidStateType.Running)
-			end
-		end
 		for _, obj in ipairs(char:GetDescendants()) do
 			if obj:IsA("Motor6D") and not obj.Enabled then obj.Enabled = true end
 		end
