@@ -701,6 +701,14 @@ local St = {
 	stealTweenPct    = 100,
 	stealCarryPct    = 100,
 	showFarmPath     = true,
+	stealMissingLab  = false,
+
+	-- Dr Scramble Event (Auto Use Scrambled Mutation)
+	autoUseScrambled = false,
+	mutationMinRarity = 0,
+	mutationMinValueK = 0,
+	mutationPriority = "Highest Value",
+	mutationTargetEggs = {},
 
 	-- Auto Place Egg filters
 	placeRule        = "Always",
@@ -815,6 +823,11 @@ local _aimBatActive = false
 local _farmMoving = false
 local _farmTargetPos = nil
 local _farmSpeed = 40
+-- Categories currently required by an unfinished Lab Trade-In and
+-- missing from inventory — refreshed by "Steal Missing Lab Eggs"
+-- further below (aide_3 ~2219-2332's RiftNeeds), read here so the
+-- target-selection loop can widen its pool to grab them on sight.
+local _labNeeds = {}
 -- Filled in by the Auto Farm loop further below — exposed here so the
 -- "autoFarm" toggle can force a COMPLETE, IMMEDIATE stop on click
 -- (instead of waiting up to 0.2s for the next loop pass).
@@ -1818,7 +1831,10 @@ task.spawn(function()
 				return al:find(fzLow,1,true)~=nil or fzLow:find(al,1,true)~=nil
 			end
 			-- Chilli Hub exact filters: Min Rarity, Min Steal Value, Target
-			-- Specific Eggs (empty selection = match every species).
+			-- Specific Eggs (empty selection = match every species). A
+			-- species the Lab Trade-In is still missing is always
+			-- eligible too when "Steal Missing Lab Eggs" is on — same
+			-- override Chilli Hub's RiftNeeds gives its own filters.
 			local minVal = St.stealMinValueK * 1000
 			local hasTargetSet = next(St.stealTargetEggs) ~= nil
 			local candidates = {}
@@ -1826,7 +1842,8 @@ task.spawn(function()
 				if r.enabled and r.farmable ~= false and _zoneOk(r.area)
 					and (r.rarity or 0) >= St.stealMinRarity
 					and (r.value or 0) >= minVal
-					and (not hasTargetSet or St.stealTargetEggs[r.mutation or ""]) then
+					and (not hasTargetSet or St.stealTargetEggs[r.mutation or ""]
+						or (St.stealMissingLab and _labNeeds[r.mutation or ""])) then
 					table.insert(candidates, r)
 				end
 			end
@@ -1983,6 +2000,7 @@ do
 	makeSlider(farmPage, "stealTweenPct", "Tween Speed", 50, 120, "%d%%")
 	makeSlider(farmPage, "stealCarryPct", "Carry Speed", 80, 120, "%d%%")
 	makeRow(farmPage, "showFarmPath", "Show Farm Path", function(on) end)
+	makeRow(farmPage, "stealMissingLab", "Steal Missing Lab Eggs", function(on) end)
 end
 
 -- Auto Hatch / Auto Equip — directly clicks the game's real UI buttons
@@ -2641,6 +2659,37 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoLab", "Auto Lab Trade-In", function(on) end)
 
+-- Steal Missing Lab Eggs — feeds the Auto Farm target-selection loop
+-- (see _labNeeds near the top of the file) with whatever species the
+-- unfinished Lab Trade-In still needs, exactly like Chilli Hub's
+-- RiftNeeds (aide_3 ~2219-2332): diff the trade-in Requirements
+-- against everything already owned (pets + eggs, placed or not).
+task.spawn(function()
+	while true do
+		task.wait(30)
+		if St.stealMissingLab then
+			pcall(function()
+				local ok, state = _invokeRF("RF/ScrambleTradeIn/AskState")
+				if ok and type(state) == "table" and type(state.Requirements) == "table" then
+					local owned = {}
+					local items = _readOwnerEggs(nil)
+					if items then
+						for _, it in ipairs(items) do owned[tostring(it.rec.AssetCategory)] = true end
+					end
+					local needs = {}
+					for _, cat in ipairs(state.Requirements) do
+						local c = tostring(cat)
+						if not owned[c] then needs[c] = true end
+					end
+					_labNeeds = needs
+				end
+			end)
+		elseif next(_labNeeds) ~= nil then
+			_labNeeds = {}
+		end
+	end
+end)
+
 -- Auto Mech Boss
 local _mechConn = nil
 local function stopMech() if _mechConn then _mechConn:Disconnect(); _mechConn = nil end end
@@ -2663,6 +2712,72 @@ end
 makeRow(farmPage, "autoMech", "Auto Mech Boss", function(on)
 	if on then startMech() else stopMech() end
 end)
+
+sectionHeader(farmPage, "Dr Scramble Event")
+-- Auto Use Scrambled Mutation — exact Chilli Hub remote (aide_3
+-- ~14685-14710): RF/BossMastery/AskUseMutationConsumable(uid). Skips
+-- already-mutated eggs (SkipMutated default true in the source) since
+-- re-applying does nothing useful.
+task.spawn(function()
+	while true do
+		task.wait(_AD_jitter(3.0))
+		if St.autoUseScrambled then
+			pcall(function()
+				local hasTargetSet = next(St.mutationTargetEggs) ~= nil
+				local minVal = St.mutationMinValueK * 1000
+				local items = _readOwnerEggs(function(rec)
+					if rec.Placement ~= nil then return false end
+					if type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
+					local cat = rec.AssetCategory
+					if _Egg.Rarity(cat) < St.mutationMinRarity then return false end
+					if hasTargetSet and not St.mutationTargetEggs[tostring(cat)] then return false end
+					if minVal > 0 and _Egg.Value(cat, rec.AssetScale, rec.Mutations) < minVal then return false end
+					return true
+				end)
+				if items and #items > 0 then
+					-- Mutation Priority (Chilli Hub exact 3 modes)
+					local priority = St.mutationPriority
+					table.sort(items, function(a, b)
+						if priority == "Best Rarity" then
+							return _Egg.Rarity(a.rec.AssetCategory) > _Egg.Rarity(b.rec.AssetCategory)
+						elseif priority == "Biggest Size" then
+							return (tonumber(a.rec.AssetScale) or 0) > (tonumber(b.rec.AssetScale) or 0)
+						end
+						return _Egg.Value(a.rec.AssetCategory, a.rec.AssetScale, a.rec.Mutations)
+							> _Egg.Value(b.rec.AssetCategory, b.rec.AssetScale, b.rec.Mutations)
+					end)
+					-- No auto-purchase on failure/out-of-charges: Chilli
+					-- Hub's own "Auto Buy Scrambled" has no real buy call
+					-- either, just a status hint to buy manually.
+					_invokeRF("RF/BossMastery/AskUseMutationConsumable", items[1].uid)
+				end
+			end)
+		end
+	end
+end)
+makeRow(farmPage, "autoUseScrambled", "Auto Use Scrambled Mutation", function(on) end)
+do
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	makeCarousel(farmPage, "Mutation Min Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+		St.mutationMinRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+	makeSlider(farmPage, "mutationMinValueK", "Min Mutation Value", 0, 50000, "%dk")
+	local MUTATION_PRIORITY = {"Highest Value","Best Rarity","Biggest Size"}
+	makeCarousel(farmPage, "Mutation Priority", MUTATION_PRIORITY, MUTATION_PRIORITY, St.mutationPriority, function(v)
+		St.mutationPriority = v; saveConfig()
+	end)
+	makeMultiSelect(farmPage, "Mutation Target Eggs", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.mutationTargetEggs, function() saveConfig() end, _Egg.Icon)
+end
 
 sectionHeader(farmPage, "Progression")
 -- Auto Buy Trail
