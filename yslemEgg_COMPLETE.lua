@@ -120,12 +120,13 @@ _M.Trails     = _tryRequire("Trails")
 _M.EggState   = _tryRequire("EggState")  -- ReplicatedStorage.Client.EggState
 _M.Assets     = _tryRequire("Assets")    -- ReplicatedStorage.Data.Assets (rarity/value directory)
 _M.Mutations  = _tryRequire("Mutations") -- ReplicatedStorage.Shared.Modules.Mutations (EarningsFor)
+_M.TreadmillUtil = _tryRequire("TreadmillUtil") -- Shared.Util.TreadmillUtil (SpeedPowerToWalkSpeed)
 
 local _MODULE_NAMES = {
 	"EggCmds","Network","Ragdoll","GuardEscapePrediction","GuardChasePolicy",
 	"ResolveGuardSpeedRequirement","SpeedPowerProjection","Guards","Areas",
 	"AreaEggSlotIdentity","Save","Constants","Bases","Treadmills","Trails","EggState",
-	"Assets","Mutations",
+	"Assets","Mutations","TreadmillUtil",
 }
 do
 	local lines = {"[MoonEgg] Game module status:"}
@@ -323,6 +324,10 @@ do
 		return type(e) == "table" and e or nil
 	end
 	_Egg.DirEntry = dirEntry
+	function _Egg.DisplayName(assetCategory)
+		local e = dirEntry(assetCategory)
+		return tostring(e and e.DisplayName or assetCategory)
+	end
 	function _Egg.Rarity(assetCategory)
 		local e = dirEntry(assetCategory)
 		local rarity = e and e.Rarity
@@ -527,10 +532,12 @@ task.spawn(function()
 			pcall(function()
 				local records = type(snap) == "table" and snap.Records or nil
 				if type(records) ~= "table" then return end
+				local seen = {}
 				for _, record in ipairs(records) do
 					if type(record) ~= "table" then continue end
 					local uid2 = record.Uid and tostring(record.Uid) or nil
 					if not uid2 then continue end
+					seen[uid2] = true
 					local state = record.State
 					if state == "Claimed" or state == "Carried" then continue end
 					local cf2 = typeof(record.BottomCFrame) == "CFrame" and record.BottomCFrame or nil
@@ -548,8 +555,13 @@ task.spawn(function()
 						pos=pos2, cf=cf2, mutation=assetCategory, nestScale=tonumber(record.AssetScale),
 						mutTable=(type(record.Mutations)=="table" and record.Mutations or nil),
 						zone=zone, tags=tags2, uid=uid2,
-						t=now2, enabled=true, farmable=true,
+						t=now2, enabled=true, farmable=true, fromSnap=true,
 					}
+				end
+				-- eggs that left the server's live list (claimed / carried by
+				-- someone else) are dropped right away, like Chilli Hub does
+				for k, e in pairs(_fieldEggNet) do
+					if e.fromSnap and not seen[k] then _fieldEggNet[k] = nil end
 				end
 			end)
 		end
@@ -669,7 +681,10 @@ C.TRACKOFF = C.OFF_BG
 -- STATE — all of St is persisted (simple values only)
 -- ============================================================
 local St = {
-	instantGrab      = false,
+	stayOnTreadmill  = true,
+	winSteal         = false,
+	winEvents        = false,
+	autoRerollLab    = false,
 	autoFarm         = false,
 	autoHatch        = false,
 	autoEquip        = false,
@@ -716,7 +731,7 @@ local St = {
 	-- Auto Steal filters (Chilli Hub "Auto Steal" section)
 	stealMinRarity   = 0,
 	stealMinValueK   = 0,
-	stealPriority    = "Highest Value",
+	stealPriority     = "Best Rarity",
 	stealTargetEggs  = {},
 	stealTweenPct    = 100,
 	stealCarryPct    = 100,
@@ -794,9 +809,7 @@ local St = {
 -- ============================================================
 -- SAVE / LOAD
 -- ============================================================
--- Deliberately excluded: Bypass Anti-Cheat (never re-applied alone on
--- load — a risky action on the character) and AimBat (aggressive
--- behavior, must only start on a fresh click).
+-- Invisibility is never re-applied on load (it resets the character).
 local CONFIG_FILE = "MoonEgg_Config.json"
 local function loadConfig()
 	local ok, raw = pcall(function()
@@ -826,113 +839,283 @@ local function saveConfig()
 end
 
 -- ============================================================
--- UNIFIED MOVEMENT ENGINE
+-- MOVEMENT CORE — ported from Chilli Hub (aide_3), same techniques:
+--   MV.WalkSpeed  ~1120  legit pace = Humanoid.WalkSpeed capped by the
+--                        Speed-power stat (TreadmillUtil), never faster
+--   MV.Step       ~3083  velocity steering (3D, gravity-compensated,
+--                        stuck nudge) run on RunService.PreSimulation
+--   MV.GodMode    ~1795  noclip + no ragdoll/fall states during a steal
+--   MV.carry      ~8067  EggState.CarryChanged (IsCarrying/Uid/
+--                        SpeedMultiplier), FieldEggRedeemVerdict
+--   MV.Shield     ~1002  Humanoid Swap, reference-counted by reason
+--   Speed Boost   ~15277 Heartbeat velocity boost
+-- Auto Steal speeds are ratios of the legit pace (Tween Speed 50-120 %,
+-- Carry Speed 80-120 %) — the old flat 40-350 studs/s got the delivery
+-- "rewound" by the server, which is the going-backwards symptom.
 -- ============================================================
--- [MAJOR FIX] The old version ran TWO separate movement systems side
--- by side: Speed Boost (proxy Part + continuous AssemblyLinearVelocity)
--- and Auto Farm (Tween + one-off PlatformStand). When both were active
--- (Speed Boost staying on across sessions thanks to the save), they
--- fought over character control every frame — Auto Farm's Tween got
--- overwritten by the proxy's continuous writes, causing broken or dead
--- movement. Anti Ragdoll (ChangeState every 0.1s) also cut the swoop's
--- PlatformStand mid-path. A single movement authority per frame,
--- chosen by priority, eliminates these conflicts: AimBat (drives hrp
--- directly, top priority — combat) > Auto Farm (actively pathing to an
--- egg) > Speed Boost (manual WASD movement).
-local _aimBatActive = false
 local _farmMoving = false
 local _farmTargetPos = nil
-local _farmSpeed = 40
--- Categories currently required by an unfinished Lab Trade-In and
--- missing from inventory — refreshed by "Steal Missing Lab Eggs"
--- further below (aide_3 ~2219-2332's RiftNeeds), read here so the
--- target-selection loop can widen its pool to grab them on sight.
 local _labNeeds = {}
--- Filled in by the Auto Farm loop further below — exposed here so the
--- "autoFarm" toggle can force a COMPLETE, IMMEDIATE stop on click
--- (instead of waiting up to 0.2s for the next loop pass).
-local _farmFullStopRef = function() end
+local MV = {farming = false, riding = false}
+local Steal = {force = nil, skip = {}, status = "Idle", detail = "", eggName = nil, lastCarryUid = nil}
 
--- (do..end block: these variables are only used by the movement
--- engine — releasing them from the root chunk's local count after
--- "end", same 200-local limit as for the palette, see comment above)
---
--- Auto Farm pathing only (proxy Part + AssemblyLinearVelocity). Speed
--- Boost itself is a SEPARATE system below — matches the game's real
--- Speed Boost technique (direct Humanoid.WalkSpeed override + treadmill
--- dismount + RE/RigSync/AskRigWipe to stop the server correcting it
--- back down), not a velocity proxy.
-do
-	local _proxy, _ownConn = nil, nil
-	local _ownTimer, _ownInterval = 0, 0.8 + math.random()*0.4
-
-	local function _claimOwn(hrp) pcall(function() hrp:SetNetworkOwner(LP) end) end
-	local function _cleanProxy()
-		if _ownConn then pcall(function() _ownConn:Disconnect() end); _ownConn = nil end
-		if _proxy then pcall(function() _proxy:Destroy() end); _proxy = nil end
+function MV.Root()
+	local ch = LP.Character
+	local r = ch and ch:FindFirstChild("HumanoidRootPart")
+	return r and r:IsDescendantOf(workspace) and r or nil
+end
+function MV.Hum()
+	local ch = LP.Character
+	return ch and ch:FindFirstChildOfClass("Humanoid")
+end
+function MV.Ragdolled()
+	local num = tonumber(LP:GetAttribute("RagdollEndTime"))
+	if num and num > workspace:GetServerTimeNow() then return true end
+	local hum = MV.Hum()
+	if hum then
+		local s = hum:GetState()
+		return s == Enum.HumanoidStateType.Physics or s == Enum.HumanoidStateType.Ragdoll or s == Enum.HumanoidStateType.FallingDown
 	end
-	local function _ensureProxy(hrp)
-		local char = hrp.Parent
-		if _proxy and _proxy.Parent == char then return _proxy end
-		_cleanProxy()
-		local p = Instance.new("Part")
-		p.Name = "YE_Proxy"; p.Size = Vector3.new(1,1,1)
-		p.Transparency = 1; p.CanCollide = false; p.Massless = true
-		p.Parent = char
-		local w = Instance.new("Weld", p)
-		w.Part0 = hrp; w.Part1 = p; w.C0 = CFrame.new()
-		_proxy = p
-		_claimOwn(hrp)
-		_ownConn = hrp:GetPropertyChangedSignal("ReceiveAge"):Connect(function()
-			if _farmMoving then task.defer(function() _claimOwn(hrp) end) end
-		end)
-		return p
-	end
+	return false
+end
 
-	RunService.RenderStepped:Connect(function(dt)
-		local char = LP.Character
-		if not char then _cleanProxy(); return end
-		if _aimBatActive then return end  -- AimBat drives hrp directly, don't interfere
-
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		local hrp = char:FindFirstChild("HumanoidRootPart")
-		if not hum or not hrp then _cleanProxy(); return end
-
-		if not _farmMoving then _cleanProxy(); return end
-
-		local st = hum:GetState()
-		if hum.PlatformStand or st == Enum.HumanoidStateType.Physics
-			or st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown then
-			_cleanProxy(); return
-		end
-
-		_ownTimer = _ownTimer + dt
-		if _ownTimer >= _ownInterval then
-			_claimOwn(hrp); _ownTimer = 0; _ownInterval = 0.8 + math.random()*0.4
-		end
-
-		local px = _ensureProxy(hrp)
-
-		if _farmTargetPos then
-			local delta = _farmTargetPos - hrp.Position
-			local flat = Vector3.new(delta.X, 0, delta.Z)
-			if flat.Magnitude > 1 then
-				local dir = flat.Unit
-				px.AssemblyLinearVelocity = Vector3.new(dir.X*_farmSpeed, hrp.AssemblyLinearVelocity.Y, dir.Z*_farmSpeed)
-			else
-				px.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
-			end
-		end
+MV.swap = {Original = nil, Clone = nil, Links = {}}
+function MV.WalkSpeed()
+	local hum = MV.Hum()
+	local ws = hum and hum.WalkSpeed or 16
+	local orig = MV.swap.Original
+	if orig and orig.Health > 0 then ws = math.min(ws, orig.WalkSpeed) end
+	local ok, res = pcall(function()
+		local ls = LP:FindFirstChild("leaderstats")
+		ls = ls and ls:FindFirstChild("Speed")
+		return ls and _M.TreadmillUtil and _M.TreadmillUtil.SpeedPowerToWalkSpeed(ls.Value) or nil
 	end)
-	LP.CharacterAdded:Connect(function() _cleanProxy() end)
+	if ok and tonumber(res) and res > 0 then return math.min(ws, res) end
+	return ws
+end
+
+-- exact port of Chilli Hub's velocity step (returns true once within 0.5 stud)
+function MV.Step(root, target, speed, dt, st)
+	local delta = target - root.Position
+	local mag = delta.Magnitude
+	local step = math.max(dt, 1/240)
+	local vel = Vector3.zero
+	if mag > 0.01 then vel = delta.Unit * math.min(speed, mag / step) end
+	local av = vel + Vector3.new(0, workspace.Gravity * step * 0.5, 0)
+	if mag > 2 then
+		if not st.mark then st.mark = mag; st.clock = 0 end
+		st.clock = st.clock + dt
+		if st.clock >= 0.4 then
+			if st.mark - mag < speed * 0.1 then
+				pcall(function() root.CFrame = root.CFrame + delta.Unit * math.min(mag, speed * step) end)
+			end
+			st.mark = mag; st.clock = 0
+		end
+	else
+		st.mark = nil
+	end
+	pcall(function()
+		root.AssemblyLinearVelocity = av
+		root.AssemblyAngularVelocity = Vector3.zero
+	end)
+	return mag <= 0.5
+end
+function MV.Stop()
+	local r = MV.Root()
+	if r then pcall(function() r.AssemblyLinearVelocity = Vector3.zero; r.AssemblyAngularVelocity = Vector3.zero end) end
+end
+
+do
+	local godStates = {
+		Enum.HumanoidStateType.FallingDown, Enum.HumanoidStateType.Ragdoll, Enum.HumanoidStateType.Physics,
+		Enum.HumanoidStateType.Seated, Enum.HumanoidStateType.PlatformStanding,
+	}
+	local saved, on = {}, false
+	function MV.GodMode(enable)
+		local ch = LP.Character
+		local hum = MV.Hum()
+		if not ch or not hum then return end
+		if enable then
+			on = true
+			for _, s in ipairs(godStates) do pcall(function() hum:SetStateEnabled(s, false) end) end
+			pcall(function() hum.BreakJointsOnDeath = false end)
+			for _, d in ipairs(ch:GetDescendants()) do
+				if d:IsA("BasePart") and saved[d] == nil then
+					saved[d] = d.CanCollide
+					pcall(function() d.CanCollide = false end)
+				end
+			end
+		elseif on then
+			on = false
+			for _, s in ipairs(godStates) do pcall(function() hum:SetStateEnabled(s, true) end) end
+			for part, cc in pairs(saved) do
+				if part and part.Parent then pcall(function() part.CanCollide = cc end) end
+			end
+			table.clear(saved)
+		end
+	end
+end
+
+-- carry state (EggState.CarryChanged, exactly like Chilli Hub)
+MV.carry = {on = false, uid = nil, mult = 1, area = nil, tracked = false, lastDelivered = 0, lastFailed = 0}
+pcall(function()
+	local cc = _M.EggState and _M.EggState.CarryChanged
+	if type(cc) == "table" and type(cc.Connect) == "function" then
+		cc:Connect(function(arg)
+			local carrying = type(arg) == "table" and arg.IsCarrying == true
+			MV.carry.on = carrying
+			if carrying and type(arg.Uid) == "string" then
+				MV.carry.uid = arg.Uid
+				MV.carry.area = arg.AreaId
+				local mult = tonumber(arg.SpeedMultiplier)
+				if mult and mult > 0 then MV.carry.mult = mult end
+			end
+		end)
+		MV.carry.tracked = true
+	end
+end)
+pcall(function()
+	local v = _getRemote("RE/EggWorld/FieldEggRedeemVerdict")
+	if v and v:IsA("RemoteEvent") then v.OnClientEvent:Connect(function() MV.carry.lastDelivered = os.clock() end) end
+	local a = _getRemote("RE/Alerts/Raise")
+	if a and a:IsA("RemoteEvent") then
+		a.OnClientEvent:Connect(function(arg)
+			if type(arg) == "table" and type(arg.Text) == "string" and string.find(arg.Text, "Delivery failed", 1, true) then
+				MV.carry.lastFailed = os.clock()
+			end
+		end)
+	end
+end)
+
+-- Shield = Humanoid Swap (Chilli Hub's default shield method): the live
+-- Humanoid is replaced by a clone so the speed boost is not tied to the
+-- original one. Reference-counted by reason; undone when the last reason
+-- goes away. Internal only — no toggle.
+do
+	local S = MV.swap
+	local reasons, hbConn, charConn, acc = {}, nil, nil, 0
+	local hooks = {}
+	function MV.OnHumanoid(fn) table.insert(hooks, fn) end
+	local function fireHooks() for _, fn in ipairs(hooks) do task.defer(function() pcall(fn) end) end end
+	local function setControls(h)
+		pcall(function()
+			local ps = LP:FindFirstChild("PlayerScripts")
+			local pm = ps and ps:FindFirstChild("PlayerModule")
+			if pm then
+				local controls = require(pm):GetControls()
+				if type(controls) == "table" then controls.humanoid = h end
+			end
+		end)
+	end
+	local function refreshAnimate(ch)
+		local a = ch and ch:FindFirstChild("Animate")
+		if a and a:IsA("LocalScript") then task.spawn(function() a.Enabled = false; task.wait(); a.Enabled = true end) end
+	end
+	local function dropLinks()
+		for _, l in ipairs(S.Links) do pcall(function() l:Disconnect() end) end
+		table.clear(S.Links)
+	end
+	function MV.UndoSwap()
+		dropLinks()
+		local ch, orig, clone = LP.Character, S.Original, S.Clone
+		S.Original = nil; S.Clone = nil
+		if orig and clone and ch and orig.Parent == nil and clone.Parent == ch then
+			orig.Parent = ch
+			workspace.CurrentCamera.CameraSubject = orig
+			setControls(orig)
+			pcall(function() clone:Destroy() end)
+			refreshAnimate(ch)
+			fireHooks()
+		end
+	end
+	local groundedStates = {
+		[Enum.HumanoidStateType.Running] = true, [Enum.HumanoidStateType.RunningNoPhysics] = true, [Enum.HumanoidStateType.Landed] = true,
+	}
+	local function grounded(h)
+		if not h or h.Health <= 0 or h.FloorMaterial == Enum.Material.Air then return false end
+		return groundedStates[h:GetState()] == true
+	end
+	local function doSwap()
+		local ch = LP.Character
+		local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 then return end
+		if S.Clone and S.Clone.Parent == ch then return end
+		if not grounded(hum) then return end
+		local clone = hum:Clone()
+		hum.Parent = nil
+		clone.Parent = ch
+		workspace.CurrentCamera.CameraSubject = clone
+		setControls(clone)
+		refreshAnimate(ch)
+		S.Original = hum; S.Clone = clone
+		fireHooks()
+		table.insert(S.Links, hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+			if clone.Parent ~= nil then clone.WalkSpeed = hum.WalkSpeed end
+		end))
+		local animator, animator2 = hum:FindFirstChildOfClass("Animator"), clone:FindFirstChildOfClass("Animator")
+		if animator and animator2 then
+			table.insert(S.Links, animator.AnimationPlayed:Connect(function(track)
+				local anim = track.Animation
+				if not anim or clone.Parent == nil then return end
+				local ok, t2 = pcall(function() return animator2:LoadAnimation(anim) end)
+				if not ok or not t2 then return end
+				pcall(function()
+					t2.Priority = track.Priority; t2.Looped = track.Looped
+					t2:Play(0.05, math.max(track.WeightTarget, 0.01), track.Speed)
+				end)
+				local c3
+				c3 = track.Stopped:Connect(function() c3:Disconnect(); pcall(function() t2:Stop(0.1) end) end)
+			end))
+		end
+		table.insert(S.Links, clone.Died:Connect(function()
+			dropLinks()
+			S.Original = nil; S.Clone = nil
+			local ch2 = LP.Character
+			if ch2 and hum.Parent == nil then
+				hum.Parent = ch2
+				workspace.CurrentCamera.CameraSubject = hum
+				setControls(hum)
+				fireHooks()
+			end
+			pcall(function() clone:Destroy() end)
+			hum.Health = 0
+		end))
+	end
+	local function stopShield()
+		if hbConn then hbConn:Disconnect(); hbConn = nil end
+		if charConn then charConn:Disconnect(); charConn = nil end
+		MV.UndoSwap()
+	end
+	local function startShield()
+		doSwap()
+		acc = 0
+		hbConn = RunService.Heartbeat:Connect(function(dt)
+			acc = acc + dt
+			local ch = LP.Character
+			local placed = S.Clone and ch and S.Clone.Parent == ch
+			if MV.ShieldPaused then acc = 0
+			elseif (placed and 3 or 0.25) <= acc then acc = 0; doSwap() end
+		end)
+		charConn = LP.CharacterAdded:Connect(function(ch)
+			dropLinks(); S.Original = nil; S.Clone = nil
+			task.spawn(function()
+				ch:WaitForChild("Humanoid", 10)
+				task.wait(1)
+				if hbConn and LP.Character == ch then doSwap() end
+			end)
+		end)
+	end
+	function MV.Shield(name, enable)
+		reasons[name] = enable == true or nil
+		if next(reasons) == nil then stopShield(); return end
+		if hbConn then return end
+		startShield()
+	end
 end
 
 -- ============================================================
--- AUTO FARM PATH — visual trajectory: a beam from the player to
--- whatever Auto Farm is currently walking toward (the egg while
--- approaching, the safe zone while carrying). Purely cosmetic, reads
--- the same _farmMoving/_farmTargetPos the movement engine above
--- already drives — no separate pathing logic to keep in sync.
+-- AUTO FARM PATH — visual trajectory beam to whatever Auto Steal is
+-- currently walking toward (egg while approaching, home while carrying).
 -- ============================================================
 do
 	local marker, att0, att1, beam = nil, nil, nil, nil
@@ -943,10 +1126,8 @@ do
 		marker.Anchored = true; marker.CanCollide = false; marker.CanQuery = false
 		marker.Transparency = 1; marker.Parent = workspace
 		att1 = Instance.new("Attachment", marker)
-
 		att0 = Instance.new("Attachment")
 		att0.Name = "YE_PathOrigin"
-
 		beam = Instance.new("Beam")
 		beam.Attachment0 = att0; beam.Attachment1 = att1
 		beam.Width0 = 0.35; beam.Width1 = 0.12
@@ -960,8 +1141,7 @@ do
 			if beam then beam.Enabled = false end
 			return
 		end
-		local char = LP.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		local hrp = MV.Root()
 		if not hrp then if beam then beam.Enabled = false end return end
 		ensurePathParts()
 		if att0.Parent ~= hrp then att0.Parent = hrp end
@@ -971,74 +1151,239 @@ do
 end
 
 -- ============================================================
--- SPEED BOOST — exact Chilli Hub technique: AssemblyLinearVelocity-based
--- (NOT WalkSpeed). Dismount treadmill first (AskDoff x2) + AskRigWipe.
--- On each Heartbeat: project MoveDirection onto XZ plane * speed and set
--- hrp.AssemblyLinearVelocity, preserving Y. Skip during ragdoll / sit /
--- platform-stand. Reset velocity on stop.
+-- SPEED BOOST — Chilli Hub (aide_3 ~15277-15357), unchanged logic:
+-- Heartbeat, XZ velocity = MoveDirection.Unit * speed (Y kept); idle
+-- input falls back to the normal walk-speed velocity; inactive while
+-- stealing / riding the treadmill / sitting / ragdolled.
 -- ============================================================
 local startSpeed, stopSpeed
 do
-	local _speedActive  = false
-	local _speedBoosted = false
-	local _speedConn    = nil
-
-	local function _dismountTreadmill()
-		local r = _getRemote("RF/Treadmill/AskDoff")
-		if r and r:IsA("RemoteFunction") then
-			for _ = 1, 2 do pcall(function() r:InvokeServer() end) end
-		end
+	local conn, boosted = nil, false
+	local function resetBoost()
+		if not boosted then return end
+		boosted = false
+		local root, hum = MV.Root(), MV.Hum()
+		if not root or not hum or hum.Health <= 0 then return end
+		local v = root.AssemblyLinearVelocity
+		local md = hum.MoveDirection
+		local flat = Vector3.new(md.X, 0, md.Z)
+		local walk = flat.Magnitude > 0.001 and flat.Unit * hum.WalkSpeed or Vector3.zero
+		pcall(function() root.AssemblyLinearVelocity = Vector3.new(walk.X, v.Y, walk.Z) end)
 	end
-	local function _wipeRig()
-		local r = _getRemote("RE/RigSync/AskRigWipe")
-		if r and r:IsA("RemoteEvent") then pcall(function() r:FireServer() end) end
-	end
-	local function _resetBoostedVelocity()
-		if not _speedBoosted then return end
-		_speedBoosted = false
-		pcall(function()
-			local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
-			end
-		end)
-	end
-
 	startSpeed = function()
 		St.speedOn = true
-		_speedActive = true
-		_dismountTreadmill()
-		_wipeRig()
-		if _speedConn then _speedConn:Disconnect() end
-		_speedConn = RunService.Heartbeat:Connect(function()
-			if not _speedActive then return end
-			local char = LP.Character
-			local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-			local hum  = char and char:FindFirstChildOfClass("Humanoid")
-			if not hrp or not hum or hum.Sit or hum.PlatformStand then
-				_resetBoostedVelocity(); return
-			end
-			local ragEnd = tonumber(LP:GetAttribute("RagdollEndTime"))
-			if ragEnd and ragEnd > workspace:GetServerTimeNow() then
-				_resetBoostedVelocity(); return
-			end
-			local dir = Vector3.new(hum.MoveDirection.X, 0, hum.MoveDirection.Z)
-			if dir.Magnitude <= 0.001 then
-				_resetBoostedVelocity(); return
-			end
-			local vel = dir.Unit * St.speed
-			pcall(function()
-				hrp.AssemblyLinearVelocity = Vector3.new(vel.X, hrp.AssemblyLinearVelocity.Y, vel.Z)
-			end)
-			_speedBoosted = true
+		MV.Shield("speed", true)
+		if conn then return end
+		conn = RunService.Heartbeat:Connect(function()
+			if MV.farming or MV.riding then boosted = false; return end
+			local root, hum = MV.Root(), MV.Hum()
+			if not root or not hum or hum.Health <= 0 or hum.Sit or hum.PlatformStand then boosted = false; return end
+			local num = tonumber(LP:GetAttribute("RagdollEndTime"))
+			if num and num > workspace:GetServerTimeNow() then boosted = false; return end
+			local md = hum.MoveDirection
+			local flat = Vector3.new(md.X, 0, md.Z)
+			if flat.Magnitude <= 0.001 then resetBoost(); return end
+			local vel = flat.Unit * St.speed
+			local cur = root.AssemblyLinearVelocity
+			pcall(function() root.AssemblyLinearVelocity = Vector3.new(vel.X, cur.Y, vel.Z) end)
+			boosted = true
 		end)
 	end
 	stopSpeed = function()
 		St.speedOn = false
-		_speedActive = false
-		if _speedConn then _speedConn:Disconnect(); _speedConn = nil end
-		_resetBoostedVelocity()
+		if conn then conn:Disconnect(); conn = nil end
+		resetBoost()
+		MV.Shield("speed", false)
 	end
+end
+
+-- ============================================================
+-- AUTO STEAL ENGINE — target choice + run, following Chilli Hub's flow
+-- (aide_3 ~6239-6490): pick target -> approach -> grab (prompt, then
+-- EggState.CarryFieldEgg) -> carry home -> settle.
+-- ============================================================
+function Steal.Zone(area)
+	if St.farmZone == "" then return true end
+	if not area or area == "?" then return false end
+	if area == St.farmZone then return true end
+	local al, fz = area:lower(), St.farmZone:lower()
+	return al:find(fz, 1, true) ~= nil or fz:find(al, 1, true) ~= nil
+end
+
+-- Sorted plan of eggs to steal (also what the Steal Panel lists).
+function Steal.Plan(myPos, limit)
+	local now = os.clock()
+	local minVal = St.stealMinValueK * 1000
+	local hasTargets = next(St.stealTargetEggs) ~= nil
+	local list, forced = {}, nil
+	for _, r in ipairs(cachedEggs) do
+		if r.enabled and r.farmable ~= false and r.uid then
+			if Steal.force and r.uid == Steal.force then
+				forced = r
+			elseif (Steal.skip[r.uid] or 0) <= now and Steal.Zone(r.area)
+				and (r.rarity or 0) >= St.stealMinRarity and (r.value or 0) >= minVal
+				and (not hasTargets or St.stealTargetEggs[r.mutation or ""] or (St.stealMissingLab and _labNeeds[r.mutation or ""])) then
+				table.insert(list, r)
+			end
+		end
+	end
+	local pr = St.stealPriority
+	table.sort(list, function(a, b)
+		local av, bv
+		if pr == "Best Rarity" then av, bv = a.rarity or 0, b.rarity or 0
+		elseif pr == "Biggest Weight" then av, bv = a.scale or 0, b.scale or 0
+		elseif pr == "Best Mutation" then av, bv = (a.mutTable and next(a.mutTable) and 1 or 0) + (a.tags and #a.tags or 0), (b.mutTable and next(b.mutTable) and 1 or 0) + (b.tags and #b.tags or 0)
+		elseif pr == "Lowest Value" then av, bv = -(a.value or 0), -(b.value or 0)
+		else av, bv = a.value or 0, b.value or 0 end
+		if av ~= bv then return av > bv end
+		if (a.value or 0) ~= (b.value or 0) then return (a.value or 0) > (b.value or 0) end
+		if myPos then return (a.pos - myPos).Magnitude < (b.pos - myPos).Magnitude end
+		return false
+	end)
+	if forced then table.insert(list, 1, forced) end
+	if limit and #list > limit then for i = #list, limit + 1, -1 do list[i] = nil end end
+	return list
+end
+function Steal.StealNow(uid) Steal.force = uid; Steal.skip[uid] = nil end
+function Steal.Skip(uid, secs) Steal.skip[uid] = os.clock() + (secs or 30); if Steal.force == uid then Steal.force = nil end end
+function Steal.Prioritize(uid) Steal.force = uid end
+
+do
+	local function setStatus2(s, d) Steal.status = s; Steal.detail = d or "" end
+
+	local function findCarryPrompt(eggPos, maxDist)
+		maxDist = maxDist or 14
+		local best, bestDist = nil, maxDist
+		for _, child in ipairs(workspace:GetChildren()) do
+			if child.Name == "SmartPromptPart" and child:IsA("BasePart") then
+				local p = child:FindFirstChild("CarryAreaEgg")
+				if p and p:IsA("ProximityPrompt") then
+					local d = (child.Position - eggPos).Magnitude
+					if d < bestDist then bestDist = d; best = p end
+				end
+			end
+		end
+		return best
+	end
+
+	-- move until arrive/timeout/stop; runs on PreSimulation like Chilli Hub
+	local function moveTo(target, getSpeed, timeout, arrive, stopFn)
+		local st, done, elapsed = {}, nil, 0
+		local sig = RunService.PreSimulation or RunService.Heartbeat
+		local conn = sig:Connect(function(dt)
+			if done ~= nil then return end
+			elapsed = elapsed + dt
+			local root = MV.Root()
+			if not root or elapsed > timeout or not St.autoFarm or MV.Ragdolled() then done = false; return end
+			if stopFn and stopFn() then done = false; return end
+			_farmTargetPos = target
+			local reached = MV.Step(root, target, getSpeed(), dt, st)
+			if reached or (root.Position - target).Magnitude <= arrive then done = true end
+		end)
+		while done == nil do RunService.Heartbeat:Wait() end
+		conn:Disconnect()
+		return done
+	end
+
+	-- Chilli Hub grab (aide_3 ~3406-3458): prompt every 0.06s, else CarryFieldEgg
+	local function grab(egg)
+		local t, acc, miss = 0, 1, 0
+		while t < 1.5 do
+			if not St.autoFarm then return false end
+			if MV.carry.on then return true end
+			if acc >= 0.06 then
+				acc = 0
+				local prompt = findCarryPrompt(egg.pos)
+				if prompt then
+					miss = 0
+					pcall(function() prompt.HoldDuration = 0 end)
+					if fireproximityprompt then pcall(fireproximityprompt, prompt) end
+				else
+					miss = miss + 1
+					if miss >= 4 then return MV.carry.on end
+					local es = _M.EggState
+					if type(es) == "table" and type(es.CarryFieldEgg) == "function" then pcall(es.CarryFieldEgg, egg.uid) end
+				end
+			end
+			local dt = RunService.Heartbeat:Wait()
+			t = t + dt; acc = acc + dt
+		end
+		return MV.carry.on or not MV.carry.tracked
+	end
+
+	local function endRun()
+		_farmMoving = false; _farmTargetPos = nil
+		MV.farming = false
+		Steal.current = nil
+		MV.Stop()
+		MV.GodMode(false)
+		MV.Shield("farm", false)
+		local hum = MV.Hum()
+		if hum then hum.PlatformStand = false end
+	end
+	function Steal.Abort()
+		if MV.farming then endRun() end
+	end
+
+	local function runSteal(egg)
+		MV.farming = true; _farmMoving = true
+		MV.Shield("farm", true)
+		MV.GodMode(true)
+		Steal.eggName = egg.cat
+	Steal.current = egg.uid
+		local startedAt = os.clock()
+		setStatus2("Approaching", tostring(egg.cat or "egg"))
+		local walkApproach = function() return math.max(MV.WalkSpeed() * (St.stealTweenPct / 100), 16) end
+		local near = moveTo(egg.pos, walkApproach, 25, 6, function() return _fieldEggNet[egg.uid] == nil and not MV.carry.on end)
+		if near and St.autoFarm then
+			setStatus2("Taking the egg", tostring(egg.cat or "egg"))
+			if grab(egg) then
+				-- carry it home (Chilli Hub CarryRatio 0.9 * egg SpeedMultiplier,
+				-- EasyRatio 1.3, scaled by the Carry Speed slider)
+				local home = _findSafeZonePos()
+				local carrySpeed = function()
+					local base = MV.WalkSpeed() * 0.9 * (MV.carry.mult or 1)
+					return math.max(base * 1.3, 8) * (St.stealCarryPct / 100)
+				end
+				setStatus2("Carrying home", tostring(egg.cat or "egg"))
+				local arrived = moveTo(home, carrySpeed, 45, 6, function() return MV.carry.tracked and not MV.carry.on end)
+				if arrived then
+					local w = 0
+					while MV.carry.on and w < 3 and St.autoFarm do w = w + RunService.Heartbeat:Wait() end
+				end
+				setStatus2("Delivered", tostring(egg.cat or "egg"))
+			else
+				setStatus2("Could not take it", tostring(egg.cat or "egg"))
+				Steal.skip[egg.uid] = os.clock() + 20
+			end
+		else
+			setStatus2("Egg gone", tostring(egg.cat or "egg"))
+		end
+		if Steal.force == egg.uid then Steal.force = nil end
+		if egg.uid then _fieldEggNet[egg.uid] = nil end
+		endRun()
+	end
+
+	task.spawn(function()
+		while true do
+			task.wait(0.2)
+			if not St.autoFarm then
+				if MV.farming then endRun() end
+				if Steal.status ~= "Idle" then setStatus2("Idle", "") end
+			elseif not MV.farming and not MV.Ragdolled() then
+				local root = MV.Root()
+				if root then
+					local plan = Steal.Plan(root.Position, 1)
+					if plan[1] then
+						local ok, err = pcall(runSteal, plan[1])
+						if not ok then endRun(); setStatus2("Error", tostring(err):sub(1, 60)) end
+					else
+						setStatus2("Waiting", "no egg matches")
+					end
+				end
+			end
+		end
+	end)
 end
 
 -- ============================================================
@@ -1660,40 +2005,46 @@ local function setStatus(_txt, _col) end
 -- same visual language (rows, living stroke, corner radius) instead
 -- of a one-off per feature.
 -- ============================================================
-local _msOverlay, _msTitle, _msList
-local function _ensureMultiSelectOverlay()
-	if _msOverlay then return end
-	local ov = Instance.new("Frame", main)
+-- Each window / tab area that can host a multi-select registers its page
+-- here; the overlay is built lazily inside that host, so a picker opened in
+-- the Steal Panel covers the Steal Panel (not the main window).
+local _msHosts = {}
+local _msOf = {}
+local function _ensureMultiSelectOverlay(page)
+	local h = _msHosts[page] or {frame = main, topY = CONTENT_Y}
+	if _msOf[h.frame] then return _msOf[h.frame] end
+	local obj = {}
+	local ov = Instance.new("Frame", h.frame)
 	ov.Name = "MultiSelectOverlay"
-	ov.Size = UDim2.new(1,0,1,-CONTENT_Y)
-	ov.Position = UDim2.new(0,0,0,CONTENT_Y)
+	ov.Size = UDim2.new(1,0,1,-h.topY)
+	ov.Position = UDim2.new(0,0,0,h.topY)
 	ov.BackgroundColor3 = C.BG
 	ov.BorderSizePixel = 0
 	ov.Visible = false
 	ov.ZIndex = 300
-	_msOverlay = ov
+	obj.ov = ov
 
 	local head = Instance.new("Frame", ov)
 	head.Size = UDim2.new(1,0,0,26)
 	head.BackgroundTransparency = 1
 	head.ZIndex = 301
-	_msTitle = label(head, "", UDim2.new(1,-56,1,0), C.WHITE, Enum.Font.GothamBold)
-	_msTitle.Position = UDim2.new(0,6,0,0)
-	_msTitle.ZIndex = 301
-	_msTitle.TextSize = 11.5
+	obj.title = label(head, "", UDim2.new(1,-56,1,0), C.WHITE, Enum.Font.GothamBold)
+	obj.title.Position = UDim2.new(0,6,0,0)
+	obj.title.ZIndex = 301
+	obj.title.TextSize = 11.5
 
-	local closeBtn = Instance.new("TextButton", head)
-	closeBtn.Size = UDim2.new(0,46,0,20)
-	closeBtn.Position = UDim2.new(1,-50,0,2)
-	closeBtn.BackgroundColor3 = C.MOON
-	closeBtn.Text = "Done"
-	closeBtn.TextColor3 = C.MOONTEXT
-	closeBtn.Font = Enum.Font.GothamBold
-	closeBtn.TextSize = 10.5
-	closeBtn.BorderSizePixel = 0
-	closeBtn.ZIndex = 301
-	corner(closeBtn, 6)
-	closeBtn.MouseButton1Click:Connect(function() _msOverlay.Visible = false end)
+	local doneBtn = Instance.new("TextButton", head)
+	doneBtn.Size = UDim2.new(0,46,0,20)
+	doneBtn.Position = UDim2.new(1,-50,0,2)
+	doneBtn.BackgroundColor3 = C.MOON
+	doneBtn.Text = "Done"
+	doneBtn.TextColor3 = C.MOONTEXT
+	doneBtn.Font = Enum.Font.GothamBold
+	doneBtn.TextSize = 10.5
+	doneBtn.BorderSizePixel = 0
+	doneBtn.ZIndex = 301
+	corner(doneBtn, 6)
+	doneBtn.MouseButton1Click:Connect(function() ov.Visible = false end)
 
 	local list = Instance.new("ScrollingFrame", ov)
 	list.Size = UDim2.new(1,0,1,-30)
@@ -1708,8 +2059,11 @@ local function _ensureMultiSelectOverlay()
 	local ll = Instance.new("UIListLayout", list)
 	ll.Padding = UDim.new(0,3)
 	ll.SortOrder = Enum.SortOrder.LayoutOrder
-	_msList = list
+	obj.list = list
+	_msOf[h.frame] = obj
+	return obj
 end
+
 
 -- getOptionsFn(): -> array of option strings, re-evaluated on every open
 -- (covers dynamic lists: live area names, the egg Directory, etc.).
@@ -1717,7 +2071,7 @@ end
 -- Empty selectedSet means "match everything" — same fallback Chilli Hub
 -- uses for its MultiDropdowns (`if next(sel) == nil then` -> select all).
 local function makeMultiSelect(page, displayName, getOptionsFn, selectedSet, onChange, getIconFn)
-	_ensureMultiSelectOverlay()
+	local M = _ensureMultiSelectOverlay(page)
 	local row = Instance.new("Frame", page)
 	row.Size = UDim2.new(1,0,0,30)
 	row.BackgroundColor3 = C.ROW
@@ -1745,13 +2099,13 @@ local function makeMultiSelect(page, displayName, getOptionsFn, selectedSet, onC
 	refreshCount()
 
 	btn.MouseButton1Click:Connect(function()
-		_msTitle.Text = displayName
-		for _, c in ipairs(_msList:GetChildren()) do
+		M.title.Text = displayName
+		for _, c in ipairs(M.list:GetChildren()) do
 			if c:IsA("Frame") then c:Destroy() end
 		end
 		local opts = getOptionsFn() or {}
 		for i, opt in ipairs(opts) do
-			local r = Instance.new("Frame", _msList)
+			local r = Instance.new("Frame", M.list)
 			r.Size = UDim2.new(1,0,0,26)
 			r.BackgroundColor3 = C.ROW
 			r.BackgroundTransparency = 0.35
@@ -1799,306 +2153,365 @@ local function makeMultiSelect(page, displayName, getOptionsFn, selectedSet, onC
 				if onChange then onChange(selectedSet) end
 			end)
 		end
-		_msOverlay.Visible = true
+		M.ov.Visible = true
 	end)
 
 	return refreshCount
 end
 
 -- ============================================================
+-- WINDOWS — the Auto Steal panel and the Events panel are their own
+-- draggable / minimizable / closable windows, separate from the main
+-- window. Same look as the main window (header, living stroke, pages).
+-- ============================================================
+local Win = {}
+do
+	local zTop = 20
+	local HEADER_H = 32
+
+	-- drag on the header: touch or mouse, works while the window is minimized
+	function Win.Drag(handle, target)
+		local dragging, dragStart, startPos = false, nil, nil
+		handle.InputBegan:Connect(function(inp)
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+				dragging = true; dragStart = inp.Position; startPos = target.Position
+			end
+		end)
+		UIS.InputChanged:Connect(function(inp)
+			if not dragging then return end
+			if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
+				local d = inp.Position - dragStart
+				target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+			end
+		end)
+		UIS.InputEnded:Connect(function(inp)
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+				dragging = false
+			end
+		end)
+	end
+
+	-- cfg: name, title, w, h, pos (UDim2), flag (St key holding open/closed)
+	function Win.Make(cfg)
+		local cam = workspace.CurrentCamera
+		local vpY = cam and cam.ViewportSize.Y or 600
+		cfg.h = math.min(cfg.h, math.max(220, vpY - 70))
+		local frame = Instance.new("Frame", gui)
+		frame.Name = cfg.name
+		frame.Size = UDim2.new(0, cfg.w, 0, cfg.h)
+		frame.Position = cfg.pos
+		frame.BackgroundColor3 = C.BG
+		frame.BorderSizePixel = 0
+		frame.ClipsDescendants = true
+		frame.Active = true
+		frame.ZIndex = zTop
+		corner(frame, 16)
+		stroke(frame, C.BORDER, 1.5)
+		local glow = Instance.new("UIStroke", frame)
+		glow.Color = C.ACCENT; glow.Thickness = 1; glow.Transparency = 0.85
+
+		local hdr = Instance.new("Frame", frame)
+		hdr.Size = UDim2.new(1, 0, 0, HEADER_H)
+		hdr.BackgroundColor3 = C.BG
+		hdr.BorderSizePixel = 0
+		corner(hdr, 16)
+
+		local dot = Instance.new("Frame", hdr)
+		dot.Size = UDim2.new(0, 8, 0, 8)
+		dot.Position = UDim2.new(0, 12, 0.5, -4)
+		dot.BackgroundColor3 = cfg.dot or C.MOON
+		dot.BorderSizePixel = 0
+		corner(dot, 4)
+
+		local title = Instance.new("TextLabel", hdr)
+		title.BackgroundTransparency = 1
+		title.Size = UDim2.new(1, -88, 1, 0)
+		title.Position = UDim2.new(0, 28, 0, 0)
+		title.Text = cfg.title
+		title.TextSize = 12
+		title.Font = Enum.Font.GothamBold
+		title.TextXAlignment = Enum.TextXAlignment.Left
+		liveGrad(title)
+
+		local close = Instance.new("TextButton", hdr)
+		close.Size = UDim2.new(0, 20, 0, 20)
+		close.Position = UDim2.new(1, -26, 0.5, -10)
+		close.BackgroundColor3 = Color3.fromRGB(58, 20, 20)
+		close.Text = "✕"; close.TextSize = 11
+		close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold
+		close.BorderSizePixel = 0; corner(close, 6)
+
+		local mini = Instance.new("TextButton", hdr)
+		mini.Size = UDim2.new(0, 20, 0, 20)
+		mini.Position = UDim2.new(1, -50, 0.5, -10)
+		mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35)
+		mini.Text = "–"; mini.TextSize = 13
+		mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold
+		mini.BorderSizePixel = 0; corner(mini, 6)
+
+		local sep = Instance.new("Frame", frame)
+		sep.Size = UDim2.new(1, -24, 0, 1)
+		sep.Position = UDim2.new(0, 12, 0, HEADER_H)
+		sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
+
+		local page = Instance.new("ScrollingFrame", frame)
+		page.Name = "Page"
+		page.Size = UDim2.new(1, 0, 1, -(HEADER_H + 4))
+		page.Position = UDim2.new(0, 0, 0, HEADER_H + 4)
+		page.BackgroundTransparency = 1
+		page.BorderSizePixel = 0
+		page.ScrollBarThickness = 3
+		page.ScrollBarImageColor3 = C.ACCENT
+		page.CanvasSize = UDim2.new(0, 0, 0, 0)
+		page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		local list = Instance.new("UIListLayout", page)
+		list.Padding = UDim.new(0, 5)
+		list.SortOrder = Enum.SortOrder.LayoutOrder
+		local pad = Instance.new("UIPadding", page)
+		pad.PaddingTop = UDim.new(0, 4); pad.PaddingLeft = UDim.new(0, 6); pad.PaddingRight = UDim.new(0, 6)
+		pad.PaddingBottom = UDim.new(0, 8)
+
+		local win = {frame = frame, page = page, header = hdr, listeners = {}, minimized = false, full = cfg.h}
+		_msHosts[page] = {frame = frame, topY = HEADER_H + 4}
+
+		function win.Raise()
+			zTop = zTop + 1
+			frame.ZIndex = zTop
+		end
+		function win.SetOpen(on)
+			on = on == true
+			frame.Visible = on
+			if cfg.flag then St[cfg.flag] = on; saveConfig() end
+			if on then win.Raise() end
+			for _, fn in ipairs(win.listeners) do pcall(fn, on) end
+		end
+		function win.IsOpen() return frame.Visible end
+		function win.OnChange(fn) table.insert(win.listeners, fn) end
+
+		mini.MouseButton1Click:Connect(function()
+			win.minimized = not win.minimized
+			if win.minimized then
+				TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.new(0, cfg.w, 0, HEADER_H)}):Play()
+				page.Visible = false; sep.Visible = false
+				mini.Text = "+"
+			else
+				TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.new(0, cfg.w, 0, win.full)}):Play()
+				page.Visible = true; sep.Visible = true
+				mini.Text = "–"
+			end
+		end)
+		close.MouseButton1Click:Connect(function() win.SetOpen(false) end)
+		hdr.InputBegan:Connect(function(inp)
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then win.Raise() end
+		end)
+		Win.Drag(hdr, frame)
+
+		frame.Visible = cfg.flag and St[cfg.flag] == true or false
+		return win
+	end
+end
+
+
+-- ============================================================
+-- STEAL PANEL WINDOW — Chilli Hub's steal panel: live queue of the eggs
+-- that match your filters, sorted by the chosen priority (rarity first by
+-- default), each with its picture, value, area and Steal / ★ / X buttons.
+-- ============================================================
+local stealWin = Win.Make({name = "MoonEggSteal", title = "Auto Steal Panel", w = 252, h = 380,
+	pos = UDim2.new(0, 8, 0, 56), flag = "winSteal", dot = C.GREEN})
+local stealPage = stealWin.page
+-- first launch on a wide screen: open the Steal Panel right away
+if _savedConfig == nil or _savedConfig.winSteal == nil then
+	local cam = workspace.CurrentCamera
+	if cam and cam.ViewportSize.X >= 700 then stealWin.SetOpen(true) end
+end
+
+do
+	local RARITY_COL = {
+		[0] = C.SILVER2, [1] = C.SILVER, [2] = C.GREEN, [3] = C.ACCENT2, [4] = Color3.fromRGB(180, 120, 255),
+		[5] = C.GOLD, [6] = Color3.fromRGB(255, 150, 60), [7] = C.RED, [8] = Color3.fromRGB(255, 90, 200),
+	}
+	local function rcol(n) return RARITY_COL[math.clamp(math.floor(n or 0), 0, 8)] or C.WHITE end
+	local function short(n)
+		n = tonumber(n) or 0
+		local a = math.abs(n)
+		if a >= 1e12 then return string.format("%.1fT", n / 1e12) end
+		if a >= 1e9 then return string.format("%.1fB", n / 1e9) end
+		if a >= 1e6 then return string.format("%.1fM", n / 1e6) end
+		if a >= 1e3 then return string.format("%.1fK", n / 1e3) end
+		return string.format("%d", n)
+	end
+
+	-- status card
+	local card = Instance.new("Frame", stealPage)
+	card.Size = UDim2.new(1, -12, 0, 44)
+	card.BackgroundColor3 = C.ROW; card.BackgroundTransparency = 0.25
+	card.BorderSizePixel = 0
+	corner(card, 10); addLivingStroke(card, 1)
+	local stLbl = label(card, "Idle", UDim2.new(1, -16, 0, 18), C.GREEN, Enum.Font.GothamBold)
+	stLbl.Position = UDim2.new(0, 10, 0, 4); stLbl.TextSize = 12
+	local stDet = label(card, "", UDim2.new(1, -16, 0, 16), C.DIM, Enum.Font.GothamMedium)
+	stDet.Position = UDim2.new(0, 10, 0, 22); stDet.TextSize = 10
+	makeDivider(stealPage)
+
+	local _, _, farmRefresh = makeRow(stealPage, "autoFarm", "Auto Steal", function(on)
+		if not on then Steal.Abort() end
+	end)
+
+	-- sort (Steal Priority) + rarity floor
+	local SORTS = {"Best Rarity", "Biggest Weight", "Best Mutation", "Highest Value", "Lowest Value"}
+	local sortBox = Instance.new("Frame", stealPage)
+	sortBox.Size = UDim2.new(1, -12, 0, 51); sortBox.BackgroundTransparency = 1
+	makeCarousel(sortBox, "Sort By", SORTS, SORTS, St.stealPriority, function(v)
+		St.stealPriority = v; saveConfig()
+	end)
+
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	local rarBox = Instance.new("Frame", stealPage)
+	rarBox.Size = UDim2.new(1, -12, 0, 51); rarBox.BackgroundTransparency = 1
+	local curRar = rarityOptions[1]
+	for _, o in ipairs(rarityOptions) do if (rarityValueOf[o] or 0) == St.stealMinRarity then curRar = o end end
+	makeCarousel(rarBox, "Min Rarity", rarityOptions, rarityOptions, curRar, function(v)
+		St.stealMinRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+
+	local FARM_ZONES = {"", "Forest", "Desert", "Prehistoric", "Abyss Ocean", "Snow", "Cosmic", "Lake", "Volcano", "Cherry Blossom", "Jungle", "Titan Temple"}
+	local FARM_LABELS = {"All Islands", "Forest", "Desert", "Prehistoric", "Abyss Ocean", "Snow", "Cosmic", "Lake", "Volcano", "Cherry Blossom", "Jungle", "Titan Temple"}
+	local zoneBox = Instance.new("Frame", stealPage)
+	zoneBox.Size = UDim2.new(1, -12, 0, 51); zoneBox.BackgroundTransparency = 1
+	makeCarousel(zoneBox, "Target Island", FARM_ZONES, FARM_LABELS, St.farmZone, function(zv)
+		St.farmZone = zv; saveConfig()
+	end)
+
+	-- live queue
+	sectionHeader(stealPage, "Queue")
+	local queueBox = Instance.new("Frame", stealPage)
+	queueBox.Size = UDim2.new(1, -12, 0, 0)
+	queueBox.AutomaticSize = Enum.AutomaticSize.Y
+	queueBox.BackgroundTransparency = 1
+	local ql = Instance.new("UIListLayout", queueBox)
+	ql.Padding = UDim.new(0, 4); ql.SortOrder = Enum.SortOrder.LayoutOrder
+	local emptyLbl = label(queueBox, "No egg matches the filters", UDim2.new(1, 0, 0, 24), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+	emptyLbl.TextSize = 10.5; emptyLbl.LayoutOrder = 1e6
+
+	local rows = {}
+	local function mkBtn(parent, text, x, y, w, h, col, tcol)
+		local b = Instance.new("TextButton", parent)
+		b.Size = UDim2.new(0, w, 0, h); b.Position = UDim2.new(1, x, 0, y)
+		b.BackgroundColor3 = col; b.Text = text; b.TextSize = 9.5
+		b.TextColor3 = tcol; b.Font = Enum.Font.GothamBold
+		b.BorderSizePixel = 0; corner(b, 6)
+		return b
+	end
+	local function buildRow(egg)
+		local r = {}
+		local f = Instance.new("Frame", queueBox)
+		f.Size = UDim2.new(1, 0, 0, 46)
+		f.BackgroundColor3 = C.ROW; f.BackgroundTransparency = 0.3
+		f.BorderSizePixel = 0
+		corner(f, 9); addLivingStroke(f, 1)
+		r.frame = f
+		r.rank = label(f, "#1", UDim2.new(0, 22, 0, 12), C.GOLD, Enum.Font.GothamBold)
+		r.rank.Position = UDim2.new(0, 5, 0, 3); r.rank.TextSize = 9
+		r.icon = Instance.new("ImageLabel", f)
+		r.icon.Size = UDim2.fromOffset(28, 28); r.icon.Position = UDim2.new(0, 5, 0, 15)
+		r.icon.BackgroundTransparency = 1; r.icon.ScaleType = Enum.ScaleType.Fit
+		r.name = label(f, "", UDim2.new(1, -108, 0, 14), C.WHITE, Enum.Font.GothamBold)
+		r.name.Position = UDim2.new(0, 36, 0, 3); r.name.TextSize = 10.5
+		r.name.TextTruncate = Enum.TextTruncate.AtEnd
+		r.value = label(f, "", UDim2.new(1, -108, 0, 13), C.GOLD, Enum.Font.GothamBold)
+		r.value.Position = UDim2.new(0, 36, 0, 18); r.value.TextSize = 10
+		r.detail = label(f, "", UDim2.new(1, -108, 0, 12), C.DIM, Enum.Font.GothamMedium)
+		r.detail.Position = UDim2.new(0, 36, 0, 32); r.detail.TextSize = 9
+		r.detail.TextTruncate = Enum.TextTruncate.AtEnd
+		r.steal = mkBtn(f, "Steal", -64, 4, 58, 20, Color3.fromRGB(20, 44, 32), C.GREEN)
+		r.star = mkBtn(f, utf8.char(9733), -64, 26, 27, 16, Color3.fromRGB(44, 38, 16), C.GOLD)
+		r.skip = mkBtn(f, "X", -33, 26, 27, 16, Color3.fromRGB(58, 20, 20), C.RED)
+		r.steal.MouseButton1Click:Connect(function()
+			if r.uid then Steal.StealNow(r.uid); St.autoFarm = true; farmRefresh(); saveConfig() end
+		end)
+		r.star.MouseButton1Click:Connect(function() if r.uid then Steal.Prioritize(r.uid) end end)
+		r.skip.MouseButton1Click:Connect(function() if r.uid then Steal.Skip(r.uid, 90) end end)
+		return r
+	end
+
+	local NOW_COL = Color3.fromRGB(30, 60, 40)
+	local function refresh()
+		local root = MV.Root()
+		local plan = Steal.Plan(root and root.Position, 15)
+		local seen = {}
+		for i, egg in ipairs(plan) do
+			local r = rows[egg.uid]
+			if not r then r = buildRow(egg); rows[egg.uid] = r end
+			seen[egg.uid] = true
+			r.uid = egg.uid
+			r.frame.LayoutOrder = i
+			r.rank.Text = "#" .. i
+			local img = _Egg.Icon(egg.cat)
+			if img and r.icon.Image ~= img then r.icon.Image = img end
+			r.name.Text = tostring(_Egg.DisplayName and _Egg.DisplayName(egg.cat) or egg.cat)
+			r.name.TextColor3 = rcol(egg.rarity)
+			r.value.Text = "$" .. short(egg.value) .. "/s"
+			local dist = root and math.floor((egg.pos - root.Position).Magnitude) or 0
+			r.detail.Text = string.format("%s · %s · %dm%s", _Egg.RarityName(egg.cat), tostring(egg.area or "?"), dist,
+				egg.scale and string.format(" · x%.2f", egg.scale) or "")
+			local now = Steal.current == egg.uid
+			r.frame.BackgroundColor3 = now and NOW_COL or C.ROW
+			r.steal.Text = now and "Now" or "Steal"
+		end
+		for uid, r in pairs(rows) do
+			if not seen[uid] then r.frame:Destroy(); rows[uid] = nil end
+		end
+		emptyLbl.Visible = next(seen) == nil
+	end
+
+	task.spawn(function()
+		while true do
+			task.wait(0.4)
+			if stealWin.frame.Visible and not stealWin.minimized then
+				pcall(refresh)
+				local col = C.GREEN
+				local s = Steal.status
+				if s == "Idle" or s == "Waiting" then col = C.DIM elseif s == "Error" or s == "Could not take it" then col = C.RED end
+				stLbl.Text = St.autoFarm and s or "Off"
+				stLbl.TextColor3 = St.autoFarm and col or C.DIM
+				stDet.Text = string.format("%s   ·   %d eggs in the world", St.autoFarm and Steal.detail or "Turn Auto Steal on", #cachedEggs)
+			end
+		end
+	end)
+
+	sectionHeader(stealPage, "Filters")
+	makeMultiSelect(stealPage, "Target Specific Eggs", _Egg.SpeciesOptions, St.stealTargetEggs, function() saveConfig() end, _Egg.Icon)
+	makeSlider(stealPage, "stealMinValueK", "Min Steal Value", 0, 50000, "%dk")
+	makeSlider(stealPage, "stealTweenPct", "Tween Speed", 50, 120, "%d%%")
+	makeSlider(stealPage, "stealCarryPct", "Carry Speed", 80, 120, "%d%%")
+	makeRow(stealPage, "showFarmPath", "Show Farm Path", function(on) end)
+	makeRow(stealPage, "stealMissingLab", "Steal Missing Lab Eggs", function(on) end)
+end
+
+-- ============================================================
+-- EVENTS WINDOW — Dr Scramble (Lab, Mech boss, Scrambled Mutation).
+-- The rows are filled further down, where their helpers live.
+-- ============================================================
+local eventsWin = Win.Make({name = "MoonEggEvents", title = "Events · Dr Scramble", w = 252, h = 360,
+	pos = UDim2.new(1, -260, 0, 56), flag = "winEvents", dot = C.GOLD})
+local eventsPage = eventsWin.page
+
+
+-- ============================================================
 -- FARM TAB
 -- ============================================================
 local farmPage = pages["Farm"]
 
-sectionHeader(farmPage, "Grab")
-
--- Instant Grab
-local _instaGrabConn = nil
-local _instaGrabOriginal = setmetatable({}, {__mode = "k"})
-local function setInstantGrab(on)
-	St.instantGrab = on
-	if on then
-		if _instaGrabConn then return end
-		_instaGrabConn = ProximityPromptService.PromptShown:Connect(function(prompt)
-			if not St.instantGrab then return end
-			if _instaGrabOriginal[prompt] == nil then _instaGrabOriginal[prompt] = prompt.HoldDuration end
-			prompt.HoldDuration = 0
-		end)
-	else
-		if _instaGrabConn then _instaGrabConn:Disconnect(); _instaGrabConn = nil end
-		for prompt, orig in pairs(_instaGrabOriginal) do
-			pcall(function() if prompt and prompt.Parent then prompt.HoldDuration = orig end end)
-		end
-	end
-end
-makeRow(farmPage, "instantGrab", "Instant Grab", function(on) setInstantGrab(on) end)
-
--- Auto Farm — unified engine (no more Tween fighting Speed
--- Boost/Anti Ragdoll). Safety timeout per trip: never stuck forever
--- even if the trip fails. After a grab, runs to the safe zone (escape
--- the guards) instead of standing idle on the egg. EVERYTHING stops
--- immediately (movement + spam) as soon as Auto Farm is disabled —
--- checked live inside every wait loop AND forced on click via
--- _farmFullStopRef (see makeRow further below). Runs silently — no
--- status spam that would drown out other features' status messages.
-task.spawn(function()
-	local isFarmingEgg = false
-	local function _farmFullStop()
-		_farmMoving = false
-		_farmTargetPos = nil
-		isFarmingEgg = false
-	end
-	_farmFullStopRef = _farmFullStop
-
-	-- Find the CarryAreaEgg ProximityPrompt on the nearest SmartPromptPart
-	-- within maxDist studs of eggPos (Chilli Hub exact technique).
-	local function _findCarryPrompt(eggPos, maxDist)
-		maxDist = maxDist or 14
-		local best, bestDist = nil, maxDist
-		for _, child in ipairs(workspace:GetChildren()) do
-			if child.Name == "SmartPromptPart" and child:IsA("BasePart") then
-				local carryAreaEgg = child:FindFirstChild("CarryAreaEgg")
-				if carryAreaEgg and carryAreaEgg:IsA("ProximityPrompt") then
-					local d = (child.Position - eggPos).Magnitude
-					if d < bestDist then bestDist = d; best = carryAreaEgg end
-				end
-			end
-		end
-		return best
-	end
-
-	local function _tryGrab(target)
-		pcall(function()
-			-- Primary: CarryAreaEgg on nearest SmartPromptPart (Chilli Hub technique).
-			local carryPrompt = _findCarryPrompt(target.pos)
-			if carryPrompt then
-				pcall(function() carryPrompt.HoldDuration = 0 end)
-				if fireproximityprompt then pcall(fireproximityprompt, carryPrompt) end
-			end
-			-- Fallback: explicit prompt from source-3 scan.
-			if target.prompt and target.prompt ~= carryPrompt then
-				pcall(function() target.prompt.HoldDuration = 0 end)
-				if fireproximityprompt then pcall(fireproximityprompt, target.prompt) end
-			end
-		end)
-	end
-
-	while true do
-		task.wait(0.2)
-
-		if not St.autoFarm then
-			if isFarmingEgg or _farmMoving then _farmFullStop() end
-		else
-		local char = LP.Character
-		local rootPart = char and char:FindFirstChild("HumanoidRootPart")
-
-		if not isFarmingEgg and rootPart then
-			-- Only target READY and FARMABLE eggs (never your own eggs
-			-- already in a slot — see scanner source 2), island filter applied.
-			local myPos = rootPart.Position
-			-- Fuzzy zone match: exact → case-insensitive substring both ways.
-			-- Handles AREA key names that differ in case or carry a suffix
-			-- vs the FARM_ZONES canonical names (e.g. "ForestArea" vs "Forest").
-			local fzLow = St.farmZone:lower()
-			local function _zoneOk(area)
-				if St.farmZone == "" then return true end
-				if not area or area == "?" then return false end
-				if area == St.farmZone then return true end
-				local al = area:lower()
-				return al:find(fzLow,1,true)~=nil or fzLow:find(al,1,true)~=nil
-			end
-			-- Chilli Hub exact filters: Min Rarity, Min Steal Value, Target
-			-- Specific Eggs (empty selection = match every species). A
-			-- species the Lab Trade-In is still missing is always
-			-- eligible too when "Steal Missing Lab Eggs" is on — same
-			-- override Chilli Hub's RiftNeeds gives its own filters.
-			local minVal = St.stealMinValueK * 1000
-			local hasTargetSet = next(St.stealTargetEggs) ~= nil
-			local candidates = {}
-			for _, r in ipairs(cachedEggs) do
-				if r.enabled and r.farmable ~= false and _zoneOk(r.area)
-					and (r.rarity or 0) >= St.stealMinRarity
-					and (r.value or 0) >= minVal
-					and (not hasTargetSet or St.stealTargetEggs[r.mutation or ""]
-						or (St.stealMissingLab and _labNeeds[r.mutation or ""])) then
-					table.insert(candidates, r)
-				end
-			end
-			-- Steal Priority (Chilli Hub tbl5, exact 5 modes): sorts the
-			-- filtered pool; distance is always the final tiebreaker.
-			local priority = St.stealPriority
-			table.sort(candidates, function(a, b)
-				local av, bv
-				if priority == "Best Rarity" then av, bv = a.rarity or 0, b.rarity or 0
-				elseif priority == "Biggest Weight" then av, bv = a.scale or 0, b.scale or 0
-				elseif priority == "Best Mutation" then av, bv = (a.tags and #a.tags or 0), (b.tags and #b.tags or 0)
-				elseif priority == "Lowest Value" then av, bv = -(a.value or 0), -(b.value or 0)
-				else av, bv = a.value or 0, b.value or 0 end
-				if av ~= bv then return av > bv end
-				return (a.pos - myPos).Magnitude < (b.pos - myPos).Magnitude
-			end)
-			local best = candidates[1]
-
-			if best then
-				isFarmingEgg = true
-				_farmMoving = true
-				_farmTargetPos = best.pos
-				_farmSpeed = math.max(St.speed, 40) * (St.stealTweenPct / 100)
-
-				-- Remove the target from the network cache right away:
-				-- avoids re-selecting the same egg in a loop if the world
-				-- takes time to confirm the grab.
-				if best.uid then _fieldEggNet[best.uid] = nil end
-
-				-- Grab attempts, moderate rate throughout the approach —
-				-- fast enough to catch the window, not so fast it risks
-				-- being ignored/rate-limited by the server.
-				local spamming = true
-				task.spawn(function()
-					while spamming do
-						_tryGrab(best)
-						task.wait(0.2)
-					end
-				end)
-
-				local t0 = os.clock()
-				while St.autoFarm and _farmMoving and (os.clock()-t0) < 6 do
-					local hrp2 = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-					if not hrp2 then break end
-					if (hrp2.Position - best.pos).Magnitude < 4 then break end
-					task.wait(0.1)
-				end
-				_farmMoving = false
-
-				-- Linger near the egg, still attempting the grab, in case
-				-- the server takes a moment to process it.
-				local t0b = os.clock()
-				while St.autoFarm and (os.clock()-t0b) < 1.5 do task.wait(0.1) end
-				spamming = false
-
-				if St.autoFarm then
-					-- Run to the safe zone to secure the egg (escape the
-					-- guards) — if no safe zone is found, just resume
-					-- farming instead of getting stuck.
-					local safePos = _findSafeZonePos()
-					if safePos then
-						_farmMoving = true
-						_farmTargetPos = safePos
-						_farmSpeed = math.max(St.speed, 40) * (St.stealCarryPct / 100)
-
-						local t1 = os.clock()
-						while St.autoFarm and _farmMoving and (os.clock()-t1) < 10 do
-							local hrp4 = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-							if not hrp4 then break end
-							if (hrp4.Position - safePos).Magnitude < 6 then break end
-							task.wait(0.1)
-						end
-					end
-				end
-
-				_farmFullStop()
-			end
-		end
-		end
-	end
-end)
-
-sectionHeader(farmPage, "Auto Steal")
-makeRow(farmPage, "autoFarm", "Auto Farm Eggs", function(on)
-	if not on then _farmFullStopRef() end
-end)
-
--- ============================================================
--- ISLAND PICKER (swipeable, always visible under Auto Farm)
--- ============================================================
+sectionHeader(farmPage, "Windows")
 do
-	local FARM_ZONES = {
-		"","Forest","Desert","Prehistoric","Abyss Ocean","Snow",
-		"Cosmic","Lake","Volcano","Cherry Blossom","Jungle","Titan Temple",
-	}
-	local FARM_ZONE_LABELS = {
-		"All Islands","Forest","Desert","Prehistoric","Abyss Ocean","Snow",
-		"Cosmic","Lake","Volcano","Cherry Blossom","Jungle","Titan Temple",
-	}
-
-	local selOuter = Instance.new("Frame", farmPage)
-	selOuter.Size = UDim2.new(1,-12,0,51)
-	selOuter.BackgroundColor3 = C.ROW
-	selOuter.BackgroundTransparency = 0.25
-	selOuter.BorderSizePixel = 0
-	corner(selOuter, 10)
-	addLivingStroke(selOuter, 1)
-	local selPad = Instance.new("UIPadding", selOuter)
-	selPad.PaddingLeft = UDim.new(0,8); selPad.PaddingRight = UDim.new(0,8)
-	selPad.PaddingTop = UDim.new(0,6); selPad.PaddingBottom = UDim.new(0,6)
-
-	local zoneCarousel = Instance.new("Frame", selOuter)
-	zoneCarousel.Size = UDim2.new(1,0,0,51)
-	zoneCarousel.BackgroundTransparency = 1
-	makeCarousel(zoneCarousel, "Target Island", FARM_ZONES, FARM_ZONE_LABELS, St.farmZone, function(zv)
-		St.farmZone = zv
-		saveConfig()
-	end)
-
-	makeDivider(farmPage)
+	local _, b1 = makeButton(farmPage, "Auto Steal Panel", stealWin.IsOpen() and "Close" or "Open", function() stealWin.SetOpen(not stealWin.IsOpen()) end)
+	stealWin.OnChange(function(on) b1.Text = on and "Close" or "Open" end)
+	local _, b2 = makeButton(farmPage, "Events · Dr Scramble", eventsWin.IsOpen() and "Close" or "Open", function() eventsWin.SetOpen(not eventsWin.IsOpen()) end)
+	eventsWin.OnChange(function(on) b2.Text = on and "Close" or "Open" end)
 end
 
--- ============================================================
--- AUTO STEAL FILTERS — exact Chilli Hub widget set (aide_3 ~2078-2629):
--- Min Rarity, Target Specific Eggs, Steal Priority, Min Steal Value,
--- Tween/Carry Speed. Target Areas is covered by the Island Picker above.
--- ============================================================
-do
-	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
-	makeCarousel(farmPage, "Min Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
-		St.stealMinRarity = rarityValueOf[v] or 0
-		saveConfig()
-	end)
 
-	makeMultiSelect(farmPage, "Target Specific Eggs", _Egg.SpeciesOptions, St.stealTargetEggs, function() saveConfig() end, _Egg.Icon)
-
-	local STEAL_PRIORITY = {"Best Rarity","Biggest Weight","Best Mutation","Highest Value","Lowest Value"}
-	makeCarousel(farmPage, "Steal Priority", STEAL_PRIORITY, STEAL_PRIORITY, St.stealPriority, function(v)
-		St.stealPriority = v
-		saveConfig()
-	end)
-
-	makeSlider(farmPage, "stealMinValueK", "Min Steal Value", 0, 50000, "%dk")
-	makeSlider(farmPage, "stealTweenPct", "Tween Speed", 50, 120, "%d%%")
-	makeSlider(farmPage, "stealCarryPct", "Carry Speed", 80, 120, "%d%%")
-	makeRow(farmPage, "showFarmPath", "Show Farm Path", function(on) end)
-	makeRow(farmPage, "stealMissingLab", "Steal Missing Lab Eggs", function(on) end)
-end
-
--- Auto Hatch / Auto Equip — directly clicks the game's real UI buttons
--- ("Grow All", "Equip Best", confirmed by screenshot) via firesignal —
--- independent of any broken module.
-local _guiClickWarned = false
-local function _clickGuiButtonByText(matchFn)
-	local pg = LP:FindFirstChild("PlayerGui")
-	if not pg then return false end
-	local found = nil
-	for _, d in ipairs(pg:GetDescendants()) do
-		if (d:IsA("TextButton") or d:IsA("ImageButton")) and d.Visible then
-			local txt = d:IsA("TextButton") and d.Text or nil
-			if not txt then
-				local tl = d:FindFirstChildWhichIsA("TextLabel", true)
-				txt = tl and tl.Text or ""
-			end
-			if matchFn(txt or "") then found = d; break end
-		end
-	end
-	if not found then return false end
-	if typeof(firesignal) == "function" then
-		local ok = pcall(function() firesignal(found.MouseButton1Click) end)
-		if ok then return true end
-	end
-	if not _guiClickWarned then
-		_guiClickWarned = true
-		setStatus("UI click unavailable (missing firesignal)", C.RED)
-	end
-	return false
-end
 
 task.spawn(function()
 	local lastHatch = 0
@@ -2107,8 +2520,7 @@ task.spawn(function()
 		if St.autoHatch and (os.clock()-lastHatch) >= 3 then
 			lastHatch = os.clock()
 			-- Chilli Hub: AskHatch → wait 0.35s → AskFinishHatch for each ready egg
-			local hatched = false
-			pcall(function()
+						pcall(function()
 				if type(_M.EggState) == "table" and type(_M.EggState.ReadOwnerEggs) == "function" and type(_M.EggState.IsReadyToHatch) == "function" then
 					local ok, result = pcall(_M.EggState.ReadOwnerEggs, LP.UserId)
 					if ok and type(result) == "table" then
@@ -2125,7 +2537,6 @@ task.spawn(function()
 										task.wait(0.35)
 										_invokeRF("RF/EggWorld/AskFinishHatch", uid)
 										task.wait(0.2)
-										hatched = true
 									end
 								end
 							end
@@ -2133,10 +2544,6 @@ task.spawn(function()
 					end
 				end
 			end)
-			-- Fallback: UI button click
-			if not hatched then
-				_clickGuiButtonByText(function(t) return t:lower():find("grow all", 1, true) ~= nil end)
-			end
 		end
 	end
 end)
@@ -2151,13 +2558,16 @@ do
 	makeMultiSelect(farmPage, "Hatch Specific Eggs", _Egg.SpeciesOptions, St.hatchSpecificEggs, function() saveConfig() end, _Egg.Icon)
 end
 
+-- Auto Equip Best — Chilli Hub (aide_3 ~8830-8870): RF/Haul/FetchWearBestStatus
+-- says whether a better loadout exists, then RF/Haul/WearBest equips it.
 task.spawn(function()
-	local lastEquip = 0
 	while true do
-		task.wait(2)
-		if St.autoEquip and (os.clock()-lastEquip) >= 4 then
-			lastEquip = os.clock()
-			_clickGuiButtonByText(function(t) return t:lower():find("equip best", 1, true) ~= nil end)
+		task.wait(4)
+		if St.autoEquip then
+			pcall(function()
+				local ok, res = _invokeRF("RF/Haul/FetchWearBestStatus")
+				if ok and res ~= false and res ~= nil then _invokeRF("RF/Haul/WearBest") end
+			end)
 		end
 	end
 end)
@@ -2199,15 +2609,6 @@ task.spawn(function()
 	end
 end)
 makeRow(farmPage, "autoUpgradeTM", "Auto Upgrade Treadmill", function(on) end)
-
--- Auto Run Treadmill — disables "Slow Mode" (confirmed by screenshot)
-task.spawn(function()
-	while true do
-		if St.autoRunTreadmill then _invokeRF("RF/Treadmill/AskSlowToggleSet", false) end
-		task.wait(10)
-	end
-end)
-makeRow(farmPage, "autoRunTreadmill", "Auto Run Treadmill", function(on) end)
 
 local function _collectUids(container, nameFilter)
 	local out = {}
@@ -2334,15 +2735,28 @@ end
 
 sectionHeader(farmPage, "Auto Treadmill")
 -- Stay mounted continuously
+-- Auto Treadmill / Stay On Treadmill — Chilli Hub (aide_3 ~8290-8390):
+-- wear the treadmill; with "Stay On Treadmill" it is re-worn whenever you
+-- come off it. Never while Auto Steal is running (the belt would drag the
+-- character backwards mid-steal).
 task.spawn(function()
+	local worn = false
 	while true do
 		task.wait(_AD_jitter(2.0))
-		if St.autoTreadmill2 then _invokeRF("RF/Treadmill/AskWearStill") end
+		if St.autoTreadmill2 and not MV.farming then
+			if St.stayOnTreadmill or not worn then
+				_invokeRF("RF/Treadmill/AskWearStill")
+				worn = true
+			end
+		else
+			worn = false
+		end
 	end
 end)
 makeRow(farmPage, "autoTreadmill2", "Auto Treadmill", function(on)
 	if not on then _invokeRF("RF/Treadmill/AskDoff") end
 end)
+makeRow(farmPage, "stayOnTreadmill", "Stay On Treadmill", function(on) end)
 
 sectionHeader(farmPage, "Auto Sell")
 -- Chilli Hub exact rule set (aide_3 ~8901, 9280-9470):
@@ -2645,136 +3059,259 @@ do
 	makeRow(farmPage, "autoUnfavoriteEquipped", "Auto Unfavorite Equipped", function(on) end)
 end
 
-sectionHeader(farmPage, "Dr Scramble Lab & Mech")
--- Auto Lab Trade-In
-task.spawn(function()
-	while true do
-		task.wait(_AD_jitter(5.0))
-		if St.autoLab then
-			pcall(function()
-				local ok, state = _invokeRF("RF/ScrambleTradeIn/AskState")
-				if ok and type(state) == "table" then
-					if state.Complete or state.Ready then
-						_invokeRF("RF/ScrambleTradeIn/AskTradeIn", state.RecipeId)
-					elseif state.Stuck then
-						_invokeRF("RF/ScrambleTradeIn/AskRefresh")
-					end
-				end
-			end)
-		end
-	end
-end)
-makeRow(farmPage, "autoLab", "Auto Lab Trade-In", function(on) end)
-
--- Steal Missing Lab Eggs — feeds the Auto Farm target-selection loop
--- (see _labNeeds near the top of the file) with whatever species the
--- unfinished Lab Trade-In still needs, exactly like Chilli Hub's
--- RiftNeeds (aide_3 ~2219-2332): diff the trade-in Requirements
--- against everything already owned (pets + eggs, placed or not).
-task.spawn(function()
-	while true do
-		task.wait(30)
-		if St.stealMissingLab then
-			pcall(function()
-				local ok, state = _invokeRF("RF/ScrambleTradeIn/AskState")
-				if ok and type(state) == "table" and type(state.Requirements) == "table" then
-					local owned = {}
-					local items = _readOwnerEggs(nil)
-					if items then
-						for _, it in ipairs(items) do owned[tostring(it.rec.AssetCategory)] = true end
-					end
-					local needs = {}
-					for _, cat in ipairs(state.Requirements) do
-						local c = tostring(cat)
-						if not owned[c] then needs[c] = true end
-					end
-					_labNeeds = needs
-				end
-			end)
-		elseif next(_labNeeds) ~= nil then
-			_labNeeds = {}
-		end
-	end
-end)
-
--- Auto Mech Boss
-local _mechConn = nil
-local function stopMech() if _mechConn then _mechConn:Disconnect(); _mechConn = nil end end
-local function startMech()
-	stopMech()
-	pcall(function() _invokeRF("RF/ScrambleBoss/EnterArena") end)
-	local _t = 0
-	_mechConn = RunService.Heartbeat:Connect(function(dt)
-		if not St.autoMech then return end
-		_t = _t + dt; if _t < 0.5 then return end; _t = 0
-		pcall(function()
-			local boss = workspace:FindFirstChild("ScrambleBoss", true) or workspace:FindFirstChild("Mech", true)
-			local bossHRP = boss and (boss:IsA("Model") and boss.PrimaryPart or boss:FindFirstChild("HumanoidRootPart"))
-			if bossHRP then
-				_fireRE("RE/BatSwing/Trigger", {serverTime = workspace:GetServerTimeNow(), targetCFrame = bossHRP.CFrame})
-			end
-		end)
-	end)
-end
-makeRow(farmPage, "autoMech", "Auto Mech Boss", function(on)
-	if on then startMech() else stopMech() end
-end)
-
-sectionHeader(farmPage, "Dr Scramble Event")
--- Auto Use Scrambled Mutation — exact Chilli Hub remote (aide_3
--- ~14685-14710): RF/BossMastery/AskUseMutationConsumable(uid). Skips
--- already-mutated eggs (SkipMutated default true in the source) since
--- re-applying does nothing useful.
-task.spawn(function()
-	while true do
-		task.wait(_AD_jitter(3.0))
-		if St.autoUseScrambled then
-			pcall(function()
-				local hasTargetSet = next(St.mutationTargetEggs) ~= nil
-				local minVal = St.mutationMinValueK * 1000
-				local items = _readOwnerEggs(function(rec)
-					if rec.Placement ~= nil then return false end
-					if type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
-					local cat = rec.AssetCategory
-					if _Egg.Rarity(cat) < St.mutationMinRarity then return false end
-					if hasTargetSet and not St.mutationTargetEggs[tostring(cat)] then return false end
-					if minVal > 0 and _Egg.Value(cat, rec.AssetScale, rec.Mutations) < minVal then return false end
-					return true
-				end)
-				if items and #items > 0 then
-					-- Mutation Priority (Chilli Hub exact 3 modes)
-					local priority = St.mutationPriority
-					table.sort(items, function(a, b)
-						if priority == "Best Rarity" then
-							return _Egg.Rarity(a.rec.AssetCategory) > _Egg.Rarity(b.rec.AssetCategory)
-						elseif priority == "Biggest Size" then
-							return (tonumber(a.rec.AssetScale) or 0) > (tonumber(b.rec.AssetScale) or 0)
-						end
-						return _Egg.Value(a.rec.AssetCategory, a.rec.AssetScale, a.rec.Mutations)
-							> _Egg.Value(b.rec.AssetCategory, b.rec.AssetScale, b.rec.Mutations)
-					end)
-					-- No auto-purchase on failure/out-of-charges: Chilli
-					-- Hub's own "Auto Buy Scrambled" has no real buy call
-					-- either, just a status hint to buy manually.
-					_invokeRF("RF/BossMastery/AskUseMutationConsumable", items[1].uid)
-				end
-			end)
-		end
-	end
-end)
-makeRow(farmPage, "autoUseScrambled", "Auto Use Scrambled Mutation", function(on) end)
+-- ============================================================
+-- EVENTS WINDOW CONTENT — Dr Scramble (Chilli Hub's Lab / Mech / Scrambled
+-- Mutation rows). Everything below is parented to the Events window.
+-- ============================================================
 do
-	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
-	makeCarousel(farmPage, "Mutation Min Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
-		St.mutationMinRarity = rarityValueOf[v] or 0; saveConfig()
+	local ev = eventsPage
+	local function statusRow(text)
+		local f = Instance.new("Frame", ev)
+		f.Size = UDim2.new(1, -12, 0, 34)
+		f.BackgroundColor3 = C.ROW; f.BackgroundTransparency = 0.25
+		f.BorderSizePixel = 0
+		corner(f, 9); addLivingStroke(f, 1)
+		local l = label(f, text, UDim2.new(1, -16, 1, -6), C.SILVER, Enum.Font.GothamMedium)
+		l.Position = UDim2.new(0, 8, 0, 3); l.TextSize = 9.5; l.TextWrapped = true
+		l.TextYAlignment = Enum.TextYAlignment.Center
+		makeDivider(ev)
+		return l
+	end
+
+	-- ---------- Dr Scramble Lab (Chilli Hub ~11480-11780) ----------
+	sectionHeader(ev, "Lab Trade-In")
+	local labStatus = statusRow("Loading Lab data...")
+	local Lab = {state = nil, at = 0, note = "", busy = false}
+
+	local function assetName(cat)
+		local e = _Egg.DirEntry(cat)
+		return tostring(type(e) == "table" and e.DisplayName or cat)
+	end
+	local function labState(force)
+		if not force and Lab.state and os.clock() - Lab.at < 4 then return Lab.state end
+		local ok, res = _invokeRF("RF/ScrambleTradeIn/AskState")
+		if ok and type(res) == "table" then Lab.state = res; Lab.at = os.clock() end
+		return Lab.state
+	end
+	-- picks one owned, unfavourited, unfused, unequipped pet per requirement
+	-- (mutated ones first, smallest scale first), exactly like Chilli Hub
+	local function labPick(state, data)
+		local reqs = state and state.Requirements
+		if type(reqs) ~= "table" or #reqs == 0 then return nil, "No active recipe" end
+		local equipped = {}
+		if type(data.EquippedAssets) == "table" then
+			for _, uid in pairs(data.EquippedAssets) do equipped[uid] = true end
+		end
+		local byCat = {}
+		for _, r in ipairs(reqs) do byCat[tostring(r)] = {} end
+		for uid, it in pairs(data.Inventory or {}) do
+			local bucket = type(it) == "table" and byCat[tostring(it.Category)] or nil
+			if bucket and it.InFuse ~= true and it.IsFavorite ~= true and not equipped[uid] then
+				table.insert(bucket, {Uid = uid, Scale = tonumber(it.Scale) or 0,
+					Mutated = type(it.Mutations) == "table" and next(it.Mutations) ~= nil})
+			end
+		end
+		for _, b in pairs(byCat) do
+			table.sort(b, function(a, c)
+				if a.Mutated ~= c.Mutated then return c.Mutated end
+				return a.Scale < c.Scale
+			end)
+		end
+		local out, used = {}, {}
+		for _, r in ipairs(reqs) do
+			local pick
+			for _, c in ipairs(byCat[tostring(r)]) do
+				if not used[c.Uid] then pick = c; break end
+			end
+			if not pick then return nil, "Missing " .. assetName(r) end
+			used[pick.Uid] = true
+			table.insert(out, pick.Uid)
+		end
+		return out
+	end
+	local function labText()
+		local s = Lab.state
+		if type(s) ~= "table" then return "Lab status unknown" end
+		if s.Unlocked ~= true then return "Lab is locked on this account" end
+		local names = {}
+		for _, r in ipairs(s.Requirements or {}) do table.insert(names, assetName(r)) end
+		local left = math.max(0, (tonumber(s.SecondsUntilRotation) or 0) - (os.clock() - Lab.at))
+		local txt = string.format("needs %s  ·  free rerolls %s  ·  rotates in %d:%02d",
+			#names > 0 and table.concat(names, ", ") or "-", tostring(s.FreeRefreshesRemaining or 0),
+			math.floor(left / 60), math.floor(left % 60))
+		if Lab.note ~= "" then txt = txt .. "  ·  " .. Lab.note end
+		return txt
+	end
+	local function labTick()
+		local s = labState(true)
+		if type(s) ~= "table" or s.Unlocked ~= true then return end
+		if s.PendingReward ~= nil and s.PendingReward ~= false then
+			local ok, res = _invokeRF("RF/ScrambleTradeIn/AskFinishaide")
+			Lab.note = (ok and res ~= false) and "Reward claimed" or "Reward claim failed"
+			return
+		end
+		local okSave, data = pcall(function() return _M.Save and _M.Save.Get and _M.Save.Get() end)
+		if not okSave or type(data) ~= "table" then return end
+		local uids, why = labPick(s, data)
+		if not uids then
+			Lab.note = why or "Recipe not ready"
+			if St.autoRerollLab and (tonumber(s.FreeRefreshesRemaining) or 0) > 0 then
+				local ok, res = _invokeRF("RF/ScrambleTradeIn/AskRefresh")
+				Lab.note = (ok and res ~= false) and "Recipe rerolled" or tostring(res or "Reroll rejected")
+			end
+			return
+		end
+		if St.autoLab then
+			local ok, res = _invokeRF("RF/ScrambleTradeIn/AskTradeIn", uids)
+			Lab.note = (ok and res ~= false) and "Trade-in sent" or tostring(res or "Trade rejected")
+		else
+			Lab.note = "Ready to trade in"
+		end
+	end
+	task.spawn(function()
+		while true do
+			task.wait((St.autoLab or St.autoRerollLab) and 5 or 30)
+			if (St.autoLab or St.autoRerollLab) and not Lab.busy then
+				Lab.busy = true
+				pcall(labTick)
+				Lab.busy = false
+			else
+				pcall(labState, true)
+			end
+		end
 	end)
-	makeSlider(farmPage, "mutationMinValueK", "Min Mutation Value", 0, 50000, "%dk")
-	local MUTATION_PRIORITY = {"Highest Value","Best Rarity","Biggest Size"}
-	makeCarousel(farmPage, "Mutation Priority", MUTATION_PRIORITY, MUTATION_PRIORITY, St.mutationPriority, function(v)
-		St.mutationPriority = v; saveConfig()
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if eventsWin.frame.Visible and not eventsWin.minimized then
+				pcall(function() labStatus.Text = labText() end)
+			end
+		end
 	end)
-	makeMultiSelect(farmPage, "Mutation Target Eggs", _Egg.SpeciesOptions, St.mutationTargetEggs, function() saveConfig() end, _Egg.Icon)
+	makeRow(ev, "autoLab", "Auto Lab Trade-In", function(on) end)
+	makeRow(ev, "autoRerollLab", "Auto Reroll Lab Recipe", function(on) end)
+
+	-- Steal Missing Lab Eggs feeds the Auto Steal target choice (_labNeeds)
+	task.spawn(function()
+		while true do
+			task.wait(30)
+			if St.stealMissingLab then
+				pcall(function()
+					local state = labState(true)
+					if type(state) == "table" and type(state.Requirements) == "table" then
+						local owned = {}
+						local items = _readOwnerEggs(nil)
+						if items then
+							for _, it in ipairs(items) do owned[tostring(it.rec.AssetCategory)] = true end
+						end
+						local okSave, data = pcall(function() return _M.Save.Get() end)
+						if okSave and type(data) == "table" then
+							for _, it in pairs(data.Inventory or {}) do
+								if type(it) == "table" and it.Category then owned[tostring(it.Category)] = true end
+							end
+						end
+						local needs = {}
+						for _, cat in ipairs(state.Requirements) do
+							if not owned[tostring(cat)] then needs[tostring(cat)] = true end
+						end
+						_labNeeds = needs
+					end
+				end)
+			elseif next(_labNeeds) ~= nil then
+				_labNeeds = {}
+			end
+		end
+	end)
+
+	-- ---------- Mech boss ----------
+	sectionHeader(ev, "Mech Boss")
+	local mechStatus = statusRow("Idle")
+	local _mechConn = nil
+	local function stopMech()
+		if _mechConn then _mechConn:Disconnect(); _mechConn = nil end
+		mechStatus.Text = "Off"
+	end
+	local function startMech()
+		stopMech()
+		mechStatus.Text = "Entering the arena..."
+		task.spawn(function() pcall(function() _invokeRF("RF/ScrambleBoss/EnterArena") end) end)
+		local t = 0
+		_mechConn = RunService.Heartbeat:Connect(function(dt)
+			if not St.autoMech then return end
+			t = t + dt; if t < 0.5 then return end; t = 0
+			pcall(function()
+				local boss = workspace:FindFirstChild("ScrambleBoss", true) or workspace:FindFirstChild("Mech", true)
+				local bossHRP = boss and (boss:IsA("Model") and boss.PrimaryPart or boss:FindFirstChild("HumanoidRootPart"))
+				if bossHRP then
+					mechStatus.Text = "Fighting the boss"
+					_fireRE("RE/BatSwing/Trigger", {serverTime = workspace:GetServerTimeNow(), targetCFrame = bossHRP.CFrame})
+				else
+					mechStatus.Text = "Waiting for the boss"
+				end
+			end)
+		end)
+	end
+	makeRow(ev, "autoMech", "Auto Mech Boss", function(on)
+		if on then startMech() else stopMech() end
+	end)
+
+	-- ---------- Scrambled Mutation (Chilli Hub ~14685-15090) ----------
+	sectionHeader(ev, "Dr Scramble Event")
+	local scrStatus = statusRow("Off")
+	task.spawn(function()
+		while true do
+			task.wait(_AD_jitter(3.0))
+			if St.autoUseScrambled then
+				pcall(function()
+					local hasTargetSet = next(St.mutationTargetEggs) ~= nil
+					local minVal = St.mutationMinValueK * 1000
+					local items = _readOwnerEggs(function(rec)
+						if rec.Placement ~= nil then return false end
+						if type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
+						local cat = rec.AssetCategory
+						if _Egg.Rarity(cat) < St.mutationMinRarity then return false end
+						if hasTargetSet and not St.mutationTargetEggs[tostring(cat)] then return false end
+						if minVal > 0 and _Egg.Value(cat, rec.AssetScale, rec.Mutations) < minVal then return false end
+						return true
+					end)
+					if items and #items > 0 then
+						local priority = St.mutationPriority
+						table.sort(items, function(a, b)
+							if priority == "Best Rarity" then
+								return _Egg.Rarity(a.rec.AssetCategory) > _Egg.Rarity(b.rec.AssetCategory)
+							elseif priority == "Biggest Size" then
+								return (tonumber(a.rec.AssetScale) or 0) > (tonumber(b.rec.AssetScale) or 0)
+							end
+							return _Egg.Value(a.rec.AssetCategory, a.rec.AssetScale, a.rec.Mutations)
+								> _Egg.Value(b.rec.AssetCategory, b.rec.AssetScale, b.rec.Mutations)
+						end)
+						local ok, res = _invokeRF("RF/BossMastery/AskUseMutationConsumable", items[1].uid)
+						scrStatus.Text = (ok and res ~= false) and ("Used on " .. assetName(items[1].rec.AssetCategory))
+							or "No Scrambled Mutation left (buy one in the event shop)"
+					else
+						scrStatus.Text = "No egg matches the filters"
+					end
+				end)
+			else
+				scrStatus.Text = "Off"
+			end
+		end
+	end)
+	makeRow(ev, "autoUseScrambled", "Auto Use Scrambled Mutation", function(on) end)
+	do
+		local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+		makeCarousel(ev, "Mutation Min Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+			St.mutationMinRarity = rarityValueOf[v] or 0; saveConfig()
+		end)
+		makeSlider(ev, "mutationMinValueK", "Min Mutation Value", 0, 50000, "%dk")
+		local MUTATION_PRIORITY = {"Highest Value","Best Rarity","Biggest Size"}
+		makeCarousel(ev, "Mutation Priority", MUTATION_PRIORITY, MUTATION_PRIORITY, St.mutationPriority, function(v)
+			St.mutationPriority = v; saveConfig()
+		end)
+		makeMultiSelect(ev, "Mutation Target Eggs", _Egg.SpeciesOptions, St.mutationTargetEggs, function() saveConfig() end, _Egg.Icon)
+	end
 end
+
 
 sectionHeader(farmPage, "Progression")
 -- Auto Buy Trail
@@ -2821,7 +3358,7 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoUpgradeBase", "Auto Upgrade Base", function(on) end)
 
-sectionHeader(farmPage, "Anti Guard")
+sectionHeader(stealPage, "Anti Guard")
 -- Exact Chilli Hub technique: react to RagdollEndTime
 -- attribute. When a guard hits the player the server sets this attribute.
 -- We detect the change instantly and teleport past the guard line before
@@ -2879,7 +3416,7 @@ local function startAntiGuard()
 		end)
 	end)
 end
-makeRow(farmPage, "antiGuard", "Anti-Guard", function(on)
+makeRow(stealPage, "antiGuard", "Anti-Guard", function(on)
 	if on then startAntiGuard() else stopAntiGuard() end
 end)
 
@@ -2893,6 +3430,20 @@ local speedRow, speedBtn, speedRefresh = makeRow(speedPage, "speedOn", "Speed Bo
 	if on then startSpeed() else stopSpeed() end
 end)
 makeSlider(speedPage, "speed", "Boost Speed", 20, 1000, "%d")
+
+-- Infinite Jump — Chilli Hub (aide_3 ~15471-15500): JumpRequest -> Jumping
+-- state, with the Humanoid Swap shield held while it is on.
+local _ijConn = nil
+makeRow(speedPage, "infJump", "Infinite Jump", function(on)
+	if _ijConn then _ijConn:Disconnect(); _ijConn = nil end
+	MV.Shield("jump", on)
+	if on then
+		_ijConn = UIS.JumpRequest:Connect(function()
+			local h = MV.Hum()
+			if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Jumping) end) end
+		end)
+	end
+end)
 
 -- Anti Ragdoll — module override + reactive safety net
 local _ragdollOriginal = {}
@@ -3010,124 +3561,213 @@ makeRow(speedPage, "antiRagdoll", "Anti Ragdoll", function(on)
 	if on then startAntiRag() else stopAntiRag() end
 end)
 
--- Fly
-local _flyConn, _flyBP = nil, nil
-local function stopFly()
-	if _flyConn then _flyConn:Disconnect(); _flyConn = nil end
-	pcall(function() if _flyBP then _flyBP:Destroy(); _flyBP = nil end end)
-	local char = LP.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if hum then hum.PlatformStand = false end
-end
-local function startFly()
-	stopFly()
-	local char = LP.Character; if not char then return end
-	local hrp = char:FindFirstChild("HumanoidRootPart"); if not hrp then return end
-	local hum = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
-	hum.PlatformStand = true
-	_flyBP = Instance.new("BodyPosition")
-	_flyBP.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	_flyBP.P = 1e4; _flyBP.D = 500
-	_flyBP.Position = hrp.Position
-	_flyBP.Parent = hrp
-	local bv = Instance.new("BodyVelocity")
-	bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	bv.Velocity = Vector3.zero; bv.Parent = hrp
-	_flyConn = RunService.RenderStepped:Connect(function()
-		if not St.fly then return end
-		local cam = workspace.CurrentCamera
-		local mv = Vector3.zero
-		if UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.Up) then mv = mv + cam.CFrame.LookVector end
-		if UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.Down) then mv = mv - cam.CFrame.LookVector end
-		if UIS:IsKeyDown(Enum.KeyCode.A) or UIS:IsKeyDown(Enum.KeyCode.Left) then mv = mv - cam.CFrame.RightVector end
-		if UIS:IsKeyDown(Enum.KeyCode.D) or UIS:IsKeyDown(Enum.KeyCode.Right) then mv = mv + cam.CFrame.RightVector end
-		if UIS:IsKeyDown(Enum.KeyCode.Space) then mv = mv + Vector3.new(0,1,0) end
-		if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then mv = mv - Vector3.new(0,1,0) end
-		bv.Velocity = mv.Magnitude > 0 and mv.Unit * St.flySpeed or Vector3.zero
-		_flyBP.Position = hrp.Position
-	end)
-end
-makeRow(speedPage, "fly", "Fly (WASD + Space)", function(on)
-	if on then startFly() else stopFly() end
-end)
-makeSlider(speedPage, "flySpeed", "Fly Speed", 5, 300, "%d")
 
--- Anti Trap
-local _trapConn, _lastPos, _stuckSince = nil, Vector3.zero, 0
-local function stopAntiTrap() if _trapConn then _trapConn:Disconnect(); _trapConn = nil end end
+-- Anti Trap — Chilli Hub (aide_3 ~16460-16540): every part of another
+-- player's PlacedTrap gets CanTouch = false, so it can't catch you.
+local _trapLinks, _trapSaved = {}, {}
+local CollectionService = game:GetService("CollectionService")
+local function _trapOff(p)
+	if p:IsA("BasePart") and _trapSaved[p] == nil then
+		_trapSaved[p] = p.CanTouch
+		pcall(function() p.CanTouch = false end)
+	end
+end
+local function _trapDisarm(inst)
+	if not St.antiTrap or not inst.Parent then return end
+	if inst:GetAttribute("Owner") == LP.Name then return end
+	_trapOff(inst)
+	for _, d in ipairs(inst:GetDescendants()) do _trapOff(d) end
+	table.insert(_trapLinks, inst.DescendantAdded:Connect(function(d) if St.antiTrap then _trapOff(d) end end))
+end
+local function stopAntiTrap()
+	for _, l in ipairs(_trapLinks) do pcall(function() l:Disconnect() end) end
+	table.clear(_trapLinks)
+	for p, was in pairs(_trapSaved) do
+		if p.Parent then pcall(function() p.CanTouch = was end) end
+	end
+	table.clear(_trapSaved)
+end
 local function startAntiTrap()
 	stopAntiTrap()
-	local _t = 0
-	_trapConn = RunService.Heartbeat:Connect(function()
-		if not St.antiTrap then return end
-		local now = tick(); if now-_t < 0.5 then return end; _t = now
-		local char = LP.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		if not hrp then _lastPos = Vector3.zero; _stuckSince = now; return end
-		local moved = (hrp.Position - _lastPos).Magnitude
-		if moved < 0.5 then
-			local hum = char:FindFirstChildOfClass("Humanoid")
-			local isMoving = hum and hum.MoveDirection.Magnitude > 0.1
-			if isMoving then
-				if _stuckSince > 0 and now-_stuckSince > 1.5 then
-					hrp.CFrame = hrp.CFrame * CFrame.new(0,3,0)
-					_stuckSince = 0
-				end
-			else _stuckSince = 0 end
-		else _stuckSince = 0 end
-		_lastPos = hrp.Position
-	end)
+	for _, t in ipairs(CollectionService:GetTagged("PlacedTrap")) do _trapDisarm(t) end
+	table.insert(_trapLinks, CollectionService:GetInstanceAddedSignal("PlacedTrap"):Connect(function(t)
+		task.defer(_trapDisarm, t)
+	end))
 end
 makeRow(speedPage, "antiTrap", "Anti Trap", function(on)
 	if on then startAntiTrap() else stopAntiTrap() end
 end)
 
--- Instant Prompts
-local _ipConn = nil
-local _ipOriginal = setmetatable({}, {__mode = "k"})
-local function stopInstantPrompts()
-	if _ipConn then _ipConn:Disconnect(); _ipConn = nil end
-	for prompt, orig in pairs(_ipOriginal) do
-		pcall(function() if prompt and prompt.Parent then prompt.HoldDuration = orig end end)
+-- Instant Prompts — Chilli Hub (aide_3 ~16700-16860): HoldDuration -> 0 on
+-- every shown prompt and on the egg-carry prompts (SmartPromptPart >
+-- CarryAreaEgg) the moment they spawn; ClaimLostPart is left alone.
+local _ipHold = {}
+local _ipConns = {}
+local function _ipApply(p)
+	if not p:IsA("ProximityPrompt") or p.Name == "ClaimLostPart" then return end
+	if _ipHold[p] == nil then
+		if p.HoldDuration <= 0 and p.Name ~= "CarryAreaEgg" then return end
+		_ipHold[p] = p.HoldDuration
 	end
+	if p.HoldDuration ~= 0 then pcall(function() p.HoldDuration = 0 end) end
+end
+local function _ipCarryPrompt(part)
+	if part.Name ~= "SmartPromptPart" then return nil end
+	local p = part:FindFirstChild("CarryAreaEgg")
+	return p and p:IsA("ProximityPrompt") and p or nil
+end
+local function stopInstantPrompts()
+	for _, c in ipairs(_ipConns) do pcall(function() c:Disconnect() end) end
+	table.clear(_ipConns)
+	for p, orig in pairs(_ipHold) do
+		if p.Parent then pcall(function() p.HoldDuration = orig end) end
+	end
+	table.clear(_ipHold)
 end
 local function startInstantPrompts()
 	stopInstantPrompts()
-	_ipConn = ProximityPromptService.PromptShown:Connect(function(prompt)
-		if not St.instantPrompts then return end
-		if _ipOriginal[prompt] == nil then _ipOriginal[prompt] = prompt.HoldDuration end
-		prompt.HoldDuration = 0
-	end)
+	table.insert(_ipConns, ProximityPromptService.PromptShown:Connect(function(p)
+		if St.instantPrompts then _ipApply(p) end
+	end))
+	for _, child in ipairs(workspace:GetChildren()) do
+		local p = _ipCarryPrompt(child)
+		if p then _ipApply(p) end
+	end
+	table.insert(_ipConns, workspace.ChildAdded:Connect(function(child)
+		if child.Name ~= "SmartPromptPart" then return end
+		task.defer(function()
+			local p = child:FindFirstChild("CarryAreaEgg") or child:WaitForChild("CarryAreaEgg", 2)
+			if p and p:IsA("ProximityPrompt") and St.instantPrompts then _ipApply(p) end
+		end)
+	end))
 end
 makeRow(speedPage, "instantPrompts", "Instant Prompts", function(on)
 	if on then startInstantPrompts() else stopInstantPrompts() end
 end)
 
--- Invisibility
-local _invisConn = nil
-local function stopInvisibility()
-	if _invisConn then _invisConn:Disconnect(); _invisConn = nil end
-	local char = LP.Character
-	if char then
-		for _, p in ipairs(char:GetDescendants()) do
-			if p:IsA("BasePart") then p.LocalTransparencyModifier = 0 end
+
+-- Invisibility — Chilli Hub (aide_3 ~15914-16376): the character is reset,
+-- and on the fresh one the joints are broken server-side, every accessory
+-- and limb is removed on the client and HipHeight is pushed up, keeping
+-- only the root part (+ a tiny fake RightHand so tools can still be held).
+-- The other players stop seeing you. Speed Boost is forced on while it is
+-- active (a limbless rig walks with the boost velocity only). Experimental.
+local Invis = {on = false, applying = false, prevSpeed = false}
+do
+	local HIP = 999
+	local function hum(ch) return ch and ch:FindFirstChildOfClass("Humanoid") end
+	local function applied(ch) return ch ~= nil and ch:GetAttribute("InvisApplied") == true end
+	local function rigWipe(ch)
+		local r = _getRemote("RE/RigSync/AskRigWipe")
+		if r and r:IsA("RemoteEvent") then pcall(function() r:FireServer(ch) end) end
+	end
+	local function doff()
+		local r = _getRemote("RF/Treadmill/AskDoff")
+		if r and r:IsA("RemoteFunction") then for _ = 1, 2 do pcall(function() r:InvokeServer() end) end end
+	end
+	local function killChar(ch)
+		local h = hum(ch)
+		if not h then return end
+		doff()
+		pcall(function()
+			h:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
+			h.BreakJointsOnDeath = true; h.RequiresNeck = true; h.Health = 0
+		end)
+		pcall(function() h:ChangeState(Enum.HumanoidStateType.Dead) end)
+		pcall(function() ch:BreakJoints() end)
+		rigWipe(ch)
+	end
+	local function applyTo(ch)
+		if Invis.applying then return false end
+		Invis.applying = true
+		local h = hum(ch)
+		local deadline = os.clock() + 10
+		while Invis.on and ch.Parent and os.clock() < deadline do
+			h = h or hum(ch)
+			if h and ch:FindFirstChild("HumanoidRootPart") and ch:FindFirstChild("Head") then break end
+			task.wait()
+		end
+		local root = ch:FindFirstChild("HumanoidRootPart")
+		if not Invis.on or not h or not root or not ch:FindFirstChild("Head") then Invis.applying = false; return false end
+		task.wait(0.05)
+		if not Invis.on or not ch.Parent then Invis.applying = false; return false end
+		for _ = 1, 2 do pcall(h.UnequipTools, h) end
+		if type(replicatesignal) == "function" then
+			for _ = 1, 2 do pcall(replicatesignal, h.ServerBreakJoints) end
+		end
+		pcall(function() h.HipHeight = HIP end)
+		for _, c in ipairs(ch:GetChildren()) do
+			if c:IsA("Accessory") or (c:IsA("BasePart") and c ~= root) then pcall(function() c.Parent = nil end) end
+		end
+		task.wait(0.12)
+		if not Invis.on or not ch.Parent then Invis.applying = false; return false end
+		local wrist = Instance.new("Motor6D")
+		wrist.Name = "RightWrist"; wrist.C0 = CFrame.new(1.2, 0, 0); wrist.C1 = CFrame.new()
+		wrist.Part0 = root; wrist.Parent = root
+		local hand = Instance.new("Part")
+		hand.Name = "RightHand"; hand.Size = Vector3.new(0.2, 0.2, 0.2)
+		hand.Transparency = 1; hand.CanCollide = false; hand.CanTouch = false; hand.CanQuery = false; hand.Massless = true
+		hand.CFrame = root.CFrame * wrist.C0
+		wrist.Part1 = hand; hand.Parent = ch
+		pcall(function() root.CanCollide = false end)
+		ch:SetAttribute("InvisApplied", true)
+		task.delay(0.2, function() if root.Parent then pcall(function() root.CanCollide = true end) end end)
+		local keep
+		keep = ch.ChildAdded:Connect(function(c)
+			if c:IsA("Humanoid") then task.defer(function() pcall(function() c.HipHeight = HIP end) end) end
+		end)
+		ch.AncestryChanged:Connect(function(_, p) if p == nil and keep then keep:Disconnect() end end)
+		Invis.applying = false
+		return true
+	end
+	local function forceSpeed(on)
+		if on then
+			Invis.prevSpeed = St.speedOn == true
+			if not St.speedOn then startSpeed() end
+		else
+			if not Invis.prevSpeed and St.speedOn then stopSpeed() end
 		end
 	end
-end
-local function startInvisibility()
-	stopInvisibility()
-	_invisConn = RunService.RenderStepped:Connect(function()
-		if not St.invisibility then return end
-		local char = LP.Character
-		if not char then return end
-		for _, p in ipairs(char:GetDescendants()) do
-			if p:IsA("BasePart") then p.LocalTransparencyModifier = 1 end
+	function Invis.Set(on)
+		Invis.on = on == true
+		if Invis.on then
+			forceSpeed(true)
+			MV.ShieldPaused = true
+			pcall(MV.UndoSwap)
+			task.spawn(function()
+				local ch = LP.Character
+				if ch and not applied(ch) then killChar(ch) end
+			end)
+		else
+			forceSpeed(false)
+			MV.ShieldPaused = false
+			local ch = LP.Character
+			if ch and applied(ch) then killChar(ch) end
+		end
+	end
+	LP.CharacterAdded:Connect(function(ch)
+		if not Invis.on then return end
+		task.spawn(function()
+			ch:WaitForChild("Humanoid", 10)
+			applyTo(ch)
+		end)
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			if Invis.on then
+				local ch = LP.Character
+				local h = hum(ch)
+				if ch and h and h.Health > 0 and not applied(ch) and not Invis.applying then
+					task.spawn(applyTo, ch)
+				end
+			end
 		end
 	end)
 end
-makeRow(speedPage, "invisibility", "Invisibility", function(on)
-	if on then startInvisibility() else stopInvisibility() end
-end)
+St.invisibility = false -- never restored: it resets the character
+makeRow(speedPage, "invisibility", "Invisibility", function(on) Invis.Set(on) end)
+
 
 -- ============================================================
 -- VISUAL TAB
@@ -3343,18 +3983,7 @@ do
 	makeSlider(visualPage, "espEggSizePct", "ESP Egg Size", 50, 200, "%d%%")
 end
 
-local _origBright = nil
-local function startFullbright()
-	_origBright = Lighting.Brightness
-	Lighting.Brightness = 2; Lighting.GlobalShadows = false
-	Lighting.Ambient = Color3.fromRGB(200,200,200); Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
-end
-local function stopFullbright()
-	Lighting.Brightness = _origBright or 1; Lighting.GlobalShadows = true
-	Lighting.Ambient = Color3.fromRGB(70,70,70); Lighting.OutdoorAmbient = Color3.fromRGB(100,100,100)
-end
-sectionHeader(visualPage, "Display")
-makeRow(visualPage, "fullbright", "Fullbright", function(on) if on then startFullbright() else stopFullbright() end end)
+
 
 local function applyFpsBoost()
 	pcall(function() setfpscap(9999) end)
@@ -3371,25 +4000,7 @@ local function applyFpsBoost()
 	for _, v in ipairs(Lighting:GetDescendants()) do proc(v) end
 	workspace.DescendantAdded:Connect(function(v) if St.fpsBoost then task.spawn(proc, v) end end)
 end
-makeRow(visualPage, "fpsBoost", "FPS Boost", function(on) if on then applyFpsBoost() end end)
 
-do
-	makeSlider(visualPage, "fov", "FOV", 30, 130, "%d°")
-	-- makeSlider is generic (doesn't know about the camera) — applies FOV
-	-- separately, once immediately then via a small loop watching St.fov
-	-- (covers both dragging AND restoring it on load).
-	pcall(function() workspace.CurrentCamera.FieldOfView = St.fov end)
-	task.spawn(function()
-		local last = St.fov
-		while true do
-			if St.fov ~= last then
-				last = St.fov
-				pcall(function() workspace.CurrentCamera.FieldOfView = St.fov end)
-			end
-			task.wait(0.1)
-		end
-	end)
-end
 
 local _afkConn = nil
 local function stopAntiAFK() if _afkConn then _afkConn:Disconnect(); _afkConn = nil end end
@@ -3415,8 +4026,6 @@ local function startAntiAFK()
 		end
 	end)
 end
-sectionHeader(visualPage, "Utility")
-makeRow(visualPage, "antiAFK", "Anti AFK", function(on) if on then startAntiAFK() else stopAntiAFK() end end)
 
 -- ESP Guards
 local _espGuardParts = {}
@@ -3572,150 +4181,15 @@ end
 -- ============================================================
 local miscPage = pages["Misc"]
 
-sectionHeader(miscPage, "Bypass & Movement")
--- Bypass Anti-Cheat — a real ON/OFF toggle
-local _bypassActive, _bypassCooldown, _bypassOn = false, 0, false
-local _bypassPillRefresh, _bypassFloatRefresh = nil, nil
-local BYPASS_COOLDOWN_S = 5
 
-local function applyBypass()
-	if _bypassActive then return false end
-	local now = tick()
-	if now - _bypassCooldown < BYPASS_COOLDOWN_S then
-		setStatus("Bypass: wait "..math.ceil(BYPASS_COOLDOWN_S-(now-_bypassCooldown)).."s", C.DIM)
-		return false
-	end
-	local char = LP.Character
-	local oldHum = char and char:FindFirstChildOfClass("Humanoid")
-	if not char or not oldHum then setStatus("Bypass: no character", C.RED); return false end
-	_bypassActive = true
-	local ok = pcall(function()
-		local cam = workspace.CurrentCamera
-		local wasSubject = cam and cam.CameraSubject == oldHum
-		local clone = oldHum:Clone()
-		clone.Parent = char
-		oldHum:Destroy()
-		if cam and wasSubject then cam.CameraSubject = clone end
-		pcall(function()
-			local pm = LP:FindFirstChild("PlayerScripts")
-			local cm = pm and pm:FindFirstChild("PlayerModule")
-			if cm then require(cm:FindFirstChild("ControlModule")):Enable() end
-		end)
-	end)
-	_bypassActive = false
-	_bypassCooldown = tick()
-	setStatus(ok and "Bypass applied" or "Bypass failed — see console", ok and C.GREEN or C.RED)
-	task.delay(3, function() if not _bypassActive then setStatus("Idle", C.DIM) end end)
-	return ok
-end
-
--- Removing the Bypass: there's nothing to properly "undo" — the clone
--- applyBypass() drops in is a perfectly normal Humanoid once in place
--- (same stats, same behavior). Forcing it to die (hum.Health = 0) to
--- "go back" only caused an unwanted, jarring respawn (reported: "it
--- resets me, doesn't work"). OFF = a simple, honest state flag: the
--- swap already done stays in place until the next natural respawn
--- (death, teleport, Rejoin...) — nothing is destroyed or recreated here.
-local function removeBypass()
-	setStatus("Bypass disabled (already applied until next respawn)", C.DIM)
-	task.delay(3, function() if not _bypassActive then setStatus("Idle", C.DIM) end end)
-	return true
-end
-
-do
-	local row = Instance.new("Frame", miscPage)
-	row.Size = UDim2.new(1,-12,0,32)
-	row.BackgroundColor3 = C.ROW; row.BorderSizePixel = 0; corner(row, 8)
-	local pad = Instance.new("UIPadding", row)
-	pad.PaddingLeft = UDim.new(0,10); pad.PaddingRight = UDim.new(0,10)
-	label(row, "Bypass Anti-Cheat", UDim2.new(1,-46,1,0), C.WHITE, Enum.Font.GothamMedium).TextSize = 12
-	local track, btn, setSwitch = makeSwitch(row, false)
-	track.Position = UDim2.new(1,-38,0.5,-10)
-	local function refresh() setSwitch(_bypassOn) end
-	refresh()
-	_bypassPillRefresh = refresh
-	btn.MouseButton1Click:Connect(function()
-		if not _bypassOn then
-			if applyBypass() then _bypassOn = true; refresh() end
-		else
-			if removeBypass() then _bypassOn = false; refresh() end
-		end
-	end)
-	LP.CharacterAdded:Connect(function()
-		_bypassOn = false; refresh()
-		if _bypassFloatRefresh then _bypassFloatRefresh(false) end
-	end)
-end
-
-makeButton(miscPage, "TP to Spawn", "Go", function()
-	pcall(function()
-		local char = LP.Character
-		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		local spawn = workspace:FindFirstChild("SpawnLocation")
-		if hrp and spawn then hrp.CFrame = spawn.CFrame + Vector3.new(0,5,0) end
-	end)
-end)
-
--- Go To Main Stand / Stop Movement
-local _mainStandTween = nil
-do
-	local MAIN_STAND_CF = CFrame.new(544.577637, 92.0762939, -364.869049, -1,0,0, 0,1,0, 0,0,-1)
-	makeButton(miscPage, "Go To Main Stand", "Go", function()
-		local char = LP.Character
-		local rootPart = char and char:FindFirstChild("HumanoidRootPart")
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if not rootPart then return end
-		if _mainStandTween then _mainStandTween:Cancel() end
-		local dist = (rootPart.Position - MAIN_STAND_CF.Position).Magnitude
-		local travelTime = math.max(dist/350, 0.1)
-		_mainStandTween = TweenService:Create(rootPart, TweenInfo.new(travelTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {CFrame = MAIN_STAND_CF})
-		_mainStandTween.Completed:Connect(function()
-			if hum then pcall(function() hum:ChangeState(Enum.HumanoidStateType.Landed); hum.PlatformStand = false end) end
-		end)
-		_mainStandTween:Play()
-		setStatus("Heading to spawn...", C.ACCENT2)
-	end)
-	makeButton(miscPage, "Stop Movement", "Stop", function()
-		if _mainStandTween then
-			_mainStandTween:Cancel(); _mainStandTween = nil
-			local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-			if hum then hum.PlatformStand = false end
-			setStatus("Movement stopped", C.DIM)
-		end
-	end, true)
-end
-
--- Infinite Jump — via makeRow (correctly persisted in St.infJump +
--- saveConfig() + re-enabled on load, unlike the old version which used
--- a local `_on` that was never saved)
-local _ijConn = nil
-makeRow(miscPage, "infJump", "Infinite Jump", function(on)
-	if on then
-		if _ijConn then _ijConn:Disconnect() end
-		_ijConn = UIS.JumpRequest:Connect(function()
-			local char = LP.Character
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-			if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-		end)
-	else
-		if _ijConn then _ijConn:Disconnect(); _ijConn = nil end
-	end
-end)
-
+local hopServer
 sectionHeader(miscPage, "Session")
+makeButton(miscPage, "Server Hop", "Hop", function() hopServer() end)
 makeButton(miscPage, "Rejoin Server", "Rejoin", function()
 	pcall(function() game:GetService("TeleportService"):Teleport(game.PlaceId, LP) end)
 end, true)
 
-makeButton(miscPage, "Copy Player ID", "Copy", function()
-	pcall(function()
-		setclipboard(tostring(LP.UserId))
-		setStatus("ID copied: "..LP.UserId, C.GREEN)
-		task.delay(2, function() setStatus("Idle", C.DIM) end)
-	end)
-end)
-
-makeButton(miscPage, "Copy Job ID", "Copy", function()
+makeButton(miscPage, "Copy Current Job ID", "Copy", function()
 	pcall(function()
 		setclipboard(tostring(game.JobId))
 		setStatus("Job ID copied", C.GREEN)
@@ -3731,6 +4205,8 @@ do
 end
 
 makeRow(miscPage, "autoRejoin", "Auto Rejoin When Disconnect", function(on) end)
+sectionHeader(miscPage, "Utility")
+makeRow(miscPage, "antiAFK", "Anti AFK", function(on) if on then startAntiAFK() else stopAntiAFK() end end)
 -- Auto Rejoin — Chilli Hub's exact detection (aide_3 ~25429-25560): the
 -- client can't use BindToClose (server-only), so it waits for Roblox's own
 -- disconnect ErrorPrompt / GuiService.ErrorMessageChanged, ignores
@@ -3849,44 +4325,6 @@ do
 	makeRow(miscPage, "fpsPingHud", "FPS and Ping HUD", function(on) hud.Visible = on end)
 end
 
--- Click TP
-do
-	local row = Instance.new("Frame", miscPage)
-	row.Size = UDim2.new(1,-12,0,32)
-	row.BackgroundColor3 = C.ROW; row.BorderSizePixel = 0; corner(row, 8)
-	local pad = Instance.new("UIPadding", row)
-	pad.PaddingLeft = UDim.new(0,10); pad.PaddingRight = UDim.new(0,10)
-	label(row, "Click TP", UDim2.new(1,-46,1,0), C.WHITE, Enum.Font.GothamMedium).TextSize = 12
-	local track, btn, setSwitch = makeSwitch(row, St.clickTp)
-	track.Position = UDim2.new(1,-38,0.5,-10)
-	local function refresh() setSwitch(St.clickTp) end
-
-	local _clickTpConn = nil
-	local function stopClickTp() if _clickTpConn then _clickTpConn:Disconnect(); _clickTpConn = nil end end
-	local function startClickTp()
-		stopClickTp()
-		local mouse = LP:GetMouse()
-		_clickTpConn = UIS.InputBegan:Connect(function(inp, gameProcessed)
-			if gameProcessed or not St.clickTp then return end
-			if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-			local char = LP.Character
-			local hrp = char and char:FindFirstChild("HumanoidRootPart")
-			if not hrp then return end
-			local target = mouse.Hit
-			if not target then return end
-			pcall(function() hrp.CFrame = CFrame.new(target.Position + Vector3.new(0,3,0)) * hrp.CFrame.Rotation end)
-			setStatus("Click TP -> teleported", C.GREEN)
-		end)
-	end
-	_toggleRegistry["clickTp"] = function(on) if on then startClickTp() else stopClickTp() end end
-
-	btn.MouseButton1Click:Connect(function()
-		St.clickTp = not St.clickTp
-		refresh()
-		if St.clickTp then startClickTp() else stopClickTp(); setStatus("Click TP OFF", C.DIM) end
-		saveConfig()
-	end)
-end
 
 -- Auto Hit Nearest / Auto Hit Aura — Chilli Hub's exclusive combat
 -- target group (CreateExclusiveGroup MaxActive=1, aide_3 ~17855-17894):
@@ -3968,472 +4406,6 @@ do
 	makeSlider(miscPage, "hitSweep", "Hit Sweep", 0, 100, "%d studs")
 end
 
--- ============================================================
--- FLING — proximity neutralisation of NPCs / guards
--- ============================================================
--- _flingRunning is at root scope so the float-dock button handler
--- (outside the do block) can read it. All other locals stay inside
--- the do block to stay within the 200-local root-chunk limit.
-local _flingRunning = false
-local startFling, stopFling
-do
-	local FLING_RADIUS = 25   -- stud radius to trigger on a model
-	local FLING_FORCE  = 220  -- outward launch speed (studs/s)
-	local _flingConn   = nil
-	local _flingHB     = 0
-	local _flingScanT  = 0
-	-- Each entry: {hrp, hum, model, savedWS, savedJP}
-	local _flingNpcs   = {}
-	-- LP-bump restore sentinel (prevents overlapping restores)
-	local _lpBumping   = false
-
-	local function _isPlayerChar(model)
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr.Character == model then return true end
-		end
-		return false
-	end
-
-	-- Scan workspace for any NPC-like model:
-	-- primary = Humanoid inside direct child of workspace
-	-- fallback = Humanoid anywhere, parent must not be a player char
-	local function _scanNpcs()
-		local found = {}
-		local seen  = {}
-		-- Pass 1 — direct children of workspace (fastest, most common)
-		for _, child in ipairs(workspace:GetChildren()) do
-			local hum = child:FindFirstChildOfClass("Humanoid")
-			local hrp = child:FindFirstChild("HumanoidRootPart")
-			if hum and hrp and not _isPlayerChar(child) then
-				seen[child] = true
-				found[#found+1] = {hrp=hrp, hum=hum, model=child}
-			end
-		end
-		-- Pass 2 — deeper descendants (NPCs parented to sub-folders)
-		for _, desc in ipairs(workspace:GetDescendants()) do
-			if desc:IsA("Humanoid") then
-				local mdl = desc.Parent
-				if mdl and not seen[mdl] and not _isPlayerChar(mdl) then
-					local h = mdl:FindFirstChild("HumanoidRootPart")
-					if h then
-						seen[mdl] = true
-						found[#found+1] = {hrp=h, hum=desc, model=mdl}
-					end
-				end
-			end
-		end
-		return found
-	end
-
-	local function _applyNpc(entry, myPos, myHRP)
-		local hrp, hum, model = entry.hrp, entry.hum, entry.model
-		if not (hrp and hrp.Parent) then return end
-		local diff = hrp.Position - myPos
-		local mag  = diff.Magnitude
-		if mag >= FLING_RADIUS then return end
-
-		local dir = mag > 0.1
-			and diff.Unit
-			or Vector3.new(math.random()-0.5, 0.5, math.random()-0.5).Unit
-		local outVel = dir * FLING_FORCE + Vector3.new(0, 50, 0)
-
-		-- A: setnworkowner (exploit func) + AssemblyLinearVelocity.
-		-- Grants full physics authority → velocity replicates to server.
-		pcall(function()
-			if setnworkowner then
-				for _, p in ipairs(model:GetDescendants()) do
-					if p:IsA("BasePart") then pcall(setnworkowner, p, LP) end
-				end
-				setnworkowner(hrp, LP)
-			end
-			hrp.AssemblyLinearVelocity = outVel
-		end)
-
-		-- B: BodyVelocity (legacy mover) — replace any existing one,
-		-- persists 0.3 s; replicates on some games via mixed ownership.
-		pcall(function()
-			local old = hrp:FindFirstChildOfClass("BodyVelocity")
-			if old then old:Destroy() end
-			local bv = Instance.new("BodyVelocity")
-			bv.Velocity = outVel
-			bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-			bv.P        = 1e6
-			bv.Parent   = hrp
-			task.delay(0.3, function() pcall(function() bv:Destroy() end) end)
-		end)
-
-		-- C: Humanoid state — freeze + ragdoll.  Server-side scripts will
-		-- override quickly but each 0.05 s tick re-applies it, creating a
-		-- persistent interrupt to the NPC's pathfinding / chase logic.
-		pcall(function()
-			if not hum or not hum.Parent then return end
-			if not entry.savedWS then
-				entry.savedWS = hum.WalkSpeed
-				entry.savedJP = hum.JumpPower
-			end
-			hum.WalkSpeed     = 0
-			hum.JumpPower     = 0
-			hum.PlatformStand = true
-			hum:ChangeState(Enum.HumanoidStateType.FallingDown)
-		end)
-
-		-- D: Kill — if the server doesn't protect NPC health this removes
-		-- the threat instantly without any physics requirement.
-		pcall(function()
-			if hum and hum.Parent and hum.Health > 0 then
-				hum.Health = 0
-			end
-		end)
-
-		-- E: Direct CFrame push — works on executors / games that don't
-		-- enforce server authority on NPC CFrame writes.
-		pcall(function()
-			hrp.CFrame = hrp.CFrame + dir * 25
-		end)
-
-		-- F: LP-character bump — LP ALWAYS owns their own character, so
-		-- giving LP a brief velocity toward the NPC causes a real server-
-		-- side physics collision that pushes the NPC outward.
-		-- Rate-limited to one active bump at a time; LP position restored
-		-- after one frame so the teleport is imperceptible.
-		if myHRP and not _lpBumping then
-			_lpBumping = true
-			pcall(function()
-				local savedCF = myHRP.CFrame
-				-- Nudge LP toward the NPC so physics engine registers impact.
-				myHRP.AssemblyLinearVelocity = dir * (FLING_FORCE * 1.5)
-					+ Vector3.new(0, 25, 0)
-				task.delay(0.06, function()
-					pcall(function()
-						myHRP.CFrame = savedCF
-						myHRP.AssemblyLinearVelocity = Vector3.zero
-					end)
-					_lpBumping = false
-				end)
-			end)
-		end
-	end
-
-	local function _restoreNpc(entry)
-		pcall(function()
-			local hum = entry.hum
-			if not (hum and hum.Parent) then return end
-			if entry.savedWS then hum.WalkSpeed = entry.savedWS end
-			if entry.savedJP then hum.JumpPower = entry.savedJP end
-			hum.PlatformStand = false
-		end)
-	end
-
-	startFling = function()
-		if _flingConn then _flingConn:Disconnect(); _flingConn = nil end
-		_flingRunning = true; _flingHB = 0; _flingScanT = 0
-		_flingNpcs = {}; _lpBumping = false
-		_flingConn = RunService.Heartbeat:Connect(function(dt)
-			if not _flingRunning then return end
-
-			-- Rebuild NPC list every 0.5 s.
-			_flingScanT = _flingScanT + dt
-			if _flingScanT >= 0.5 then
-				_flingScanT = 0
-				for _, e in ipairs(_flingNpcs) do
-					if not (e.hrp and e.hrp.Parent) then _restoreNpc(e) end
-				end
-				_flingNpcs = _scanNpcs()
-			end
-
-			-- Fling pass every 0.05 s.
-			_flingHB = _flingHB + dt
-			if _flingHB < 0.05 then return end
-			_flingHB = 0
-			local myChar = LP.Character
-			local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-			if not myHRP then return end
-			local myPos  = myHRP.Position
-			for _, e in ipairs(_flingNpcs) do _applyNpc(e, myPos, myHRP) end
-		end)
-	end
-
-	stopFling = function()
-		_flingRunning = false
-		if _flingConn then _flingConn:Disconnect(); _flingConn = nil end
-		for _, e in ipairs(_flingNpcs) do _restoreNpc(e) end
-		_flingNpcs = {}; _lpBumping = false
-	end
-end
-
--- ============================================================
--- ANTI-DETECT — Full Moon Hub port
--- • Anti-Kick         : swallows :Kick() on LP
--- • Anti-Shutdown     : swallows game:Shutdown()
--- • Telemetry spoof   : replaces FPS<30 values on keyword-matching remotes
--- • OnClientInvoke    : returns a spoofed FPS if the server asks
--- • Anti-Teleport     : logs unrequested teleports (non-blocking, for
---                       diagnosing zone ejections)
--- Everything is passive — installs on load, no toggle, no button.
--- ============================================================
-do
-local _adSupported = (type(getrawmetatable) == "function")
-	and (type(setreadonly) == "function")
-	and (type(getnamecallmethod) == "function")
-
-local _adActive     = false
-local _adOrigNC     = nil
-local _adIntercepts = 0
-local _AD_KW = {"fps","perf","stat","telemetry","framerate","clientinfo",
-                "diagnostic","speed","velocity","ping","report","metric"}
-
-local function _adSpoofArgs(args)
-	for i, v in ipairs(args) do
-		if type(v) == "number" and v < 30 then
-			args[i] = 55 + math.random()*6
-		elseif type(v) == "table" then
-			for k2, v2 in pairs(v) do
-				if type(k2) == "string" then
-					local kl = k2:lower()
-					local kwMatch = false
-					for _, kw in ipairs(_AD_KW) do if kl:find(kw,1,true) then kwMatch=true;break end end
-					if kwMatch and type(v2)=="number" and v2<30 then v[k2]=55+math.random()*6 end
-				end
-				if type(v2)=="number" and v2<30 then v[k2]=55+math.random()*6 end
-			end
-		end
-	end
-	return args
-end
-
-local function _adHookOnClientInvokes()
-	-- Hooks OnClientInvoke on every known telemetry RF (the server asks
-	-- the client → we return a spoofed FPS)
-	local sources = {_NetworkingFolder, ReplicatedStorage}
-	for _, src in ipairs(sources) do
-		if src then
-			pcall(function()
-				for _, rf in ipairs(src:GetDescendants()) do
-					if rf:IsA("RemoteFunction") then
-						local rname = rf.Name:lower()
-						for _, k in ipairs(_AD_KW) do
-							if rname:find(k, 1, true) then
-								pcall(function()
-									rf.OnClientInvoke = function(...)
-										_adIntercepts = _adIntercepts + 1
-										return 60 + math.random()*5, "normal", true
-									end
-								end)
-								break
-							end
-						end
-					end
-				end
-			end)
-		end
-	end
-end
-
-local function _adStart()
-	if _adActive or not _adSupported then return end
-	local ok, mt = pcall(getrawmetatable, game)
-	if not ok then return end
-	pcall(setreadonly, mt, false)
-	local _origNC = mt.__namecall
-	_adOrigNC = _origNC
-
-	local _hook = function(self, ...)
-		local method = getnamecallmethod()
-
-		-- Anti-Kick: swallows :Kick() aimed at the LocalPlayer
-		if method == "Kick" and typeof(self)=="Instance" and self:IsA("Player") and self==LP then
-			_adIntercepts = _adIntercepts + 1
-			setStatus("Anti-Kick x".._adIntercepts, C.GREEN)
-			return
-		end
-
-		-- Anti-Shutdown: swallows game:Shutdown() (anti-cheat that kills the game)
-		if method == "Shutdown" and typeof(self)=="Instance"
-			and (self==game or (pcall(function() return self:IsA("DataModel") end) and true)) then
-			_adIntercepts = _adIntercepts + 1
-			setStatus("Anti-Shutdown x".._adIntercepts, C.GREEN)
-			return
-		end
-
-		-- Telemetry spoof: replaces FPS<30 on sensitive remotes
-		if (method=="FireServer" or method=="InvokeServer") and typeof(self)=="Instance" then
-			local rname = (self.Name or ""):lower()
-			for _, k in ipairs(_AD_KW) do
-				if rname:find(k, 1, true) then
-					_adIntercepts = _adIntercepts + 1
-					local args = _adSpoofArgs({...})
-					return _origNC(self, table.unpack(args))
-				end
-			end
-		end
-
-		-- Unexpected teleport (log only — doesn't block legitimate teleports)
-		if (method=="Teleport" or method=="TeleportToPlaceInstance") and typeof(self)=="Instance" then
-			local sclass = ""
-			pcall(function() sclass = self.ClassName end)
-			if sclass == "TeleportService" then
-				-- Let it through: our own hopServer() uses this same path
-				-- setStatus("Teleport detected ("..method..")", C.YELLOW)
-			end
-		end
-
-		return _origNC(self, ...)
-	end
-
-	local wrapped = type(newcclosure)=="function" and newcclosure(_hook) or _hook
-	mt.__namecall = wrapped
-	pcall(setreadonly, mt, true)
-	_adActive = true
-
-	-- Hook OnClientInvoke after installing __namecall
-	task.delay(1, _adHookOnClientInvokes)
-	-- Periodic re-hook (the game may recreate RFs dynamically)
-	task.spawn(function()
-		while _adActive do task.wait(30); pcall(_adHookOnClientInvokes) end
-	end)
-
-	setStatus("Anti-Detect active", C.GREEN)
-end
-
-local function _adStop()
-	if not _adActive or not _adOrigNC then return end
-	local ok2, mt2 = pcall(getrawmetatable, game)
-	if ok2 then
-		pcall(setreadonly, mt2, false)
-		mt2.__namecall = _adOrigNC
-		pcall(setreadonly, mt2, true)
-	end
-	_adActive = false; _adOrigNC = nil
-	setStatus("Anti-Detect OFF", C.DIM)
-end
-
--- Passive — no button, no toggle. Immediate protection on load.
-_adStart()
-end
-
--- ============================================================
--- AIM BAT — Moon Hub port (AB / Bat Aimbot V1), speed tied to St.speed
--- ============================================================
-local startAimBat, stopAimBat
-do
-local AB_HEIGHT, AB_HIT_DIST, AB_HIT_CD = 3.7, 5, false
-local BAT_NAMES = {
-	"Bat","Slap","Iron Slap","Gold Slap","Diamond Slap","Emerald Slap",
-	"Ruby Slap","Dark Matter Slap","Flame Slap","Nuclear Slap",
-	"Galaxy Slap","Glitched Slap","FieldBat","Field Bat",
-}
-local function _abIsBatName(name)
-	if not name then return false end
-	for _, n in ipairs(BAT_NAMES) do if name == n then return true end end
-	local lower = name:lower()
-	return lower:find("bat", 1, true) ~= nil or lower:find("slap", 1, true) ~= nil
-end
-local function _abGetBat()
-	local char = LP.Character; if not char then return nil end
-	for _, name in ipairs(BAT_NAMES) do
-		local t = char:FindFirstChild(name); if t and t:IsA("Tool") then return t end
-	end
-	local bp = LP:FindFirstChildOfClass("Backpack")
-	if bp then
-		for _, name in ipairs(BAT_NAMES) do
-			local t = bp:FindFirstChild(name); if t and t:IsA("Tool") then return t end
-		end
-	end
-	for _, t in ipairs(char:GetChildren()) do
-		if t:IsA("Tool") and _abIsBatName(t.Name) then return t end
-	end
-	if bp then
-		for _, t in ipairs(bp:GetChildren()) do
-			if t:IsA("Tool") and _abIsBatName(t.Name) then return t end
-		end
-	end
-	return nil
-end
-local function _abTryHit()
-	if AB_HIT_CD then return end
-	AB_HIT_CD = true
-	pcall(function()
-		local bat = _abGetBat(); if not bat then return end
-		local char = LP.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if bat.Parent ~= char and hum then pcall(function() hum:EquipTool(bat) end) end
-		pcall(function() bat:Activate() end)
-	end)
-	task.delay(0.2, function() AB_HIT_CD = false end)
-end
-local function _abGetClosest()
-	local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-	if not root then return nil, math.huge end
-	local closest, minDist = nil, math.huge
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LP and plr.Character then
-			local tr = plr.Character:FindFirstChild("HumanoidRootPart")
-			local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-			if tr and hum and hum.Health > 0 then
-				local d = (tr.Position - root.Position).Magnitude
-				if d < minDist then minDist = d; closest = plr end
-			end
-		end
-	end
-	return closest, minDist
-end
-local _aimBatConn = nil
-startAimBat = function()
-	_aimBatActive = true
-	if _aimBatConn then _aimBatConn:Disconnect() end
-	local hum0 = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-	if hum0 then hum0.AutoRotate = false end
-	_aimBatConn = RunService.RenderStepped:Connect(function()
-		if not _aimBatActive then return end
-		local char = LP.Character; if not char then return end
-		local root = char:FindFirstChild("HumanoidRootPart"); if not root then return end
-		local hum = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
-		local equipped = char:FindFirstChildOfClass("Tool")
-		if not (equipped and _abIsBatName(equipped.Name)) then
-			local bat = _abGetBat(); if bat then pcall(function() hum:EquipTool(bat) end) end
-		end
-		local target, dist = _abGetClosest()
-		if not target or not target.Character then return end
-		local tr = target.Character:FindFirstChild("HumanoidRootPart"); if not tr then return end
-
-		local targetVel = tr.AssemblyLinearVelocity
-		local myPos, targetPos = root.Position, tr.Position
-		local predictPos = targetPos + targetVel*0.14 + tr.CFrame.LookVector*0.3
-		local direction = predictPos - myPos
-		local flatDir = Vector3.new(direction.X, 0, direction.Z).Unit
-		local desiredHeight = targetPos.Y + AB_HEIGHT
-		local yVel = (desiredHeight - myPos.Y)*19.5 + targetVel.Y*0.8
-		if hum.FloorMaterial ~= Enum.Material.Air then yVel = math.max(yVel, 13) end
-		yVel = math.clamp(yVel, -70, 110)
-		local pursuitSpeed = St.speed
-		local desiredVel = Vector3.new(flatDir.X*pursuitSpeed, yVel, flatDir.Z*pursuitSpeed)
-		root.AssemblyLinearVelocity = root.AssemblyLinearVelocity:Lerp(desiredVel, 0.8)
-
-		local speed3 = targetVel.Magnitude
-		local predictTime = math.clamp(speed3/150, 0.05, 0.2)
-		local predictedPos = targetPos + targetVel*predictTime
-		local toPredict = predictedPos - myPos
-		if toPredict.Magnitude > 0.1 then
-			local goalCF = CFrame.lookAt(myPos, predictedPos)
-			local diffCF = root.CFrame:Inverse() * goalCF
-			local rx, ry, rz = diffCF:ToEulerAnglesXYZ()
-			rx = math.clamp(rx,-2.5,2.5); ry = math.clamp(ry,-2.5,2.5); rz = math.clamp(rz,-2.5,2.5)
-			root.AssemblyAngularVelocity = root.CFrame:VectorToWorldSpace(Vector3.new(rx*42, ry*42, rz*42))
-		end
-		if dist <= AB_HIT_DIST then _abTryHit() end
-	end)
-end
-stopAimBat = function()
-	_aimBatActive = false
-	if _aimBatConn then _aimBatConn:Disconnect(); _aimBatConn = nil end
-	AB_HIT_CD = false
-	local char = LP.Character
-	local root = char and char:FindFirstChild("HumanoidRootPart")
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if root then root.AssemblyLinearVelocity = Vector3.zero; root.AssemblyAngularVelocity = Vector3.zero end
-	if hum then hum.AutoRotate = true end
-end
-end
 
 -- ============================================================
 -- HOPPER — switch servers (Server Hop)
@@ -4451,7 +4423,7 @@ local function _getHttpFn()
 	if type(fluxus) == "table" and type(fluxus.request) == "function" then return fluxus.request end
 	return nil
 end
-local function hopServer()
+hopServer = function()
 	local placeId = game.PlaceId
 	local httpFn = _getHttpFn()
 	if not httpFn then
@@ -4493,16 +4465,14 @@ local function hopServer()
 		end
 	end)
 end
-
 -- ============================================================
--- FLOATING DOCK — Speed / AimBat / Bypass / Fling / Hopper / Lock
+-- FLOATING DOCK — Speed / Steal Panel / Events / Lock
 -- ============================================================
 do
 local FLOAT_SZ, FLOAT_GAP, FLOAT_TOP, FLOAT_RIGHT_OFF = 38, 6, 66, 10
 local _floatDefs = {
-	{ id="speed",  label="Speed" }, { id="aimbat", label="Aim\nBat" },
-	{ id="bypass", label="Bypass" }, { id="fling",  label="Fling" },
-	{ id="hopper", label="Hop" },    { id="lock",   label="Lock" },
+	{ id="speed",  label="Speed" }, { id="lock", label="Lock" },
+	{ id="steal",  label="Steal\nPanel" }, { id="events", label="Events" },
 }
 local _floatBtns = {}
 
@@ -4540,24 +4510,23 @@ local function makeFloatBtn(defIdx, def)
 	dot.ZIndex = lbl2.ZIndex+1
 	corner(dot, 4)
 
-	local _active = false
 	local function setActive(on)
-		_active = on
 		TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = on and Color3.fromRGB(18,30,50) or C.ROW}):Play()
 		dot.Visible = on
 	end
 
-	local drag2, dStart, dPos2 = false, nil, nil
+	-- drag (unless locked); a drag past a few pixels does not count as a click
+	local drag2, dStart, dPos2, moved = false, nil, nil, false
 	btn.InputBegan:Connect(function(inp)
-		if St.floatLocked then return end
 		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-			drag2 = true; dStart = inp.Position; dPos2 = btn.Position
+			drag2 = not St.floatLocked; dStart = inp.Position; dPos2 = btn.Position; moved = false
 		end
 	end)
 	UIS.InputChanged:Connect(function(inp)
 		if not drag2 then return end
 		if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
 			local delta = inp.Position - dStart
+			if delta.Magnitude > 4 then moved = true end
 			btn.Position = UDim2.new(dPos2.X.Scale, dPos2.X.Offset+delta.X, dPos2.Y.Scale, dPos2.Y.Offset+delta.Y)
 		end
 	end)
@@ -4567,61 +4536,41 @@ local function makeFloatBtn(defIdx, def)
 		end
 	end)
 
-	_floatBtns[def.id] = { btn = btn, setActive = setActive }
+	_floatBtns[def.id] = { btn = btn, setActive = setActive, wasDragged = function() return moved end }
 	return btn, setActive
 end
 
 for i, def in ipairs(_floatDefs) do
 	local _, setAct = makeFloatBtn(i, def)
+	local fb = _floatBtns[def.id]
 	if def.id == "speed" then
 		setAct(St.speedOn)
-		_floatBtns["speed"].btn.MouseButton1Click:Connect(function()
-			St.speedOn = not St.speedOn
-			if St.speedOn then startSpeed() else stopSpeed() end
+		fb.btn.MouseButton1Click:Connect(function()
+			if fb.wasDragged() then return end
+			if St.speedOn then stopSpeed() else startSpeed() end
 			setAct(St.speedOn)
 			speedRefresh()
 			saveConfig()
 		end)
-	elseif def.id == "aimbat" then
-		_floatBtns["aimbat"].btn.MouseButton1Click:Connect(function()
-			_aimBatActive = not _aimBatActive
-			setAct(_aimBatActive)
-			if _aimBatActive then startAimBat() else stopAimBat() end
+	elseif def.id == "steal" then
+		setAct(stealWin.IsOpen())
+		stealWin.OnChange(setAct)
+		fb.btn.MouseButton1Click:Connect(function()
+			if fb.wasDragged() then return end
+			stealWin.SetOpen(not stealWin.IsOpen())
 		end)
-	elseif def.id == "bypass" then
-		_bypassFloatRefresh = setAct
-		_floatBtns["bypass"].btn.MouseButton1Click:Connect(function()
-			if not _bypassOn then
-				if applyBypass() then _bypassOn = true; if _bypassPillRefresh then _bypassPillRefresh() end end
-			else
-				if removeBypass() then _bypassOn = false; if _bypassPillRefresh then _bypassPillRefresh() end end
-			end
-			setAct(_bypassOn)
-		end)
-	elseif def.id == "fling" then
-		-- Persistent toggle: green dot = actively held in the air.
-		-- Click once → launch + hold aloft. Click again → release, fall normally.
-		_floatBtns["fling"].btn.MouseButton1Click:Connect(function()
-			if _flingRunning then
-				stopFling(); setAct(false)
-			else
-				startFling(); setAct(true)
-			end
-		end)
-	elseif def.id == "hopper" then
-		-- One-off action (not a persistent on/off): flash the green dot
-		-- for the duration of the search/teleport.
-		_floatBtns["hopper"].btn.MouseButton1Click:Connect(function()
-			setAct(true)
-			hopServer()
-			task.delay(1.2, function() setAct(false) end)
+	elseif def.id == "events" then
+		setAct(eventsWin.IsOpen())
+		eventsWin.OnChange(setAct)
+		fb.btn.MouseButton1Click:Connect(function()
+			if fb.wasDragged() then return end
+			eventsWin.SetOpen(not eventsWin.IsOpen())
 		end)
 	elseif def.id == "lock" then
 		setAct(St.floatLocked)
-		_floatBtns["lock"].btn.MouseButton1Click:Connect(function()
+		fb.btn.MouseButton1Click:Connect(function()
 			St.floatLocked = not St.floatLocked
 			setAct(St.floatLocked)
-			setStatus(St.floatLocked and "Buttons locked" or "Buttons unlocked", C.ACCENT2)
 			saveConfig()
 		end)
 	end
@@ -4629,28 +4578,9 @@ end
 end
 
 -- ============================================================
--- DRAG / MINIMIZE / CLOSE / KEYBIND
+-- MINIMIZE / CLOSE / KEYBIND (main window; drag = Win.Drag)
 -- ============================================================
-do
-	local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
-	header.InputBegan:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-			dragging = true; dragStart = inp.Position; startPos = main.Position
-			inp.Changed:Connect(function() if inp.UserInputState == Enum.UserInputState.End then dragging = false end end)
-		end
-	end)
-	header.InputChanged:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
-			dragInput = inp
-		end
-	end)
-	UIS.InputChanged:Connect(function(inp)
-		if inp == dragInput and dragging then
-			local delta = inp.Position - dragStart
-			main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+delta.X, startPos.Y.Scale, startPos.Y.Offset+delta.Y)
-		end
-	end)
-end
+Win.Drag(header, main)
 
 local minimized, fullHeight = false, WIN_H
 minBtn.MouseButton1Click:Connect(function()
@@ -4665,7 +4595,10 @@ minBtn.MouseButton1Click:Connect(function()
 		minBtn.Text = "–"
 	end
 end)
-closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+closeBtn.MouseButton1Click:Connect(function()
+	pcall(function() St.autoFarm = false; Steal.Abort(); if St.speedOn then stopSpeed() end end)
+	gui:Destroy()
+end)
 
 UIS.InputBegan:Connect(function(inp, gp)
 	if gp then return end
@@ -4680,8 +4613,6 @@ switchTab("Farm")
 -- ============================================================
 -- RESTORED TOGGLE ACTIVATION
 -- ============================================================
--- Deliberately excluded: Bypass Anti-Cheat and AimBat (never
--- re-applied alone on load).
 if _savedConfig then
 	for key, onToggle in pairs(_toggleRegistry) do
 		if St[key] == true and onToggle then pcall(onToggle, true) end
@@ -4689,4 +4620,4 @@ if _savedConfig then
 	if St.speedOn then startSpeed(); if speedRefresh then speedRefresh() end end
 end
 
-print("[MoonEgg] Loaded — full rebuild — RightShift hide/show | Dock: Speed, AimBat, Bypass, Lock")
+print("[MoonEgg] Loaded — RightShift hides/shows the main window | Dock: Speed, Lock, Steal Panel, Events")
