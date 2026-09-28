@@ -117,11 +117,12 @@ _M.Constants  = _tryRequire("Constants")
 _M.Bases      = _tryRequire("Bases")
 _M.Treadmills = _tryRequire("Treadmills")
 _M.Trails     = _tryRequire("Trails")
+_M.EggState   = _tryRequire("EggState")  -- ReplicatedStorage.Client.EggState
 
 local _MODULE_NAMES = {
 	"EggCmds","Network","Ragdoll","GuardEscapePrediction","GuardChasePolicy",
 	"ResolveGuardSpeedRequirement","SpeedPowerProjection","Guards","Areas",
-	"AreaEggSlotIdentity","Save","Constants","Bases","Treadmills","Trails",
+	"AreaEggSlotIdentity","Save","Constants","Bases","Treadmills","Trails","EggState",
 }
 do
 	local lines = {"[yslemEgg] Game module status:"}
@@ -707,6 +708,8 @@ local St = {
 	espPlayers       = false,
 	autoHitNearest   = false,
 	autoHitAura      = false,
+	keepMutatedSell  = true,
+	skipMutatedFuse  = true,
 }
 
 -- ============================================================
@@ -1715,7 +1718,31 @@ task.spawn(function()
 		task.wait(1)
 		if St.autoHatch and (os.clock()-lastHatch) >= 3 then
 			lastHatch = os.clock()
-			_clickGuiButtonByText(function(t) return t:lower():find("grow all", 1, true) ~= nil end)
+			-- Chilli Hub: AskHatch → wait 0.35s → AskFinishHatch for each ready egg
+			local hatched = false
+			pcall(function()
+				if type(_M.EggState) == "table" and type(_M.EggState.ReadOwnerEggs) == "function" and type(_M.EggState.IsReadyToHatch) == "function" then
+					local ok, result = pcall(_M.EggState.ReadOwnerEggs, LP.UserId)
+					if ok and type(result) == "table" then
+						for uid, rec in pairs(result) do
+							if type(rec) == "table" and rec.Placement ~= nil then
+								local ok2, ready = pcall(_M.EggState.IsReadyToHatch, uid)
+								if ok2 and ready then
+									_invokeRF("RF/EggWorld/AskHatch", uid)
+									task.wait(0.35)
+									_invokeRF("RF/EggWorld/AskFinishHatch", uid)
+									task.wait(0.2)
+									hatched = true
+								end
+							end
+						end
+					end
+				end
+			end)
+			-- Fallback: UI button click
+			if not hatched then
+				_clickGuiButtonByText(function(t) return t:lower():find("grow all", 1, true) ~= nil end)
+			end
 		end
 	end
 end)
@@ -1833,17 +1860,51 @@ local function _isMutated(inst)
 	return type(m) == "string" and m ~= ""
 end
 
--- Auto Place Egg
+-- Chilli Hub: eggState.ReadOwnerEggs(userId) → {[uid] = {Placement, AssetCategory, AssetScale, Mutations}}
+-- Returns array of {uid, rec} for items in inventory (Placement==nil) passing filterFn.
+local function _readOwnerEggs(filterFn)
+	local out = {}
+	if type(_M.EggState) == "table" and type(_M.EggState.ReadOwnerEggs) == "function" then
+		local ok, result = pcall(_M.EggState.ReadOwnerEggs, LP.UserId)
+		if ok and type(result) == "table" then
+			local equippedUid = nil
+			pcall(function()
+				local tool = LP.Character and LP.Character:FindFirstChildWhichIsA("Tool")
+				equippedUid = tool and (tool:GetAttribute("UID") or tool:GetAttribute("Uid")) or nil
+				if equippedUid then equippedUid = tostring(equippedUid) end
+			end)
+			for uid, rec in pairs(result) do
+				if type(rec) == "table" and rec.Placement == nil and tostring(uid) ~= equippedUid then
+					if not filterFn or filterFn(rec) then
+						table.insert(out, {uid = tostring(uid), rec = rec})
+					end
+				end
+			end
+			return out
+		end
+	end
+	return nil  -- nil = module unavailable, caller should use Backpack fallback
+end
+
+-- Auto Place Egg — Chilli Hub: AskPlaceEgg with inventory egg uids
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(1.5))
 		if St.autoPlace then
 			pcall(function()
-				local bp = LP:FindFirstChild("Backpack")
-				local items = _collectUids(bp, function(i) return i.Name:lower():find("egg", 1, true) ~= nil end)
-				for _, it in ipairs(items) do
+				-- Primary: ReadOwnerEggs — eggs in inventory (Placement==nil)
+				local items = _readOwnerEggs(function(rec) return rec.Placement == nil end)
+				local uids = {}
+				if items then
+					for _, it in ipairs(items) do table.insert(uids, it.uid) end
+				else
+					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), nil)) do
+						table.insert(uids, it.uid)
+					end
+				end
+				for _, uid in ipairs(uids) do
 					if not St.autoPlace then break end
-					_invokeRF("RF/EggWorld/AskPlaceEgg", it.uid, CFrame.new())
+					_invokeRF("RF/EggWorld/AskPlaceEgg", uid, CFrame.new())
 					task.wait(_AD_jitter(0.5))
 				end
 			end)
@@ -1863,19 +1924,28 @@ makeRow(farmPage, "autoTreadmill2", "Auto Treadmill", function(on)
 	if not on then _invokeRF("RF/Treadmill/AskDoff") end
 end)
 
--- Auto Sell Pet
+-- Auto Sell Pet — Chilli Hub: Assets = pet uids from Save.Get().Inventory
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(3.0))
 		if St.autoSellPet then
 			pcall(function()
-				local bp = LP:FindFirstChild("Backpack")
-				local items = _collectUids(bp, function(i)
-					return i.Name:lower():find("pet", 1, true) ~= nil and not _isMutated(i)
+				-- Primary: eggState.ReadOwnerEggs — pets in inventory, not mutated
+				local hasMut = St.keepMutatedSell
+				local items = _readOwnerEggs(function(rec)
+					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
+					return true
 				end)
-				if #items > 0 then
-					local uids = {}
+				local uids = {}
+				if items then
 					for _, it in ipairs(items) do table.insert(uids, it.uid) end
+				else
+					-- Fallback: Backpack scan
+					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
+						return not _isMutated(i)
+					end)) do table.insert(uids, it.uid) end
+				end
+				if #uids > 0 then
 					_fireRE("RE/PetSatchel/SellSelection", {Eggs = {}, Assets = uids})
 				end
 			end)
@@ -1884,19 +1954,26 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoSellPet", "Auto Sell Pet", function(on) end)
 
--- Auto Sell Egg
+-- Auto Sell Egg — Chilli Hub: Eggs = egg uids from ReadOwnerEggs
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(3.0))
 		if St.autoSellEgg then
 			pcall(function()
-				local bp = LP:FindFirstChild("Backpack")
-				local items = _collectUids(bp, function(i)
-					return i.Name:lower():find("egg", 1, true) ~= nil and not _isMutated(i)
+				local hasMut = St.keepMutatedSell
+				local items = _readOwnerEggs(function(rec)
+					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
+					return true
 				end)
-				if #items > 0 then
-					local uids = {}
+				local uids = {}
+				if items then
 					for _, it in ipairs(items) do table.insert(uids, it.uid) end
+				else
+					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
+						return not _isMutated(i)
+					end)) do table.insert(uids, it.uid) end
+				end
+				if #uids > 0 then
 					_fireRE("RE/PetSatchel/SellSelection", {Eggs = uids, Assets = {}})
 				end
 			end)
@@ -1905,21 +1982,31 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoSellEgg", "Auto Sell Egg", function(on) end)
 
--- Auto Fuse
+-- Auto Fuse — Chilli Hub: LoadPet x2 → BeginFuse → wait → FinishFuse
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(4.0))
 		if St.autoFuse then
 			pcall(function()
-				local bp = LP:FindFirstChild("Backpack")
-				local items = _collectUids(bp, function(i)
-					return i.Name:lower():find("pet", 1, true) ~= nil and not _isMutated(i)
+				-- Get items not mutated (skip mutated unless St.skipMutatedFuse is false)
+				local items = _readOwnerEggs(function(rec)
+					if St.skipMutatedFuse and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
+					return true
 				end)
-				if #items >= 2 then
-					_invokeRF("RF/Fusery/LoadPet", items[1].uid)
-					task.wait(_AD_jitter(0.5))
-					_invokeRF("RF/Fusery/LoadPet", items[2].uid)
-					task.wait(_AD_jitter(0.5))
+				local uids = {}
+				if items then
+					for _, it in ipairs(items) do table.insert(uids, it.uid) end
+				else
+					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
+						if St.skipMutatedFuse then return not _isMutated(i) end
+						return true
+					end)) do table.insert(uids, it.uid) end
+				end
+				if #uids >= 2 then
+					_invokeRF("RF/Fusery/LoadPet", uids[1])
+					task.wait(_AD_jitter(0.4))
+					_invokeRF("RF/Fusery/LoadPet", uids[2])
+					task.wait(_AD_jitter(0.4))
 					local ok = _invokeRF("RF/Fusery/BeginFuse")
 					if ok then
 						task.wait(_AD_jitter(2.0))
@@ -1934,19 +2021,26 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoFuse", "Auto Fuse", function(on) end)
 
--- Auto Favorite (mutated pets)
+-- Auto Favorite — Chilli Hub: WriteFavourite for mutated pets
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(3.5))
 		if St.autoFavorite then
 			pcall(function()
-				local bp = LP:FindFirstChild("Backpack")
-				local items = _collectUids(bp, function(i)
-					return i.Name:lower():find("pet", 1, true) ~= nil and _isMutated(i)
+				local items = _readOwnerEggs(function(rec)
+					return type(rec.Mutations) == "table" and next(rec.Mutations) ~= nil
 				end)
-				for _, it in ipairs(items) do
+				local uids = {}
+				if items then
+					for _, it in ipairs(items) do table.insert(uids, it.uid) end
+				else
+					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
+						return _isMutated(i)
+					end)) do table.insert(uids, it.uid) end
+				end
+				for _, uid in ipairs(uids) do
 					if not St.autoFavorite then break end
-					_fireRE("RE/PetSatchel/WriteFavourite", it.uid, true)
+					_fireRE("RE/PetSatchel/WriteFavourite", uid, true)
 					task.wait(_AD_jitter(0.3))
 				end
 			end)
