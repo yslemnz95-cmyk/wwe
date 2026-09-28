@@ -2130,7 +2130,7 @@ task.spawn(function()
 		end
 	end
 end)
-sectionHeader(farmPage, "Auto Hatch & Equip", true)
+sectionHeader(farmPage, "Auto Hatch & Equip")
 makeRow(farmPage, "autoHatch", "Auto Hatch", function(on) end)
 do
 	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
@@ -2178,7 +2178,7 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoClaim", "Auto Claim", function(on) end)
 
-sectionHeader(farmPage, "Upgrades", true)
+sectionHeader(farmPage, "Upgrades")
 
 
 task.spawn(function()
@@ -2251,7 +2251,7 @@ local function _readOwnerEggs(filterFn)
 	return nil  -- nil = module unavailable, caller should use Backpack fallback
 end
 
-sectionHeader(farmPage, "Auto Place Egg", true)
+sectionHeader(farmPage, "Auto Place Egg")
 -- Chilli Hub: AskPlaceEgg with inventory egg uids, gated by Place Egg
 -- Rule and filtered/ordered exactly like aide_3 ~7118-7285 (Place Egg
 -- Rule/Order, Place Rarities, Place Specific Eggs, Min Place Value).
@@ -2342,7 +2342,7 @@ do
 	makeSlider(farmPage, "placeMinValueK", "Min Place Value", 0, 50000, "%dk")
 end
 
-sectionHeader(farmPage, "Auto Treadmill", true)
+sectionHeader(farmPage, "Auto Treadmill")
 -- Stay mounted continuously
 task.spawn(function()
 	while true do
@@ -2354,7 +2354,7 @@ makeRow(farmPage, "autoTreadmill2", "Auto Treadmill", function(on)
 	if not on then _invokeRF("RF/Treadmill/AskDoff") end
 end)
 
-sectionHeader(farmPage, "Auto Sell", true)
+sectionHeader(farmPage, "Auto Sell")
 -- Chilli Hub exact rule set (aide_3 ~8901, 9280-9470):
 -- Sell Rule combines a rarity check (<= Max Rarity) and a value check
 -- (< Value Threshold) via Rarity Only / Value Only / Rarity And Value /
@@ -2472,7 +2472,7 @@ do
 	end, St.sellEggBlacklist, function() saveConfig() end, _Egg.Icon)
 end
 
-sectionHeader(farmPage, "Auto Fuse Machine", true)
+sectionHeader(farmPage, "Auto Fuse Machine")
 -- Chilli Hub: fuses 3 SAME-SPECIES pets (aide_3 ~9702-9908:
 -- groups inventory by Category, needs #group>=3). LoadPet x3 → BeginFuse
 -- → wait → FinishFuse, EjectPet on failure if the machine can't finish.
@@ -2591,7 +2591,7 @@ do
 	makeRow(farmPage, "fuseEjectIncomplete", "Eject Incomplete Slots", function(on) end)
 end
 
-sectionHeader(farmPage, "Auto Favorite", true)
+sectionHeader(farmPage, "Auto Favorite")
 -- Chilli Hub exact rule set (aide_3 ~10497-10615): each
 -- of Min Rarity / Mutations / Min Value is an independent check that can
 -- be off (0 or empty = skip); Favorite Rule combines the active ones via
@@ -2695,7 +2695,7 @@ do
 	makeRow(farmPage, "autoUnfavoriteEquipped", "Auto Unfavorite Equipped", function(on) end)
 end
 
-sectionHeader(farmPage, "Dr Scramble Lab & Mech", true)
+sectionHeader(farmPage, "Dr Scramble Lab & Mech")
 -- Auto Lab Trade-In
 task.spawn(function()
 	while true do
@@ -2770,7 +2770,7 @@ makeRow(farmPage, "autoMech", "Auto Mech Boss", function(on)
 	if on then startMech() else stopMech() end
 end)
 
-sectionHeader(farmPage, "Dr Scramble Event", true)
+sectionHeader(farmPage, "Dr Scramble Event")
 -- Auto Use Scrambled Mutation — exact Chilli Hub remote (aide_3
 -- ~14685-14710): RF/BossMastery/AskUseMutationConsumable(uid). Skips
 -- already-mutated eggs (SkipMutated default true in the source) since
@@ -3413,7 +3413,7 @@ local function stopFullbright()
 	Lighting.Brightness = _origBright or 1; Lighting.GlobalShadows = true
 	Lighting.Ambient = Color3.fromRGB(70,70,70); Lighting.OutdoorAmbient = Color3.fromRGB(100,100,100)
 end
-sectionHeader(visualPage, "Display", true)
+sectionHeader(visualPage, "Display")
 makeRow(visualPage, "fullbright", "Fullbright", function(on) if on then startFullbright() else stopFullbright() end end)
 
 local function applyFpsBoost()
@@ -3475,7 +3475,7 @@ local function startAntiAFK()
 		end
 	end)
 end
-sectionHeader(visualPage, "Utility", true)
+sectionHeader(visualPage, "Utility")
 makeRow(visualPage, "antiAFK", "Anti AFK", function(on) if on then startAntiAFK() else stopAntiAFK() end end)
 
 -- ESP Guards
@@ -3540,7 +3540,7 @@ local function startEspGuards()
 		end)
 	end)
 end
-sectionHeader(visualPage, "Guard ESP", true)
+sectionHeader(visualPage, "Guard ESP")
 makeRow(visualPage, "espGuards", "ESP Guards", function(on)
 	if on then startEspGuards() else stopEspGuards() end
 end)
@@ -3618,7 +3618,7 @@ local function startEspPlayers()
 		end
 	end)
 end
-sectionHeader(visualPage, "Player ESP", true)
+sectionHeader(visualPage, "Player ESP")
 makeRow(visualPage, "espPlayers", "ESP Players", function(on)
 	if on then startEspPlayers() else stopEspPlayers() end
 end)
@@ -3799,7 +3799,7 @@ end)
 
 -- FPS Cap — 0 = uncapped (executor default)
 do
-	sectionHeader(miscPage, "Performance", true)
+	sectionHeader(miscPage, "Performance")
 	local row, setVal = makeSlider(miscPage, "fpsCap", "FPS Cap", 0, 240, "%d")
 	local last = St.fpsCap
 	task.spawn(function()
@@ -3922,7 +3922,7 @@ function startHitNearest()
 		end)
 	end)
 end
-sectionHeader(miscPage, "Combat", true)
+sectionHeader(miscPage, "Combat")
 do
 	local _, _, refresh = makeRow(miscPage, "autoHitNearest", "Auto Hit Nearest", function(on)
 		if on then
@@ -4686,18 +4686,6 @@ if _savedConfig then
 		if St[key] == true and onToggle then pcall(onToggle, true) end
 	end
 	if St.speedOn then startSpeed(); if speedRefresh then speedRefresh() end end
-end
-
--- Intro "pop" — window opens from a small pill into full size instead
--- of just appearing. Everything inside is already Scale-relative
--- (UDim2 "1,-x" widths etc.), so it grows into place cleanly without
--- animating every child individually.
-do
-	local fullSize, fullPos = main.Size, main.Position
-	main.Size = UDim2.new(0, WIN_W*0.6, 0, 42)
-	main.Position = UDim2.new(0.5, -WIN_W*0.3, 0.5, -21)
-	TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-		{Size = fullSize, Position = fullPos}):Play()
 end
 
 print("[MoonEgg] Loaded — full rebuild — RightShift hide/show | Dock: Speed, AimBat, Bypass, Lock")
