@@ -3731,11 +3731,72 @@ do
 end
 
 makeRow(miscPage, "autoRejoin", "Auto Rejoin When Disconnect", function(on) end)
-game:BindToClose(function()
-	if St.autoRejoin then
-		pcall(function() game:GetService("TeleportService"):Teleport(game.PlaceId, LP) end)
+-- Auto Rejoin — Chilli Hub's exact detection (aide_3 ~25429-25560): the
+-- client can't use BindToClose (server-only), so it waits for Roblox's own
+-- disconnect ErrorPrompt / GuiService.ErrorMessageChanged, ignores
+-- teleports, bans and duplicate-login kicks, then rejoins the same server
+-- (2 tries) or any server if it was shut down.
+do
+	local GuiService = game:GetService("GuiService")
+	local CoreGui = game:GetService("CoreGui")
+	local TeleportService = game:GetService("TeleportService")
+	local teleportingAt, fired = 0, false
+	pcall(function()
+		LP.OnTeleport:Connect(function(state)
+			if state == Enum.TeleportState.Failed then teleportingAt = 0 else teleportingAt = os.clock() end
+		end)
+	end)
+	local function promptShown()
+		local g = CoreGui:FindFirstChild("RobloxPromptGui")
+		g = g and g:FindFirstChild("promptOverlay")
+		return g ~= nil and g:FindFirstChild("ErrorPrompt") ~= nil
 	end
-end)
+	local function onDisconnect(msg)
+		if fired or not St.autoRejoin then return end
+		if teleportingAt > 0 and os.clock() - teleportingAt < 60 then return end
+		local low = string.lower(tostring(msg or ""))
+		if low == "" or low:find("teleport", 1, true) then return end
+		local code
+		pcall(function() code = GuiService:GetErrorCode() end)
+		if code == Enum.ConnectionError.DisconnectDuplicatePlayer or low:find("banned", 1, true) or low:find("same account", 1, true) then return end
+		fired = true
+		local placeId, jobId = game.PlaceId, tostring(game.JobId or "")
+		local closed = low:find("shut", 1, true) or low:find("no longer", 1, true) or low:find("closed", 1, true)
+		task.spawn(function()
+			local n = 0
+			while true do
+				n = n + 1
+				local sameServer = not closed and jobId ~= "" and n <= 2
+				pcall(function()
+					if sameServer then TeleportService:TeleportToPlaceInstance(placeId, jobId, LP)
+					else TeleportService:Teleport(placeId, LP) end
+				end)
+				task.wait(sameServer and 4 or 5)
+			end
+		end)
+	end
+	pcall(function()
+		GuiService.ErrorMessageChanged:Connect(function(msg)
+			task.wait(0.3)
+			if promptShown() then onDisconnect(msg) end
+		end)
+	end)
+	task.spawn(function()
+		local pg = CoreGui:WaitForChild("RobloxPromptGui", 30)
+		pg = pg and pg:WaitForChild("promptOverlay", 30)
+		if not pg then return end
+		pg.ChildAdded:Connect(function(child)
+			if child.Name ~= "ErrorPrompt" then return end
+			task.wait(0.2)
+			local text = ""
+			for _, d in ipairs(child:GetDescendants()) do
+				if d:IsA("TextLabel") and d.Name == "ErrorMessage" then text = d.Text end
+			end
+			if text == "" then pcall(function() text = GuiService:GetErrorMessage() end) end
+			onDisconnect(text ~= "" and text or "disconnected")
+		end)
+	end)
+end
 
 -- FPS Cap — 0 = uncapped (executor default)
 do
