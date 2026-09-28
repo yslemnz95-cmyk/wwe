@@ -120,13 +120,14 @@ _M.Trails     = _tryRequire("Trails")
 _M.EggState   = _tryRequire("EggState")  -- ReplicatedStorage.Client.EggState
 _M.Assets     = _tryRequire("Assets")    -- ReplicatedStorage.Data.Assets (rarity/value directory)
 _M.Mutations  = _tryRequire("Mutations") -- ReplicatedStorage.Shared.Modules.Mutations (EarningsFor)
-_M.TreadmillUtil = _tryRequire("TreadmillUtil") -- Shared.Util.TreadmillUtil (SpeedPowerToWalkSpeed)
+_M.TreadmillUtil = _tryRequire("TreadmillUtil")
+_M.EggRecords = _tryRequire("EggRecords") -- Shared.Util.EggRecords (WeightKgForScale) -- Shared.Util.TreadmillUtil (SpeedPowerToWalkSpeed)
 
 local _MODULE_NAMES = {
 	"EggCmds","Network","Ragdoll","GuardEscapePrediction","GuardChasePolicy",
 	"ResolveGuardSpeedRequirement","SpeedPowerProjection","Guards","Areas",
 	"AreaEggSlotIdentity","Save","Constants","Bases","Treadmills","Trails","EggState",
-	"Assets","Mutations","TreadmillUtil",
+	"Assets","Mutations","TreadmillUtil","EggRecords",
 }
 do
 	local lines = {"[MoonEgg] Game module status:"}
@@ -324,6 +325,28 @@ do
 		return type(e) == "table" and e or nil
 	end
 	_Egg.DirEntry = dirEntry
+	function _Egg.WeightKg(assetCategory, scale)
+		local er = _M.EggRecords
+		if type(er) == "table" and type(er.WeightKgForScale) == "function" then
+			local ok, r = pcall(er.WeightKgForScale, assetCategory, scale)
+			if ok and type(r) == "number" then return r end
+		end
+		return nil
+	end
+	-- rarity colour: Rarity.Color of the game's asset directory
+	local _styleCache = {}
+	function _Egg.RarityStyle(assetCategory)
+		local e = dirEntry(assetCategory)
+		local rarity = e and e.Rarity
+		local key = type(rarity) == "table" and tostring(rarity._id or rarity.DisplayName or "") or ""
+		local st = _styleCache[key]
+		if st then return st end
+		local col = Color3.fromRGB(255, 255, 255)
+		if type(rarity) == "table" and typeof(rarity.Color) == "Color3" then col = rarity.Color end
+		st = {color = col}
+		_styleCache[key] = st
+		return st
+	end
 	function _Egg.DisplayName(assetCategory)
 		local e = dirEntry(assetCategory)
 		return tostring(e and e.DisplayName or assetCategory)
@@ -682,6 +705,7 @@ C.TRACKOFF = C.OFF_BG
 -- ============================================================
 local St = {
 	stayOnTreadmill  = true,
+	instantSteal     = false,
 	winSteal         = false,
 	winEvents        = false,
 	autoRerollLab    = false,
@@ -1311,6 +1335,41 @@ do
 		return MV.carry.on or not MV.carry.tracked
 	end
 
+	-- Instant Steal (Chilli Hub "Line Drop" idea, simplified): short hops of
+	-- one walk-pace-or-40 studs to the safe-zone line, then step over it
+	local function instantHop()
+		local root = MV.Root()
+		if not root then return end
+		local w = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+		w = w and w:FindFirstChild("Areas")
+		w = w and w:FindFirstChild("SeparationLine")
+		local isLine = w and w:IsA("BasePart")
+		local lineX = isLine and w.Position.X or 552
+		local lineY = isLine and w.Position.Y or 67.67
+		local home = _findSafeZonePos()
+		local sgn = home.X < root.Position.X and -1 or 1
+		local stopX = lineX - sgn * 6
+		local z = math.clamp(root.Position.Z, -425, -300)
+		local hop = math.max(MV.WalkSpeed(), 40)
+		local x2 = root.Position.X
+		local hopY = root.Position.Y + 4
+		local function place(x, y)
+			local r = MV.Root()
+			if not r then return end
+			pcall(function()
+				r.CFrame = CFrame.new(x, y, z) * CFrame.Angles(0, math.pi / 2, 0)
+				r.AssemblyLinearVelocity = Vector3.zero; r.AssemblyAngularVelocity = Vector3.zero
+			end)
+		end
+		while math.abs(x2 - stopX) > hop and MV.carry.on and St.autoFarm do
+			x2 = x2 + sgn * hop
+			setStatus2("Instant Steal", "hopping home")
+			local t = 0
+			while t < 0.1 do place(x2, hopY); t = t + RunService.Heartbeat:Wait() end
+		end
+		if MV.carry.on then place(stopX, lineY + 3.35) end
+	end
+
 	local function endRun()
 		_farmMoving = false; _farmTargetPos = nil
 		MV.farming = false
@@ -1338,6 +1397,17 @@ do
 		if near and St.autoFarm then
 			setStatus2("Taking the egg", tostring(egg.cat or "egg"))
 			if grab(egg) then
+				local ag = Steal.ag
+				if ag and ag.Enabled and not St.instantSteal then
+					-- Chilli Hub: let Anti Guard slip past the guard first
+					setStatus2("Anti Guard", "slipping past the guard")
+					local w = 0
+					while not ag.Busy and w < 1 and St.autoFarm do w = w + RunService.Heartbeat:Wait() end
+					w = 0
+					while ag.Busy and w < 30 and St.autoFarm do w = w + RunService.Heartbeat:Wait() end
+				elseif St.instantSteal then
+					pcall(instantHop)
+				end
 				-- carry it home (Chilli Hub CarryRatio 0.9 * egg SpeedMultiplier,
 				-- EasyRatio 1.3, scaled by the Carry Speed slider)
 				local home = _findSafeZonePos()
@@ -2313,151 +2383,218 @@ end
 
 
 -- ============================================================
--- STEAL PANEL WINDOW — Chilli Hub's steal panel: live queue of the eggs
--- that match your filters, sorted by the chosen priority (rarity first by
--- default), each with its picture, value, area and Steal / ★ / X buttons.
+-- STEAL PANEL — Chilli Hub's steal panel (aide_3 ~20860-22450): a HUD
+-- panel with a red title bar + "Sort: ..." button, an "Auto Steal" and an
+-- "Instant Steal" button, and one row per egg (picture, name in its rarity
+-- colour, $/s, scale and weight, Steal / star buttons). Drag it by the bar.
 -- ============================================================
-local stealWin = Win.Make({name = "MoonEggSteal", title = "Auto Steal Panel", w = 252, h = 380,
-	pos = UDim2.new(0, 8, 0, 56), flag = "winSteal", dot = C.GREEN})
-local stealPage = stealWin.page
--- first launch on a wide screen: open the Steal Panel right away
-if _savedConfig == nil or _savedConfig.winSteal == nil then
-	local cam = workspace.CurrentCamera
-	if cam and cam.ViewportSize.X >= 700 then stealWin.SetOpen(true) end
+local HUDF = Enum.Font.GothamBlack
+local function hudText(parent, text, size, col, ax)
+	local l = Instance.new("TextLabel", parent)
+	l.BackgroundTransparency = 1
+	l.Text = text; l.TextSize = size; l.Font = HUDF
+	l.TextColor3 = col or C.WHITE
+	l.TextXAlignment = ax or Enum.TextXAlignment.Left
+	l.TextTruncate = Enum.TextTruncate.AtEnd
+	local s = Instance.new("UIStroke", l)
+	s.Color = Color3.new(0, 0, 0); s.Thickness = 1.5
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	return l
+end
+local HUD_GREEN, HUD_RED, HUD_GRAY = Color3.fromRGB(110, 235, 70), Color3.fromRGB(225, 55, 55), Color3.fromRGB(150, 150, 165)
+local function hudBtn(parent, text, col, size)
+	local b = Instance.new("TextButton", parent)
+	b.BackgroundColor3 = col; b.BorderSizePixel = 0
+	b.Text = text; b.TextSize = size or 12; b.Font = HUDF
+	b.TextColor3 = C.WHITE; b.AutoButtonColor = true
+	corner(b, 6)
+	local st = Instance.new("UIStroke", b)
+	st.Color = Color3.fromRGB(20, 60, 20); st.Thickness = 2
+	local ts = Instance.new("UIStroke", b)
+	ts.Color = Color3.new(0, 0, 0); ts.Thickness = 1.5
+	ts.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	ts.Name = "TextStroke"
+	return b
 end
 
+local stealWin = {listeners = {}, minimized = false}
+local stealSetSort
 do
-	local RARITY_COL = {
-		[0] = C.SILVER2, [1] = C.SILVER, [2] = C.GREEN, [3] = C.ACCENT2, [4] = Color3.fromRGB(180, 120, 255),
-		[5] = C.GOLD, [6] = Color3.fromRGB(255, 150, 60), [7] = C.RED, [8] = Color3.fromRGB(255, 90, 200),
-	}
-	local function rcol(n) return RARITY_COL[math.clamp(math.floor(n or 0), 0, 8)] or C.WHITE end
+	local cam = workspace.CurrentCamera
+	local vp = cam and cam.ViewportSize or Vector2.new(800, 600)
+	local W, H = 300, math.min(400, math.max(230, vp.Y - 90))
+	local frame = Instance.new("Frame", gui)
+	frame.Name = "MoonEggSteal"
+	frame.Size = UDim2.new(0, W, 0, H)
+	frame.Position = UDim2.new(1, -(W + 104), 0, 60)
+	frame.BackgroundColor3 = Color3.fromRGB(58, 60, 80)
+	frame.BorderSizePixel = 0
+	frame.Active = true
+	frame.ZIndex = 20
+	corner(frame, 12)
+	local fst = Instance.new("UIStroke", frame)
+	fst.Color = Color3.fromRGB(26, 26, 38); fst.Thickness = 3
+	stealWin.frame = frame
+
+	local hdr = Instance.new("Frame", frame)
+	hdr.Size = UDim2.new(1, 0, 0, 44)
+	hdr.BackgroundColor3 = Color3.fromRGB(215, 50, 50)
+	hdr.BorderSizePixel = 0
+	corner(hdr, 12)
+	local hg = Instance.new("UIGradient", hdr)
+	hg.Color = ColorSequence.new(Color3.fromRGB(235, 70, 70), Color3.fromRGB(165, 30, 40))
+	hg.Rotation = 90
+	local title = hudText(hdr, "Steal Panel", 20, C.WHITE)
+	title.Size = UDim2.new(0.5, -8, 1, 0); title.Position = UDim2.new(0, 12, 0, 0)
+	local sortBtn = hudBtn(hdr, "Sort: " .. St.stealPriority, HUD_GREEN, 13)
+	sortBtn.Size = UDim2.new(0.5, -14, 0, 30); sortBtn.Position = UDim2.new(0.5, 6, 0.5, -15)
+
+	local topRow = Instance.new("Frame", frame)
+	topRow.Size = UDim2.new(1, -16, 0, 34); topRow.Position = UDim2.new(0, 8, 0, 50)
+	topRow.BackgroundTransparency = 1
+	local autoBtn = hudBtn(topRow, "Auto Steal: OFF", HUD_RED, 12)
+	autoBtn.Size = UDim2.new(0.5, -3, 1, 0)
+	local instBtn = hudBtn(topRow, "Instant Steal: OFF", HUD_RED, 12)
+	instBtn.Size = UDim2.new(0.5, -3, 1, 0); instBtn.Position = UDim2.new(0.5, 3, 0, 0)
+
+	local info = hudText(frame, "", 10, C.SILVER)
+	info.Size = UDim2.new(1, -16, 0, 14); info.Position = UDim2.new(0, 10, 0, 88)
+
+	local list = Instance.new("ScrollingFrame", frame)
+	list.Size = UDim2.new(1, -12, 1, -108); list.Position = UDim2.new(0, 6, 0, 104)
+	list.BackgroundTransparency = 1; list.BorderSizePixel = 0
+	list.ScrollBarThickness = 4; list.ScrollBarImageColor3 = Color3.fromRGB(140, 140, 165)
+	list.CanvasSize = UDim2.new(0, 0, 0, 0); list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	local ll = Instance.new("UIListLayout", list)
+	ll.Padding = UDim.new(0, 5); ll.SortOrder = Enum.SortOrder.LayoutOrder
+	local emptyLbl = hudText(list, "No egg matches your filters", 12, C.SILVER, Enum.TextXAlignment.Center)
+	emptyLbl.Size = UDim2.new(1, 0, 0, 30); emptyLbl.LayoutOrder = 1e6
+
+	Win.Drag(hdr, frame)
+	hdr.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			frame.ZIndex = 60
+		end
+	end)
+
+	function stealWin.IsOpen() return frame.Visible end
+	function stealWin.OnChange(fn) table.insert(stealWin.listeners, fn) end
+	function stealWin.SetOpen(on)
+		frame.Visible = on == true
+		St.winSteal = on == true
+		saveConfig()
+		for _, fn in ipairs(stealWin.listeners) do pcall(fn, on == true) end
+	end
+	frame.Visible = St.winSteal == true
+	if (_savedConfig == nil or _savedConfig.winSteal == nil) and vp.X >= 700 then
+		frame.Visible = true; St.winSteal = true
+	end
+
+	-- Sort button cycles Steal Priority (same 5 options as Chilli Hub)
+	local SORTS = {"Best Rarity", "Biggest Weight", "Best Mutation", "Highest Value", "Lowest Value"}
+	stealSetSort = function(v)
+		St.stealPriority = v; saveConfig()
+		sortBtn.Text = "Sort: " .. v
+	end
+	sortBtn.MouseButton1Click:Connect(function()
+		local idx = table.find(SORTS, St.stealPriority) or 0
+		stealSetSort(SORTS[idx % #SORTS + 1])
+	end)
+
+	local function paintToggle(btn, on, text)
+		btn.Text = text .. (on and ": ON" or ": OFF")
+		btn.BackgroundColor3 = on and HUD_GREEN or HUD_RED
+	end
+	autoBtn.MouseButton1Click:Connect(function()
+		St.autoFarm = not St.autoFarm
+		if not St.autoFarm then Steal.Abort() end
+		saveConfig()
+	end)
+	instBtn.MouseButton1Click:Connect(function()
+		St.instantSteal = not St.instantSteal
+		saveConfig()
+	end)
+
 	local function short(n)
 		n = tonumber(n) or 0
 		local a = math.abs(n)
 		if a >= 1e12 then return string.format("%.1fT", n / 1e12) end
 		if a >= 1e9 then return string.format("%.1fB", n / 1e9) end
 		if a >= 1e6 then return string.format("%.1fM", n / 1e6) end
-		if a >= 1e3 then return string.format("%.1fK", n / 1e3) end
+		if a >= 1e3 then return string.format("%.0fK", n / 1e3) end
 		return string.format("%d", n)
 	end
-
-	-- status card
-	local card = Instance.new("Frame", stealPage)
-	card.Size = UDim2.new(1, -12, 0, 44)
-	card.BackgroundColor3 = C.ROW; card.BackgroundTransparency = 0.25
-	card.BorderSizePixel = 0
-	corner(card, 10); addLivingStroke(card, 1)
-	local stLbl = label(card, "Idle", UDim2.new(1, -16, 0, 18), C.GREEN, Enum.Font.GothamBold)
-	stLbl.Position = UDim2.new(0, 10, 0, 4); stLbl.TextSize = 12
-	local stDet = label(card, "", UDim2.new(1, -16, 0, 16), C.DIM, Enum.Font.GothamMedium)
-	stDet.Position = UDim2.new(0, 10, 0, 22); stDet.TextSize = 10
-	makeDivider(stealPage)
-
-	local _, _, farmRefresh = makeRow(stealPage, "autoFarm", "Auto Steal", function(on)
-		if not on then Steal.Abort() end
-	end)
-
-	-- sort (Steal Priority) + rarity floor
-	local SORTS = {"Best Rarity", "Biggest Weight", "Best Mutation", "Highest Value", "Lowest Value"}
-	local sortBox = Instance.new("Frame", stealPage)
-	sortBox.Size = UDim2.new(1, -12, 0, 51); sortBox.BackgroundTransparency = 1
-	makeCarousel(sortBox, "Sort By", SORTS, SORTS, St.stealPriority, function(v)
-		St.stealPriority = v; saveConfig()
-	end)
-
-	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
-	local rarBox = Instance.new("Frame", stealPage)
-	rarBox.Size = UDim2.new(1, -12, 0, 51); rarBox.BackgroundTransparency = 1
-	local curRar = rarityOptions[1]
-	for _, o in ipairs(rarityOptions) do if (rarityValueOf[o] or 0) == St.stealMinRarity then curRar = o end end
-	makeCarousel(rarBox, "Min Rarity", rarityOptions, rarityOptions, curRar, function(v)
-		St.stealMinRarity = rarityValueOf[v] or 0; saveConfig()
-	end)
-
-	local FARM_ZONES = {"", "Forest", "Desert", "Prehistoric", "Abyss Ocean", "Snow", "Cosmic", "Lake", "Volcano", "Cherry Blossom", "Jungle", "Titan Temple"}
-	local FARM_LABELS = {"All Islands", "Forest", "Desert", "Prehistoric", "Abyss Ocean", "Snow", "Cosmic", "Lake", "Volcano", "Cherry Blossom", "Jungle", "Titan Temple"}
-	local zoneBox = Instance.new("Frame", stealPage)
-	zoneBox.Size = UDim2.new(1, -12, 0, 51); zoneBox.BackgroundTransparency = 1
-	makeCarousel(zoneBox, "Target Island", FARM_ZONES, FARM_LABELS, St.farmZone, function(zv)
-		St.farmZone = zv; saveConfig()
-	end)
-
-	-- live queue
-	sectionHeader(stealPage, "Queue")
-	local queueBox = Instance.new("Frame", stealPage)
-	queueBox.Size = UDim2.new(1, -12, 0, 0)
-	queueBox.AutomaticSize = Enum.AutomaticSize.Y
-	queueBox.BackgroundTransparency = 1
-	local ql = Instance.new("UIListLayout", queueBox)
-	ql.Padding = UDim.new(0, 4); ql.SortOrder = Enum.SortOrder.LayoutOrder
-	local emptyLbl = label(queueBox, "No egg matches the filters", UDim2.new(1, 0, 0, 24), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
-	emptyLbl.TextSize = 10.5; emptyLbl.LayoutOrder = 1e6
+	local function commas(n)
+		local s = string.format("%.0f", n)
+		local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+		return (out:gsub("^,", ""))
+	end
+	local function weightText(cat, scale)
+		local kg = _Egg.WeightKg(cat, scale)
+		if not kg then return "" end
+		return (kg >= 1000 and commas(kg) or string.format("%.2f", kg)) .. " Kg"
+	end
 
 	local rows = {}
-	local function mkBtn(parent, text, x, y, w, h, col, tcol)
-		local b = Instance.new("TextButton", parent)
-		b.Size = UDim2.new(0, w, 0, h); b.Position = UDim2.new(1, x, 0, y)
-		b.BackgroundColor3 = col; b.Text = text; b.TextSize = 9.5
-		b.TextColor3 = tcol; b.Font = Enum.Font.GothamBold
-		b.BorderSizePixel = 0; corner(b, 6)
-		return b
-	end
-	local function buildRow(egg)
+	local function buildRow()
 		local r = {}
-		local f = Instance.new("Frame", queueBox)
-		f.Size = UDim2.new(1, 0, 0, 46)
-		f.BackgroundColor3 = C.ROW; f.BackgroundTransparency = 0.3
+		local f = Instance.new("Frame", list)
+		f.Size = UDim2.new(1, -6, 0, 64)
+		f.BackgroundColor3 = Color3.fromRGB(72, 74, 96)
 		f.BorderSizePixel = 0
-		corner(f, 9); addLivingStroke(f, 1)
+		corner(f, 8)
+		r.stroke = Instance.new("UIStroke", f)
+		r.stroke.Color = Color3.fromRGB(28, 28, 42); r.stroke.Thickness = 2
 		r.frame = f
-		r.rank = label(f, "#1", UDim2.new(0, 22, 0, 12), C.GOLD, Enum.Font.GothamBold)
-		r.rank.Position = UDim2.new(0, 5, 0, 3); r.rank.TextSize = 9
 		r.icon = Instance.new("ImageLabel", f)
-		r.icon.Size = UDim2.fromOffset(28, 28); r.icon.Position = UDim2.new(0, 5, 0, 15)
+		r.icon.Size = UDim2.fromOffset(52, 52); r.icon.Position = UDim2.new(0, 6, 0.5, -26)
 		r.icon.BackgroundTransparency = 1; r.icon.ScaleType = Enum.ScaleType.Fit
-		r.name = label(f, "", UDim2.new(1, -108, 0, 14), C.WHITE, Enum.Font.GothamBold)
-		r.name.Position = UDim2.new(0, 36, 0, 3); r.name.TextSize = 10.5
-		r.name.TextTruncate = Enum.TextTruncate.AtEnd
-		r.value = label(f, "", UDim2.new(1, -108, 0, 13), C.GOLD, Enum.Font.GothamBold)
-		r.value.Position = UDim2.new(0, 36, 0, 18); r.value.TextSize = 10
-		r.detail = label(f, "", UDim2.new(1, -108, 0, 12), C.DIM, Enum.Font.GothamMedium)
-		r.detail.Position = UDim2.new(0, 36, 0, 32); r.detail.TextSize = 9
-		r.detail.TextTruncate = Enum.TextTruncate.AtEnd
-		r.steal = mkBtn(f, "Steal", -64, 4, 58, 20, Color3.fromRGB(20, 44, 32), C.GREEN)
-		r.star = mkBtn(f, utf8.char(9733), -64, 26, 27, 16, Color3.fromRGB(44, 38, 16), C.GOLD)
-		r.skip = mkBtn(f, "X", -33, 26, 27, 16, Color3.fromRGB(58, 20, 20), C.RED)
+		r.name = hudText(f, "", 14, C.WHITE)
+		r.name.Size = UDim2.new(1, -170, 0, 18); r.name.Position = UDim2.new(0, 64, 0, 5)
+		r.value = hudText(f, "", 12, Color3.fromRGB(120, 255, 90))
+		r.value.Size = UDim2.new(1, -170, 0, 16); r.value.Position = UDim2.new(0, 64, 0, 24)
+		r.detail = hudText(f, "", 11, Color3.fromRGB(95, 170, 255))
+		r.detail.Size = UDim2.new(1, -170, 0, 16); r.detail.Position = UDim2.new(0, 64, 0, 41)
+		r.steal = hudBtn(f, "Steal", HUD_GREEN, 15)
+		r.steal.Size = UDim2.new(0, 68, 0, 34); r.steal.Position = UDim2.new(1, -108, 0.5, -17)
+		r.star = hudBtn(f, utf8.char(9733), HUD_GRAY, 16)
+		r.star.Size = UDim2.new(0, 34, 0, 34); r.star.Position = UDim2.new(1, -38, 0.5, -17)
+		r.star.TextColor3 = C.WHITE
+		r.skip = Instance.new("TextButton", f)
+		r.skip.Size = UDim2.new(0, 16, 0, 16); r.skip.Position = UDim2.new(1, -20, 0, 2)
+		r.skip.BackgroundTransparency = 1; r.skip.Text = "x"; r.skip.TextSize = 12
+		r.skip.Font = HUDF; r.skip.TextColor3 = HUD_RED
 		r.steal.MouseButton1Click:Connect(function()
-			if r.uid then Steal.StealNow(r.uid); St.autoFarm = true; farmRefresh(); saveConfig() end
+			if r.uid then Steal.StealNow(r.uid); St.autoFarm = true; saveConfig() end
 		end)
 		r.star.MouseButton1Click:Connect(function() if r.uid then Steal.Prioritize(r.uid) end end)
 		r.skip.MouseButton1Click:Connect(function() if r.uid then Steal.Skip(r.uid, 90) end end)
 		return r
 	end
 
-	local NOW_COL = Color3.fromRGB(30, 60, 40)
 	local function refresh()
 		local root = MV.Root()
-		local plan = Steal.Plan(root and root.Position, 15)
+		local plan = Steal.Plan(root and root.Position, 25)
 		local seen = {}
 		for i, egg in ipairs(plan) do
 			local r = rows[egg.uid]
-			if not r then r = buildRow(egg); rows[egg.uid] = r end
+			if not r then r = buildRow(); rows[egg.uid] = r end
 			seen[egg.uid] = true
 			r.uid = egg.uid
 			r.frame.LayoutOrder = i
-			r.rank.Text = "#" .. i
 			local img = _Egg.Icon(egg.cat)
 			if img and r.icon.Image ~= img then r.icon.Image = img end
-			r.name.Text = tostring(_Egg.DisplayName and _Egg.DisplayName(egg.cat) or egg.cat)
-			r.name.TextColor3 = rcol(egg.rarity)
+			local rs = _Egg.RarityStyle(egg.cat)
+			r.name.Text = _Egg.DisplayName(egg.cat)
+			r.name.TextColor3 = rs.color
 			r.value.Text = "$" .. short(egg.value) .. "/s"
-			local dist = root and math.floor((egg.pos - root.Position).Magnitude) or 0
-			r.detail.Text = string.format("%s · %s · %dm%s", _Egg.RarityName(egg.cat), tostring(egg.area or "?"), dist,
-				egg.scale and string.format(" · x%.2f", egg.scale) or "")
+			local wt = weightText(egg.cat, egg.scale)
+			r.detail.Text = string.format("x%.2f%s", egg.scale or 1, wt ~= "" and ("  ·  " .. wt) or "")
 			local now = Steal.current == egg.uid
-			r.frame.BackgroundColor3 = now and NOW_COL or C.ROW
+			local forced = Steal.force == egg.uid
+			r.stroke.Color = (now or forced) and Color3.fromRGB(255, 200, 60) or Color3.fromRGB(28, 28, 42)
 			r.steal.Text = now and "Now" or "Steal"
+			r.star.BackgroundColor3 = forced and Color3.fromRGB(255, 190, 40) or HUD_GRAY
 		end
 		for uid, r in pairs(rows) do
 			if not seen[uid] then r.frame:Destroy(); rows[uid] = nil end
@@ -2468,26 +2605,283 @@ do
 	task.spawn(function()
 		while true do
 			task.wait(0.4)
-			if stealWin.frame.Visible and not stealWin.minimized then
+			paintToggle(autoBtn, St.autoFarm == true, "Auto Steal")
+			paintToggle(instBtn, St.instantSteal == true, "Instant Steal")
+			if frame.Visible then
 				pcall(refresh)
-				local col = C.GREEN
-				local s = Steal.status
-				if s == "Idle" or s == "Waiting" then col = C.DIM elseif s == "Error" or s == "Could not take it" then col = C.RED end
-				stLbl.Text = St.autoFarm and s or "Off"
-				stLbl.TextColor3 = St.autoFarm and col or C.DIM
-				stDet.Text = string.format("%s   ·   %d eggs in the world", St.autoFarm and Steal.detail or "Turn Auto Steal on", #cachedEggs)
+				info.Text = St.autoFarm and (Steal.status .. (Steal.detail ~= "" and (" · " .. Steal.detail) or "")) or (#cachedEggs .. " eggs in the world")
+			end
+		end
+	end)
+end
+
+-- ============================================================
+-- ANTI GUARD — Chilli Hub's card (bottom-left, above the hotbar) and its
+-- method (aide_3 ~26905-28200): when you start carrying an egg (or a guard
+-- welds itself to you), the character "slips past the guard" with a quick
+-- series of hops to the safe zone (frozen velocity, camera held in place),
+-- then hops back to where it started. Stroke flashes green/red at the end.
+-- ============================================================
+local AG = {Enabled = St.antiGuard == true, Busy = false, Active = false, BusySince = 0,
+	SignalCarrying = false, WeldCarrying = false, Carrying = false, AreaId = nil}
+Steal.ag = AG
+do
+	local function buildSteps(count, startAt, gap, finalAt, releaseAt, busyLimit)
+		local steps = {}
+		for i = 1, count do steps[i] = {At = startAt + (i - 1) * gap, To = "home"} end
+		steps[#steps + 1] = {At = finalAt, To = "start"}
+		return {Target = "home", LineOffset = 8, Height = 0, OffsetX = 0, OffsetZ = 0, Jitter = 0, Limp = false,
+			Facing = "Zero", Freeze = true, StartAt = 0, HopRandom = 0.085, HoldRandom = 0.395,
+			Steps = steps, ReleaseAt = releaseAt, BusyLimit = busyLimit}
+	end
+	local CFG = {
+		Default = buildSteps(25, 0, 0.05, 1.27, 1.52, 2.5),
+		LightDark = {Target = "line", LineOffset = 8, Height = 45, OffsetX = -90, OffsetZ = -35, Jitter = 0, Limp = true,
+			Facing = "Zero", Freeze = false, StartAt = 0, HopRandom = 0, HoldRandom = 0,
+			Steps = {{At = 0.1, To = "home"}, {At = 0.33, To = "home"}, {At = 0.75, To = "start"}},
+			ReleaseAt = 0.8, BusyLimit = 2.5},
+	}
+	local function cfgFor(area)
+		local k = tostring(area or ""):gsub("[^%a]", ""):lower()
+		return k == "lightdark" and CFG.LightDark or CFG.Default
+	end
+	local function separationLine()
+		local w = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+		w = w and w:FindFirstChild("Areas")
+		w = w and w:FindFirstChild("SeparationLine")
+		return w and w:IsA("BasePart") and w or nil
+	end
+	local function target(cfg, startPos)
+		local base = _findSafeZonePos()
+		if cfg.Target == "line" then
+			local line = separationLine()
+			if line then
+				local cf = line.CFrame
+				local axis = line.Size.X >= line.Size.Z and cf.RightVector or cf.LookVector
+				local dir = Vector3.new(0, 1, 0):Cross(axis)
+				dir = Vector3.new(dir.X, 0, dir.Z)
+				if dir.Magnitude > 0.001 then
+					dir = dir.Unit
+					local side = ((startPos - cf.Position):Dot(dir) >= 0) and -dir or dir
+					local p = cf.Position + side * (cfg.LineOffset or 8)
+					base = Vector3.new(p.X, cf.Position.Y, p.Z)
+				end
+			end
+		end
+		return base + Vector3.new(cfg.OffsetX or 0, cfg.Height or 0, cfg.OffsetZ or 0)
+	end
+	local function rnd(a) a = math.max(tonumber(a) or 0, 0); return a <= 0 and 0 or (math.random() * 2 - 1) * a end
+	local function timeline(cfg)
+		local out, last, acc = {}, 0, 0
+		for i, st in ipairs(cfg.Steps) do
+			local at = math.max(tonumber(st.At) or 0, 0)
+			acc = math.max(acc + math.max(at - last, 0) + rnd(st.To == "start" and cfg.HoldRandom or cfg.HopRandom), cfg.StartAt or 0)
+			out[i] = {At = acc, To = st.To}
+			last = at
+		end
+		return out, acc + math.max((cfg.ReleaseAt or 0) - last, 0)
+	end
+
+	local flash -- set by the card below
+	local function releaseCamera(saved)
+		if not saved then return end
+		pcall(function() saved.cam.CameraType = saved.type end)
+	end
+	local function run(area)
+		local ch, root, hum = LP.Character, MV.Root(), MV.Hum()
+		if not ch or not root or not hum then AG.Busy = false; AG.Active = false; if flash then flash(false) end return end
+		local alive = function() return AG.Enabled and root.Parent ~= nil and hum.Parent ~= nil and hum.Health > 0 end
+		local cfg = cfgFor(area)
+		local steps, releaseAt = timeline(cfg)
+		local startPos, startRot = root.Position, root.CFrame.Rotation
+		local rot = cfg.Facing == "Zero" and CFrame.new() or startRot
+		local home = target(cfg, startPos)
+		local wasPS = hum.PlatformStand
+		local cam, savedCam = workspace.CurrentCamera, nil
+		if cam then
+			savedCam = {cam = cam, type = cam.CameraType}
+			local cf = cam.CFrame
+			pcall(function() cam.CameraType = Enum.CameraType.Scriptable; cam.CFrame = cf end)
+		end
+		local t0 = os.clock()
+		local function tp(pos, r)
+			pcall(function() ch:PivotTo(CFrame.new(pos) * r) end)
+			if (root.Position - pos).Magnitude > 3 then pcall(function() root.CFrame = CFrame.new(pos) * r end) end
+			if cfg.Freeze then
+				for _, d in ipairs(ch:GetDescendants()) do
+					if d:IsA("BasePart") then pcall(function() d.AssemblyLinearVelocity = Vector3.zero; d.AssemblyAngularVelocity = Vector3.zero end) end
+				end
+			end
+		end
+		local function waitUntil(t)
+			while alive() and os.clock() - t0 < t do
+				RunService.Heartbeat:Wait()
+				if cfg.Freeze then pcall(function() root.AssemblyLinearVelocity = Vector3.zero; root.AssemblyAngularVelocity = Vector3.zero end) end
+			end
+			return alive()
+		end
+		if waitUntil(cfg.StartAt or 0) and cfg.Limp then hum.PlatformStand = true end
+		for _, st in ipairs(steps) do
+			if not waitUntil(st.At) then break end
+			tp(st.To == "start" and startPos or home, st.To == "start" and rot or rot)
+			RunService.PreSimulation:Wait()
+		end
+		waitUntil(releaseAt)
+		pcall(function() hum.PlatformStand = wasPS end)
+		releaseCamera(savedCam)
+		AG.Busy = false; AG.Active = false
+		if flash then flash(alive() and AG.Carrying) end
+	end
+	local function trigger()
+		if AG.Enabled and AG.Carrying and not AG.Active then
+			AG.Active = true; AG.Busy = true; AG.BusySince = os.clock()
+			local area = AG.AreaId or MV.carry.area
+			task.spawn(function()
+				local ok = pcall(run, area)
+				if not ok then
+					AG.Busy = false; AG.Active = false
+					local h = MV.Hum(); if h then pcall(function() h.PlatformStand = false end) end
+					local cam = workspace.CurrentCamera
+					if cam and cam.CameraType == Enum.CameraType.Scriptable then pcall(function() cam.CameraType = Enum.CameraType.Custom end) end
+					if flash then flash(false) end
+				end
+			end)
+		end
+	end
+	local function setCarrying()
+		local prev = AG.Carrying
+		AG.Carrying = AG.SignalCarrying or AG.WeldCarrying
+		if AG.Carrying and not prev then trigger() end
+	end
+	pcall(function()
+		local cc = _M.EggState and _M.EggState.CarryChanged
+		if type(cc) == "table" and type(cc.Connect) == "function" then
+			cc:Connect(function(arg)
+				local on = type(arg) == "table" and arg.IsCarrying == true
+				if on and type(arg.AreaId) == "string" then AG.AreaId = arg.AreaId end
+				if not on then AG.AreaId = nil end
+				AG.SignalCarrying = on
+				setCarrying()
+			end)
+		end
+	end)
+	-- a guard that grabbed you is a Model with a "Hitbox" welded to your body
+	local function guardHolding()
+		local root = MV.Root()
+		if not root then return false end
+		for _, m in ipairs(workspace:GetChildren()) do
+			if m:IsA("Model") and m:FindFirstChild("Hitbox") then
+				for _, d in ipairs(m:GetDescendants()) do
+					if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("RigidConstraint") then
+						local ok, a, b = pcall(function() return d.Part0, d.Part1 end)
+						if ok and (a == root or b == root) then return true end
+					end
+				end
+			end
+		end
+		return false
+	end
+	task.spawn(function()
+		while true do
+			task.wait(0.1)
+			if AG.Busy and os.clock() - AG.BusySince > 4 then
+				AG.Busy = false; AG.Active = false
+				local h = MV.Hum(); if h then pcall(function() h.PlatformStand = false end) end
+			end
+			if AG.Enabled then
+				local w = guardHolding()
+				if w ~= AG.WeldCarrying then AG.WeldCarrying = w; setCarrying() end
 			end
 		end
 	end)
 
-	sectionHeader(stealPage, "Filters")
-	makeMultiSelect(stealPage, "Target Specific Eggs", _Egg.SpeciesOptions, St.stealTargetEggs, function() saveConfig() end, _Egg.Icon)
-	makeSlider(stealPage, "stealMinValueK", "Min Steal Value", 0, 50000, "%dk")
-	makeSlider(stealPage, "stealTweenPct", "Tween Speed", 50, 120, "%d%%")
-	makeSlider(stealPage, "stealCarryPct", "Carry Speed", 80, 120, "%d%%")
-	makeRow(stealPage, "showFarmPath", "Show Farm Path", function(on) end)
-	makeRow(stealPage, "stealMissingLab", "Steal Missing Lab Eggs", function(on) end)
+	-- the card
+	local card = Instance.new("Frame", gui)
+	card.Name = "MoonEggAntiGuard"
+	card.Size = UDim2.new(0, 210, 0, 48)
+	card.Position = UDim2.new(0, 12, 0.7, 0)
+	card.BackgroundColor3 = Color3.fromRGB(38, 44, 28)
+	card.BorderSizePixel = 0
+	card.Active = true
+	card.ZIndex = 30
+	corner(card, 14)
+	local cst = Instance.new("UIStroke", card)
+	cst.Color = Color3.fromRGB(48, 46, 56); cst.Thickness = 2
+	local ico = Instance.new("Frame", card)
+	ico.Size = UDim2.fromOffset(30, 30); ico.Position = UDim2.new(0, 8, 0.5, -15)
+	ico.BackgroundColor3 = C.MOON2; ico.BorderSizePixel = 0; ico.ClipsDescendants = true
+	corner(ico, 15)
+	local shade = Instance.new("Frame", ico)
+	shade.Size = UDim2.fromOffset(30, 30); shade.Position = UDim2.fromOffset(9, -6)
+	shade.BackgroundColor3 = Color3.fromRGB(38, 44, 28); shade.BorderSizePixel = 0
+	corner(shade, 15)
+	local brand = Instance.new("TextLabel", card)
+	brand.BackgroundTransparency = 1; brand.Text = "MoonEgg"; brand.TextSize = 11
+	brand.Font = Enum.Font.GothamBold; brand.TextColor3 = Color3.fromRGB(255, 170, 130)
+	brand.TextXAlignment = Enum.TextXAlignment.Left
+	brand.Size = UDim2.new(1, -110, 0, 14); brand.Position = UDim2.new(0, 46, 0, 8)
+	local nm = Instance.new("TextLabel", card)
+	nm.BackgroundTransparency = 1; nm.Text = "Anti Guard"; nm.TextSize = 15
+	nm.Font = Enum.Font.GothamBlack; nm.TextColor3 = C.WHITE
+	nm.TextXAlignment = Enum.TextXAlignment.Left
+	nm.Size = UDim2.new(1, -110, 0, 18); nm.Position = UDim2.new(0, 46, 0, 22)
+	local track = Instance.new("TextButton", card)
+	track.Size = UDim2.fromOffset(48, 24); track.Position = UDim2.new(1, -58, 0.5, -12)
+	track.Text = ""; track.AutoButtonColor = false; track.BorderSizePixel = 0
+	corner(track, 12)
+	local knob = Instance.new("Frame", track)
+	knob.Size = UDim2.fromOffset(18, 18); knob.BackgroundColor3 = Color3.fromRGB(245, 245, 250)
+	knob.BorderSizePixel = 0; corner(knob, 9)
+	local flashing = false
+	local function render()
+		track.BackgroundColor3 = AG.Enabled and Color3.fromRGB(255, 72, 72) or Color3.fromRGB(70, 70, 82)
+		knob.Position = AG.Enabled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+		if not flashing then cst.Color = AG.Enabled and Color3.fromRGB(255, 110, 70) or Color3.fromRGB(48, 46, 56) end
+	end
+	render()
+	flash = function(good)
+		flashing = true
+		cst.Color = good and Color3.fromRGB(80, 220, 140) or Color3.fromRGB(255, 70, 70)
+		task.delay(1.6, function() flashing = false; render() end)
+	end
+	track.MouseButton1Click:Connect(function()
+		AG.Enabled = not AG.Enabled
+		St.antiGuard = AG.Enabled
+		if not AG.Enabled then AG.Busy = false; AG.Active = false end
+		render(); saveConfig()
+	end)
+	Win.Drag(card, card)
+	AG.Render = render
+	_toggleRegistry["antiGuard"] = function(on) AG.Enabled = on; render() end
 end
+
+-- filters live in the main window's Farm tab (Chilli Hub keeps them in its menu)
+local function buildStealSettings(page)
+	sectionHeader(page, "Auto Steal")
+	local _, panelBtn = makeButton(page, "Steal Panel", stealWin.IsOpen() and "Close" or "Open", function() stealWin.SetOpen(not stealWin.IsOpen()) end)
+	stealWin.OnChange(function(on) panelBtn.Text = on and "Close" or "Open" end)
+	makeRow(page, "autoFarm", "Auto Steal", function(on) if not on then Steal.Abort() end end)
+	makeRow(page, "instantSteal", "Instant Steal", function(on) end)
+	makeRow(page, "antiGuard", "Anti Guard", function(on) AG.Enabled = on; AG.Render() end)
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	local curRar = rarityOptions[1]
+	for _, o in ipairs(rarityOptions) do if (rarityValueOf[o] or 0) == St.stealMinRarity then curRar = o end end
+	makeCarousel(page, "Min Rarity", rarityOptions, rarityOptions, curRar, function(v)
+		St.stealMinRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+	local FARM_ZONES = {"", "Forest", "Desert", "Prehistoric", "Abyss Ocean", "Snow", "Cosmic", "Lake", "Volcano", "Cherry Blossom", "Jungle", "Titan Temple"}
+	local FARM_LABELS = {"All Islands", "Forest", "Desert", "Prehistoric", "Abyss Ocean", "Snow", "Cosmic", "Lake", "Volcano", "Cherry Blossom", "Jungle", "Titan Temple"}
+	makeCarousel(page, "Target Island", FARM_ZONES, FARM_LABELS, St.farmZone, function(zv) St.farmZone = zv; saveConfig() end)
+	local SORTS = {"Best Rarity", "Biggest Weight", "Best Mutation", "Highest Value", "Lowest Value"}
+	makeCarousel(page, "Steal Priority", SORTS, SORTS, St.stealPriority, function(v) stealSetSort(v) end)
+	makeMultiSelect(page, "Target Specific Eggs", _Egg.SpeciesOptions, St.stealTargetEggs, function() saveConfig() end, _Egg.Icon)
+	makeSlider(page, "stealMinValueK", "Min Steal Value", 0, 50000, "%dk")
+	makeSlider(page, "stealTweenPct", "Tween Speed", 50, 120, "%d%%")
+	makeSlider(page, "stealCarryPct", "Carry Speed", 80, 120, "%d%%")
+	makeRow(page, "showFarmPath", "Show Farm Path", function(on) end)
+	makeRow(page, "stealMissingLab", "Steal Missing Lab Eggs", function(on) end)
+end
+
 
 -- ============================================================
 -- EVENTS WINDOW — Dr Scramble (Lab, Mech boss, Scrambled Mutation).
@@ -2503,10 +2897,9 @@ local eventsPage = eventsWin.page
 -- ============================================================
 local farmPage = pages["Farm"]
 
-sectionHeader(farmPage, "Windows")
+buildStealSettings(farmPage)
+sectionHeader(farmPage, "Events")
 do
-	local _, b1 = makeButton(farmPage, "Auto Steal Panel", stealWin.IsOpen() and "Close" or "Open", function() stealWin.SetOpen(not stealWin.IsOpen()) end)
-	stealWin.OnChange(function(on) b1.Text = on and "Close" or "Open" end)
 	local _, b2 = makeButton(farmPage, "Events · Dr Scramble", eventsWin.IsOpen() and "Close" or "Open", function() eventsWin.SetOpen(not eventsWin.IsOpen()) end)
 	eventsWin.OnChange(function(on) b2.Text = on and "Close" or "Open" end)
 end
@@ -3358,67 +3751,6 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoUpgradeBase", "Auto Upgrade Base", function(on) end)
 
-sectionHeader(stealPage, "Anti Guard")
--- Exact Chilli Hub technique: react to RagdollEndTime
--- attribute. When a guard hits the player the server sets this attribute.
--- We detect the change instantly and teleport past the guard line before
--- the physics-ragdoll animation finishes, so the player arrives on the
--- safe side with the egg still in hand.
-local _antiGuardLink = nil
-local function stopAntiGuard()
-	if _antiGuardLink then _antiGuardLink:Disconnect(); _antiGuardLink = nil end
-end
-local function startAntiGuard()
-	stopAntiGuard()
-	_antiGuardLink = LP:GetAttributeChangedSignal("RagdollEndTime"):Connect(function()
-		if not St.antiGuard then return end
-		local num = tonumber(LP:GetAttribute("RagdollEndTime"))
-		if not num or num <= workspace:GetServerTimeNow() then return end
-		task.defer(function()
-			pcall(function()
-				local char = LP.Character
-				local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-				if not hrp then return end
-				local folder = workspace:FindFirstChild("__OBJECTS")
-				folder = folder and folder:FindFirstChild("Areas")
-				folder = folder and folder:FindFirstChild("GuardAreas")
-				local nearGuardPos = nil
-				local nearDist = math.huge
-				if folder then
-					for _, area in ipairs(folder:GetChildren()) do
-						local guard = area:FindFirstChild("Guard")
-						if guard then
-							local ok, gp = pcall(function() return guard:GetPivot().Position end)
-							if ok then
-								local d = (gp - hrp.Position).Magnitude
-								if d < nearDist then nearDist = d; nearGuardPos = gp end
-							end
-						end
-					end
-				end
-				local dest
-				if nearGuardPos then
-					local awayDir = (hrp.Position - nearGuardPos)
-					awayDir = Vector3.new(awayDir.X, 0, awayDir.Z)
-					if awayDir.Magnitude > 0.1 then
-						awayDir = awayDir.Unit
-					else
-						awayDir = EXIT_DIR
-					end
-					dest = hrp.Position + awayDir * (nearDist + 8)
-				else
-					dest = hrp.Position + EXIT_DIR * 30
-				end
-				hrp.CFrame = CFrame.new(dest)
-				hrp.AssemblyLinearVelocity = Vector3.zero
-				hrp.AssemblyAngularVelocity = Vector3.zero
-			end)
-		end)
-	end)
-end
-makeRow(stealPage, "antiGuard", "Anti-Guard", function(on)
-	if on then startAntiGuard() else stopAntiGuard() end
-end)
 
 -- ============================================================
 -- SPEED TAB
