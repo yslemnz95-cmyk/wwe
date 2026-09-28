@@ -700,6 +700,7 @@ local St = {
 	stealTargetEggs  = {},
 	stealTweenPct    = 100,
 	stealCarryPct    = 100,
+	showFarmPath     = true,
 
 	-- Auto Place Egg filters
 	placeRule        = "Always",
@@ -891,6 +892,49 @@ do
 		end
 	end)
 	LP.CharacterAdded:Connect(function() _cleanProxy() end)
+end
+
+-- ============================================================
+-- AUTO FARM PATH — visual trajectory: a beam from the player to
+-- whatever Auto Farm is currently walking toward (the egg while
+-- approaching, the safe zone while carrying). Purely cosmetic, reads
+-- the same _farmMoving/_farmTargetPos the movement engine above
+-- already drives — no separate pathing logic to keep in sync.
+-- ============================================================
+do
+	local marker, att0, att1, beam = nil, nil, nil, nil
+	local function ensurePathParts()
+		if beam and beam.Parent then return end
+		marker = Instance.new("Part")
+		marker.Name = "YE_PathMarker"; marker.Size = Vector3.new(0.2,0.2,0.2)
+		marker.Anchored = true; marker.CanCollide = false; marker.CanQuery = false
+		marker.Transparency = 1; marker.Parent = workspace
+		att1 = Instance.new("Attachment", marker)
+
+		att0 = Instance.new("Attachment")
+		att0.Name = "YE_PathOrigin"
+
+		beam = Instance.new("Beam")
+		beam.Attachment0 = att0; beam.Attachment1 = att1
+		beam.Width0 = 0.35; beam.Width1 = 0.12
+		beam.Color = ColorSequence.new(C.MOON2, C.MOON)
+		beam.Transparency = NumberSequence.new(0.25)
+		beam.FaceCamera = true
+		beam.Parent = marker
+	end
+	RunService.Heartbeat:Connect(function()
+		if not (St.showFarmPath and _farmMoving and _farmTargetPos) then
+			if beam then beam.Enabled = false end
+			return
+		end
+		local char = LP.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		if not hrp then if beam then beam.Enabled = false end return end
+		ensurePathParts()
+		if att0.Parent ~= hrp then att0.Parent = hrp end
+		marker.CFrame = CFrame.new(_farmTargetPos)
+		beam.Enabled = true
+	end)
 end
 
 -- ============================================================
@@ -1582,7 +1626,7 @@ end
 -- selectedSet: caller-owned table, key=option -> true when selected.
 -- Empty selectedSet means "match everything" — same fallback Chilli Hub
 -- uses for its MultiDropdowns (`if next(sel) == nil then` -> select all).
-local function makeMultiSelect(page, displayName, getOptionsFn, selectedSet, onChange)
+local function makeMultiSelect(page, displayName, getOptionsFn, selectedSet, onChange, getIconFn)
 	_ensureMultiSelectOverlay()
 	local row = Instance.new("Frame", page)
 	row.Size = UDim2.new(1,0,0,30)
@@ -1625,8 +1669,24 @@ local function makeMultiSelect(page, displayName, getOptionsFn, selectedSet, onC
 			r.ZIndex = 301
 			r.LayoutOrder = i
 			corner(r, 6)
-			local olbl = label(r, opt, UDim2.new(1,-40,1,0), C.SILVER, Enum.Font.GothamMedium)
-			olbl.Position = UDim2.new(0,8,0,0)
+			-- Real per-option icon (pet/egg image from the game's own
+			-- asset directory) when the caller provides one — makes a
+			-- species list scannable at a glance instead of text-only.
+			local iconOff = 0
+			if getIconFn then
+				local iconId = getIconFn(opt)
+				if iconId then
+					local img = Instance.new("ImageLabel", r)
+					img.Size = UDim2.fromOffset(20,20)
+					img.Position = UDim2.new(0,6,0.5,-10)
+					img.BackgroundTransparency = 1
+					img.Image = iconId
+					img.ZIndex = 302
+					iconOff = 24
+				end
+			end
+			local olbl = label(r, opt, UDim2.new(1,-40-iconOff,1,0), C.SILVER, Enum.Font.GothamMedium)
+			olbl.Position = UDim2.new(0,8+iconOff,0,0)
 			olbl.TextSize = 10.5
 			olbl.ZIndex = 302
 			local check = Instance.new("Frame", r)
@@ -1848,6 +1908,8 @@ task.spawn(function()
 		end
 	end
 end)
+
+sectionHeader(farmPage, "Auto Steal")
 makeRow(farmPage, "autoFarm", "Auto Farm Eggs", function(on)
 	if not on then _farmFullStopRef() end
 end)
@@ -1909,7 +1971,7 @@ do
 		end
 		table.sort(opts)
 		return opts
-	end, St.stealTargetEggs, function() saveConfig() end)
+	end, St.stealTargetEggs, function() saveConfig() end, _Egg.Icon)
 
 	local STEAL_PRIORITY = {"Best Rarity","Biggest Weight","Best Mutation","Highest Value","Lowest Value"}
 	makeCarousel(farmPage, "Steal Priority", STEAL_PRIORITY, STEAL_PRIORITY, St.stealPriority, function(v)
@@ -1920,6 +1982,7 @@ do
 	makeSlider(farmPage, "stealMinValueK", "Min Steal Value", 0, 50000, "%dk")
 	makeSlider(farmPage, "stealTweenPct", "Tween Speed", 50, 120, "%d%%")
 	makeSlider(farmPage, "stealCarryPct", "Carry Speed", 80, 120, "%d%%")
+	makeRow(farmPage, "showFarmPath", "Show Farm Path", function(on) end)
 end
 
 -- Auto Hatch / Auto Equip — directly clicks the game's real UI buttons
@@ -1992,6 +2055,7 @@ task.spawn(function()
 		end
 	end
 end)
+sectionHeader(farmPage, "Auto Hatch & Equip")
 makeRow(farmPage, "autoHatch", "Auto Hatch", function(on) end)
 do
 	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
@@ -2009,7 +2073,7 @@ do
 		end
 		table.sort(opts)
 		return opts
-	end, St.hatchSpecificEggs, function() saveConfig() end)
+	end, St.hatchSpecificEggs, function() saveConfig() end, _Egg.Icon)
 end
 
 task.spawn(function()
@@ -2070,11 +2134,6 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoRunTreadmill", "Auto Run Treadmill", function(on) end)
 
--- ============================================================
--- NOUVELLES FEATURES D'AUTOMATISATION
--- ============================================================
-sectionHeader(farmPage, "Auto Actions")
-
 local function _collectUids(container, nameFilter)
 	local out = {}
 	if not container then return out end
@@ -2117,10 +2176,10 @@ local function _readOwnerEggs(filterFn)
 	return nil  -- nil = module unavailable, caller should use Backpack fallback
 end
 
--- Auto Place Egg — Chilli Hub: AskPlaceEgg with inventory egg uids,
--- gated by Place Egg Rule and filtered/ordered exactly like aide_3
--- ~7118-7285 (Place Egg Rule/Order, Place Rarities, Place Specific
--- Eggs, Min Place Value).
+sectionHeader(farmPage, "Auto Place Egg")
+-- Chilli Hub: AskPlaceEgg with inventory egg uids, gated by Place Egg
+-- Rule and filtered/ordered exactly like aide_3 ~7118-7285 (Place Egg
+-- Rule/Order, Place Rarities, Place Specific Eggs, Min Place Value).
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(1.5))
@@ -2204,11 +2263,12 @@ do
 		end
 		table.sort(opts)
 		return opts
-	end, St.placeSpecificEggs, function() saveConfig() end)
+	end, St.placeSpecificEggs, function() saveConfig() end, _Egg.Icon)
 	makeSlider(farmPage, "placeMinValueK", "Min Place Value", 0, 50000, "%dk")
 end
 
--- Auto Treadmill (stay mounted continuously)
+sectionHeader(farmPage, "Auto Treadmill")
+-- Stay mounted continuously
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(2.0))
@@ -2219,7 +2279,8 @@ makeRow(farmPage, "autoTreadmill2", "Auto Treadmill", function(on)
 	if not on then _invokeRF("RF/Treadmill/AskDoff") end
 end)
 
--- Auto Sell Pet/Egg — Chilli Hub exact rule set (aide_3 ~8901, 9280-9470):
+sectionHeader(farmPage, "Auto Sell")
+-- Chilli Hub exact rule set (aide_3 ~8901, 9280-9470):
 -- Sell Rule combines a rarity check (<= Max Rarity) and a value check
 -- (< Value Threshold) via Rarity Only / Value Only / Rarity And Value /
 -- Rarity Or Value. 0 = that check is off (always passes).
@@ -2281,7 +2342,7 @@ do
 		end
 		table.sort(opts)
 		return opts
-	end, St.sellPetBlacklist, function() saveConfig() end)
+	end, St.sellPetBlacklist, function() saveConfig() end, _Egg.Icon)
 end
 
 task.spawn(function()
@@ -2333,10 +2394,11 @@ do
 		end
 		table.sort(opts)
 		return opts
-	end, St.sellEggBlacklist, function() saveConfig() end)
+	end, St.sellEggBlacklist, function() saveConfig() end, _Egg.Icon)
 end
 
--- Auto Fuse — Chilli Hub: fuses 3 SAME-SPECIES pets (aide_3 ~9702-9908:
+sectionHeader(farmPage, "Auto Fuse Machine")
+-- Chilli Hub: fuses 3 SAME-SPECIES pets (aide_3 ~9702-9908:
 -- groups inventory by Category, needs #group>=3). LoadPet x3 → BeginFuse
 -- → wait → FinishFuse, EjectPet on failure if the machine can't finish.
 task.spawn(function()
@@ -2450,11 +2512,12 @@ do
 		end
 		table.sort(opts)
 		return opts
-	end, St.fuseSpecificSpecies, function() saveConfig() end)
+	end, St.fuseSpecificSpecies, function() saveConfig() end, _Egg.Icon)
 	makeRow(farmPage, "fuseEjectIncomplete", "Eject Incomplete Slots", function(on) end)
 end
 
--- Auto Favorite — Chilli Hub exact rule set (aide_3 ~10497-10615): each
+sectionHeader(farmPage, "Auto Favorite")
+-- Chilli Hub exact rule set (aide_3 ~10497-10615): each
 -- of Min Rarity / Mutations / Min Value is an independent check that can
 -- be off (0 or empty = skip); Favorite Rule combines the active ones via
 -- Match Any / Match All. Always Favorite Species bypasses the rule.
@@ -2552,11 +2615,12 @@ do
 		end
 		table.sort(opts)
 		return opts
-	end, St.favoriteAlwaysSpecies, function() saveConfig() end)
+	end, St.favoriteAlwaysSpecies, function() saveConfig() end, _Egg.Icon)
 	makeRow(farmPage, "autoFavoriteEquipped", "Auto Favorite Equipped", function(on) end)
 	makeRow(farmPage, "autoUnfavoriteEquipped", "Auto Unfavorite Equipped", function(on) end)
 end
 
+sectionHeader(farmPage, "Dr Scramble Lab & Mech")
 -- Auto Lab Trade-In
 task.spawn(function()
 	while true do
@@ -2600,6 +2664,7 @@ makeRow(farmPage, "autoMech", "Auto Mech Boss", function(on)
 	if on then startMech() else stopMech() end
 end)
 
+sectionHeader(farmPage, "Progression")
 -- Auto Buy Trail
 task.spawn(function()
 	while true do
@@ -2644,7 +2709,8 @@ task.spawn(function()
 end)
 makeRow(farmPage, "autoUpgradeBase", "Auto Upgrade Base", function(on) end)
 
--- Anti-Guard — exact Chilli Hub technique: react to RagdollEndTime
+sectionHeader(farmPage, "Anti Guard")
+-- Exact Chilli Hub technique: react to RagdollEndTime
 -- attribute. When a guard hits the player the server sets this attribute.
 -- We detect the change instantly and teleport past the guard line before
 -- the physics-ragdoll animation finishes, so the player arrives on the
