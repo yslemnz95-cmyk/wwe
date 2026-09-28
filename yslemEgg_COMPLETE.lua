@@ -336,6 +336,12 @@ do
 		end
 		return "Common"
 	end
+	-- "N - DisplayName", identical format to RarityDropdownOptions()'s
+	-- entries — lets multi-select filters (Place/Fuse Rarities) key off
+	-- the same string the picker stored, without a separate id table.
+	function _Egg.RarityLabel(assetCategory)
+		return string.format("%d - %s", _Egg.Rarity(assetCategory), _Egg.RarityName(assetCategory))
+	end
 	function _Egg.Value(assetCategory, assetScale, mutations)
 		local e = dirEntry(assetCategory)
 		local rate = e and tonumber(e.EarningRate) or 0
@@ -1951,15 +1957,21 @@ task.spawn(function()
 				if type(_M.EggState) == "table" and type(_M.EggState.ReadOwnerEggs) == "function" and type(_M.EggState.IsReadyToHatch) == "function" then
 					local ok, result = pcall(_M.EggState.ReadOwnerEggs, LP.UserId)
 					if ok and type(result) == "table" then
+						local hasEggSet = next(St.hatchSpecificEggs) ~= nil
+						local minVal = St.hatchMinValueK * 1000
 						for uid, rec in pairs(result) do
 							if type(rec) == "table" and rec.Placement ~= nil then
-								local ok2, ready = pcall(_M.EggState.IsReadyToHatch, uid)
-								if ok2 and ready then
-									_invokeRF("RF/EggWorld/AskHatch", uid)
-									task.wait(0.35)
-									_invokeRF("RF/EggWorld/AskFinishHatch", uid)
-									task.wait(0.2)
-									hatched = true
+								if _Egg.Rarity(rec.AssetCategory) >= St.hatchMinRarity
+									and (not hasEggSet or St.hatchSpecificEggs[tostring(rec.AssetCategory)])
+									and (minVal <= 0 or _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations) >= minVal) then
+									local ok2, ready = pcall(_M.EggState.IsReadyToHatch, uid)
+									if ok2 and ready then
+										_invokeRF("RF/EggWorld/AskHatch", uid)
+										task.wait(0.35)
+										_invokeRF("RF/EggWorld/AskFinishHatch", uid)
+										task.wait(0.2)
+										hatched = true
+									end
 								end
 							end
 						end
@@ -1974,6 +1986,24 @@ task.spawn(function()
 	end
 end)
 makeRow(farmPage, "autoHatch", "Auto Hatch", function(on) end)
+do
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	makeCarousel(farmPage, "Hatch Min Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+		St.hatchMinRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+	makeSlider(farmPage, "hatchMinValueK", "Min Hatch Value", 0, 50000, "%dk")
+	makeMultiSelect(farmPage, "Hatch Specific Eggs", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.hatchSpecificEggs, function() saveConfig() end)
+end
 
 task.spawn(function()
 	local lastEquip = 0
@@ -2113,25 +2143,61 @@ local function _readOwnerEggs(filterFn)
 	return nil  -- nil = module unavailable, caller should use Backpack fallback
 end
 
--- Auto Place Egg — Chilli Hub: AskPlaceEgg with inventory egg uids
+-- Auto Place Egg — Chilli Hub: AskPlaceEgg with inventory egg uids,
+-- gated by Place Egg Rule and filtered/ordered exactly like aide_3
+-- ~7118-7285 (Place Egg Rule/Order, Place Rarities, Place Specific
+-- Eggs, Min Place Value).
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(1.5))
 		if St.autoPlace then
 			pcall(function()
-				-- Primary: ReadOwnerEggs — eggs in inventory (Placement==nil)
-				local items = _readOwnerEggs(function(rec) return rec.Placement == nil end)
-				local uids = {}
+				local rule = St.placeRule
+				local gateOk = true
+				if rule == "Steal Idle" or rule == "After Steal" then
+					gateOk = not St.autoFarm or not _farmMoving
+				elseif rule == "Night Only" then
+					local ok2, ct = pcall(function() return game:GetService("Lighting").ClockTime end)
+					gateOk = ok2 and (ct < 6 or ct > 18)
+				end
+				if not gateOk then return end
+
+				local hasRaritySet = next(St.placeRarities) ~= nil
+				local hasEggSet = next(St.placeSpecificEggs) ~= nil
+				local minVal = St.placeMinValueK * 1000
+				local items = _readOwnerEggs(function(rec)
+					if rec.Placement ~= nil then return false end
+					local cat = rec.AssetCategory
+					if hasRaritySet and not St.placeRarities[_Egg.RarityLabel(cat)] then return false end
+					if hasEggSet and not St.placeSpecificEggs[tostring(cat)] then return false end
+					if minVal > 0 and _Egg.Value(cat, rec.AssetScale, rec.Mutations) < minVal then return false end
+					return true
+				end)
+				local list = {}
 				if items then
-					for _, it in ipairs(items) do table.insert(uids, it.uid) end
+					for _, it in ipairs(items) do table.insert(list, it) end
 				else
 					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), nil)) do
-						table.insert(uids, it.uid)
+						table.insert(list, {uid = it.uid, rec = {}})
 					end
 				end
-				for _, uid in ipairs(uids) do
+
+				local order = St.placeOrder
+				if order ~= "Backpack Order" then
+					table.sort(list, function(a, b)
+						if order == "Highest Value" then
+							return _Egg.Value(a.rec.AssetCategory, a.rec.AssetScale, a.rec.Mutations)
+								> _Egg.Value(b.rec.AssetCategory, b.rec.AssetScale, b.rec.Mutations)
+						end
+						local av, bv = tonumber(a.rec.AssetScale) or 0, tonumber(b.rec.AssetScale) or 0
+						if order == "Smallest Size" then return av < bv end
+						return av > bv
+					end)
+				end
+
+				for _, it in ipairs(list) do
 					if not St.autoPlace then break end
-					_invokeRF("RF/EggWorld/AskPlaceEgg", uid, CFrame.new())
+					_invokeRF("RF/EggWorld/AskPlaceEgg", it.uid, CFrame.new())
 					task.wait(_AD_jitter(0.5))
 				end
 			end)
@@ -2139,6 +2205,34 @@ task.spawn(function()
 	end
 end)
 makeRow(farmPage, "autoPlace", "Auto Place Egg", function(on) end)
+do
+	local PLACE_RULE = {"Always","Steal Idle","After Steal","Night Only"}
+	makeCarousel(farmPage, "Place Egg Rule", PLACE_RULE, PLACE_RULE, St.placeRule, function(v)
+		St.placeRule = v; saveConfig()
+	end)
+	local PLACE_ORDER = {"Biggest Size","Highest Value","Smallest Size","Backpack Order"}
+	makeCarousel(farmPage, "Place Egg Order", PLACE_ORDER, PLACE_ORDER, St.placeOrder, function(v)
+		St.placeOrder = v; saveConfig()
+	end)
+	makeMultiSelect(farmPage, "Place Rarities", function()
+		local opts = _Egg.RarityDropdownOptions()
+		local out = {}
+		for i = 2, #opts do table.insert(out, opts[i]) end
+		return out
+	end, St.placeRarities, function() saveConfig() end)
+	makeMultiSelect(farmPage, "Place Specific Eggs", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.placeSpecificEggs, function() saveConfig() end)
+	makeSlider(farmPage, "placeMinValueK", "Min Place Value", 0, 50000, "%dk")
+end
 
 -- Auto Treadmill (stay mounted continuously)
 task.spawn(function()
@@ -2151,23 +2245,36 @@ makeRow(farmPage, "autoTreadmill2", "Auto Treadmill", function(on)
 	if not on then _invokeRF("RF/Treadmill/AskDoff") end
 end)
 
--- Auto Sell Pet — Chilli Hub: Assets = pet uids from Save.Get().Inventory
+-- Auto Sell Pet/Egg — Chilli Hub exact rule set (aide_3 ~8901, 9280-9470):
+-- Sell Rule combines a rarity check (<= Max Rarity) and a value check
+-- (< Value Threshold) via Rarity Only / Value Only / Rarity And Value /
+-- Rarity Or Value. 0 = that check is off (always passes).
+local function _sellRulePass(rule, rarity, maxRarity, value, valueThreshold)
+	local passRarity = (maxRarity <= 0) or (rarity <= maxRarity)
+	local passValue = (valueThreshold <= 0) or (value < valueThreshold)
+	if rule == "Value Only" then return passValue end
+	if rule == "Rarity And Value" then return passRarity and passValue end
+	if rule == "Rarity Or Value" then return passRarity or passValue end
+	return passRarity
+end
+
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(3.0))
 		if St.autoSellPet then
 			pcall(function()
-				-- Primary: eggState.ReadOwnerEggs — pets in inventory, not mutated
 				local hasMut = St.keepMutatedSell
+				local maxRarity, valThresh = St.sellPetMaxRarity, St.sellPetValueK * 1000
 				local items = _readOwnerEggs(function(rec)
 					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
-					return true
+					if St.sellPetBlacklist[tostring(rec.AssetCategory)] then return false end
+					local value = _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations)
+					return _sellRulePass(St.sellPetRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
 				end)
 				local uids = {}
 				if items then
 					for _, it in ipairs(items) do table.insert(uids, it.uid) end
 				else
-					-- Fallback: Backpack scan
 					for _, it in ipairs(_collectUids(LP:FindFirstChild("Backpack"), function(i)
 						return not _isMutated(i)
 					end)) do table.insert(uids, it.uid) end
@@ -2180,17 +2287,41 @@ task.spawn(function()
 	end
 end)
 makeRow(farmPage, "autoSellPet", "Auto Sell Pet", function(on) end)
+do
+	local SELL_RULE = {"Rarity Only","Value Only","Rarity And Value","Rarity Or Value"}
+	makeCarousel(farmPage, "Sell Pet Rule", SELL_RULE, SELL_RULE, St.sellPetRule, function(v)
+		St.sellPetRule = v; saveConfig()
+	end)
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	makeCarousel(farmPage, "Pet Max Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+		St.sellPetMaxRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+	makeSlider(farmPage, "sellPetValueK", "Pet Sell Value", 0, 50000, "%dk")
+	makeMultiSelect(farmPage, "Blacklist Sell Pets", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.sellPetBlacklist, function() saveConfig() end)
+end
 
--- Auto Sell Egg — Chilli Hub: Eggs = egg uids from ReadOwnerEggs
 task.spawn(function()
 	while true do
 		task.wait(_AD_jitter(3.0))
 		if St.autoSellEgg then
 			pcall(function()
 				local hasMut = St.keepMutatedSell
+				local maxRarity, valThresh = St.sellEggMaxRarity, St.sellEggValueK * 1000
 				local items = _readOwnerEggs(function(rec)
 					if hasMut and type(rec.Mutations) == "table" and next(rec.Mutations) then return false end
-					return true
+					if St.sellEggBlacklist[tostring(rec.AssetCategory)] then return false end
+					local value = _Egg.Value(rec.AssetCategory, rec.AssetScale, rec.Mutations)
+					return _sellRulePass(St.sellEggRule, _Egg.Rarity(rec.AssetCategory), maxRarity, value, valThresh)
 				end)
 				local uids = {}
 				if items then
@@ -2208,6 +2339,28 @@ task.spawn(function()
 	end
 end)
 makeRow(farmPage, "autoSellEgg", "Auto Sell Egg", function(on) end)
+do
+	local SELL_RULE = {"Rarity Only","Value Only","Rarity And Value","Rarity Or Value"}
+	makeCarousel(farmPage, "Sell Egg Rule", SELL_RULE, SELL_RULE, St.sellEggRule, function(v)
+		St.sellEggRule = v; saveConfig()
+	end)
+	local rarityOptions, rarityValueOf = _Egg.RarityDropdownOptions()
+	makeCarousel(farmPage, "Egg Max Rarity", rarityOptions, rarityOptions, rarityOptions[1], function(v)
+		St.sellEggMaxRarity = rarityValueOf[v] or 0; saveConfig()
+	end)
+	makeSlider(farmPage, "sellEggValueK", "Egg Sell Value", 0, 50000, "%dk")
+	makeMultiSelect(farmPage, "Blacklist Sell Eggs", function()
+		local seen, opts = {}, {}
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true
+				table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
+	end, St.sellEggBlacklist, function() saveConfig() end)
+end
 
 -- Auto Fuse — Chilli Hub: LoadPet x2 → BeginFuse → wait → FinishFuse
 task.spawn(function()
