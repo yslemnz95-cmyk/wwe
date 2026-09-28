@@ -976,30 +976,28 @@ local function _autoSellTick()
     if S.autoSellPet and save.Inventory then
         local maxRarity = _rarityIndex(S.petMaxRarity) - 1
         for uid, item in pairs(save.Inventory) do
-            if item.InFuse then goto continuePet end
-            if S.keepMutatedPets and item.Mutations and next(item.Mutations) then goto continuePet end
-            do
+            -- Luau has no goto/labels; use a skip flag instead.
+            local skip = item.InFuse or (S.keepMutatedPets and item.Mutations and next(item.Mutations) ~= nil)
+            if not skip then
                 local info = _assetInfo(item.Category)
                 local value = _income(item.Category, item.Scale, item.Mutations)
                 local rarityOk = info.RarityNumber <= maxRarity
                 local valueOk = S.minPetSellValue > 0 and value < S.minPetSellValue
                 if _passesRule(S.sellPetRule, rarityOk, valueOk) then table.insert(petUids, uid) end
             end
-            ::continuePet::
         end
     end
     if S.autoSellEgg and save.EggInventory then
         local maxRarity = _rarityIndex(S.eggMaxRarity) - 1
         for uid, item in pairs(save.EggInventory) do
-            if S.keepMutatedEggs and item.Mutations and next(item.Mutations) then goto continueEgg end
-            do
+            local skip = S.keepMutatedEggs and item.Mutations and next(item.Mutations) ~= nil
+            if not skip then
                 local info = _assetInfo(item.AssetCategory)
                 local value = _income(item.AssetCategory, item.AssetScale, item.Mutations)
                 local rarityOk = info.RarityNumber <= maxRarity
                 local valueOk = S.minEggSellValue > 0 and value < S.minEggSellValue
                 if _passesRule(S.sellEggRule, rarityOk, valueOk) then table.insert(eggUids, uid) end
             end
-            ::continueEgg::
         end
     end
 
@@ -1041,17 +1039,16 @@ local function _autoFuseTick()
     local groups = {}
     local now = tick()
     for uid, item in pairs(save.Inventory) do
-        if item.InFuse then goto continue end
-        if S.skipMutatedFuse and item.Mutations and next(item.Mutations) then goto continue end
-        if _fuseFailedCooldown[uid] and _fuseFailedCooldown[uid] > now then goto continue end
-        do
+        local skip = item.InFuse
+            or (S.skipMutatedFuse and item.Mutations and next(item.Mutations) ~= nil)
+            or (_fuseFailedCooldown[uid] ~= nil and _fuseFailedCooldown[uid] > now)
+        if not skip then
             local info = _assetInfo(item.Category)
             if info.RarityNumber <= maxRarity then
                 groups[item.Category] = groups[item.Category] or {}
                 table.insert(groups[item.Category], { Uid = uid, Value = _income(item.Category, item.Scale, item.Mutations), Rarity = info.RarityNumber })
             end
         end
-        ::continue::
     end
 
     local bestCategory, bestItems = nil, nil
@@ -1108,9 +1105,8 @@ local function _autoFavoriteTick()
     local toFav = {}
     local now = tick()
     for uid, item in pairs(save.Inventory) do
-        if item.Favourite then goto continue end
-        if _favFailedCooldown[uid] and _favFailedCooldown[uid] > now then goto continue end
-        do
+        local skip = item.Favourite or (_favFailedCooldown[uid] ~= nil and _favFailedCooldown[uid] > now)
+        if not skip then
             local info = _assetInfo(item.Category)
             local value = _income(item.Category, item.Scale, item.Mutations)
             local rarityOk = info.RarityNumber >= minRarity
@@ -1127,7 +1123,6 @@ local function _autoFavoriteTick()
             end
             if pass then table.insert(toFav, uid) end
         end
-        ::continue::
         if #toFav >= 25 then break end
     end
 
