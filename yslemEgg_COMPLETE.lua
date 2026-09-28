@@ -314,6 +314,7 @@ local _fieldEggNet = {}
 -- mutationMultiplier(Mutations), scaleFactor being the game's own
 -- nonlinear curve (not a naive scale*rate estimate).
 -- ============================================================
+local cachedEggs = {}
 local _Egg = {}
 do
 	local function dirEntry(assetCategory)
@@ -367,6 +368,26 @@ do
 		if tonumber(icon) then return "rbxassetid://"..icon end
 		if icon:sub(1,4) == "rbx" then return icon end
 		return nil
+	end
+	-- Every species in the game's own asset directory (so the pickers are
+	-- never empty when no egg happens to be on the field), plus anything
+	-- currently seen that the directory doesn't list.
+	function _Egg.SpeciesOptions()
+		local seen, opts = {}, {}
+		local dir = _M.Assets and _M.Assets.Directory
+		if type(dir) == "table" then
+			for k in pairs(dir) do
+				k = tostring(k)
+				if not seen[k] then seen[k] = true; table.insert(opts, k) end
+			end
+		end
+		for _, r in ipairs(cachedEggs) do
+			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
+				seen[r.mutation] = true; table.insert(opts, r.mutation)
+			end
+		end
+		table.sort(opts)
+		return opts
 	end
 	-- Builds the "N - DisplayName" rarity dropdown list (Any first),
 	-- exactly like Chilli Hub's tbl8/tbl9 pair. Falls back to the fixed
@@ -536,7 +557,6 @@ task.spawn(function()
 end)
 
 local _eggScanPromptTotal, _eggScanPromptEnabled = 0, 0
-local cachedEggs = {}
 local _ownBaseEggs = {}
 
 -- Exact Chilli Hub source only: _fieldEggNet, fed by RE/EggWorld/FieldEggShifted
@@ -2035,17 +2055,7 @@ do
 		saveConfig()
 	end)
 
-	makeMultiSelect(farmPage, "Target Specific Eggs", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.stealTargetEggs, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Target Specific Eggs", _Egg.SpeciesOptions, St.stealTargetEggs, function() saveConfig() end, _Egg.Icon)
 
 	local STEAL_PRIORITY = {"Best Rarity","Biggest Weight","Best Mutation","Highest Value","Lowest Value"}
 	makeCarousel(farmPage, "Steal Priority", STEAL_PRIORITY, STEAL_PRIORITY, St.stealPriority, function(v)
@@ -2138,17 +2148,7 @@ do
 		St.hatchMinRarity = rarityValueOf[v] or 0; saveConfig()
 	end)
 	makeSlider(farmPage, "hatchMinValueK", "Min Hatch Value", 0, 50000, "%dk")
-	makeMultiSelect(farmPage, "Hatch Specific Eggs", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.hatchSpecificEggs, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Hatch Specific Eggs", _Egg.SpeciesOptions, St.hatchSpecificEggs, function() saveConfig() end, _Egg.Icon)
 end
 
 task.spawn(function()
@@ -2328,17 +2328,7 @@ do
 		for i = 2, #opts do table.insert(out, opts[i]) end
 		return out
 	end, St.placeRarities, function() saveConfig() end)
-	makeMultiSelect(farmPage, "Place Specific Eggs", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.placeSpecificEggs, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Place Specific Eggs", _Egg.SpeciesOptions, St.placeSpecificEggs, function() saveConfig() end, _Egg.Icon)
 	makeSlider(farmPage, "placeMinValueK", "Min Place Value", 0, 50000, "%dk")
 end
 
@@ -2407,17 +2397,7 @@ do
 		St.sellPetMaxRarity = rarityValueOf[v] or 0; saveConfig()
 	end)
 	makeSlider(farmPage, "sellPetValueK", "Pet Sell Value", 0, 50000, "%dk")
-	makeMultiSelect(farmPage, "Blacklist Sell Pets", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.sellPetBlacklist, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Blacklist Sell Pets", _Egg.SpeciesOptions, St.sellPetBlacklist, function() saveConfig() end, _Egg.Icon)
 end
 
 task.spawn(function()
@@ -2459,17 +2439,7 @@ do
 		St.sellEggMaxRarity = rarityValueOf[v] or 0; saveConfig()
 	end)
 	makeSlider(farmPage, "sellEggValueK", "Egg Sell Value", 0, 50000, "%dk")
-	makeMultiSelect(farmPage, "Blacklist Sell Eggs", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.sellEggBlacklist, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Blacklist Sell Eggs", _Egg.SpeciesOptions, St.sellEggBlacklist, function() saveConfig() end, _Egg.Icon)
 end
 
 sectionHeader(farmPage, "Auto Fuse Machine")
@@ -2577,17 +2547,7 @@ do
 	makeCarousel(farmPage, "Max Rarity to Fuse", rarityOptions, rarityOptions, rarityOptions[1], function(v)
 		St.fuseMaxRarity = rarityValueOf[v] or 0; saveConfig()
 	end)
-	makeMultiSelect(farmPage, "Specific Species to Fuse", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.fuseSpecificSpecies, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Specific Species to Fuse", _Egg.SpeciesOptions, St.fuseSpecificSpecies, function() saveConfig() end, _Egg.Icon)
 	makeRow(farmPage, "fuseEjectIncomplete", "Eject Incomplete Slots", function(on) end)
 end
 
@@ -2680,17 +2640,7 @@ do
 		return {"Any Mutation", "No Mutation"}
 	end, St.favoriteMutations, function() saveConfig() end)
 	makeSlider(farmPage, "favoriteMinValueK", "Min Favorite Value", 0, 50000, "%dk")
-	makeMultiSelect(farmPage, "Always Favorite Species", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.favoriteAlwaysSpecies, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Always Favorite Species", _Egg.SpeciesOptions, St.favoriteAlwaysSpecies, function() saveConfig() end, _Egg.Icon)
 	makeRow(farmPage, "autoFavoriteEquipped", "Auto Favorite Equipped", function(on) end)
 	makeRow(farmPage, "autoUnfavoriteEquipped", "Auto Unfavorite Equipped", function(on) end)
 end
@@ -2823,17 +2773,7 @@ do
 	makeCarousel(farmPage, "Mutation Priority", MUTATION_PRIORITY, MUTATION_PRIORITY, St.mutationPriority, function(v)
 		St.mutationPriority = v; saveConfig()
 	end)
-	makeMultiSelect(farmPage, "Mutation Target Eggs", function()
-		local seen, opts = {}, {}
-		for _, r in ipairs(cachedEggs) do
-			if r.mutation and r.mutation ~= "" and not seen[r.mutation] then
-				seen[r.mutation] = true
-				table.insert(opts, r.mutation)
-			end
-		end
-		table.sort(opts)
-		return opts
-	end, St.mutationTargetEggs, function() saveConfig() end, _Egg.Icon)
+	makeMultiSelect(farmPage, "Mutation Target Eggs", _Egg.SpeciesOptions, St.mutationTargetEggs, function() saveConfig() end, _Egg.Icon)
 end
 
 sectionHeader(farmPage, "Progression")
