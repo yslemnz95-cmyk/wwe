@@ -420,12 +420,12 @@ end
 		close.Size = UDim2.new(0, 20, 0, 20); close.Position = UDim2.new(1, -28, 0.5, -10)
 		close.BackgroundColor3 = Color3.fromRGB(58, 20, 20); close.Text = "X"; close.TextSize = 11
 		close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold; close.BorderSizePixel = 0
-		corner(close, 7); pressFx(close)
+		corner(close, 100); pressFx(close)
 		local mini = Instance.new("TextButton", header)
 		mini.Size = UDim2.new(0, 20, 0, 20); mini.Position = UDim2.new(1, -52, 0.5, -10)
 		mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
 		mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
-		corner(mini, 7); pressFx(mini)
+		corner(mini, 100); pressFx(mini)
 		local sep = Instance.new("Frame", frame)
 		sep.Size = UDim2.new(1, -24, 0, 1); sep.Position = UDim2.new(0, 12, 0, 42)
 		sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
@@ -463,12 +463,12 @@ end
 		ovClear.Size = UDim2.new(0, 46, 0, 20); ovClear.Position = UDim2.new(1, -104, 0, 3)
 		ovClear.BackgroundColor3 = Color3.fromRGB(24, 26, 35); ovClear.Text = "Clear"; ovClear.TextSize = 10
 		ovClear.TextColor3 = C.SILVER; ovClear.Font = Enum.Font.GothamBold; ovClear.BorderSizePixel = 0; ovClear.ZIndex = 301
-		corner(ovClear, 7); pressFx(ovClear)
+		corner(ovClear, 100); pressFx(ovClear)
 		local ovDone = Instance.new("TextButton", ovHead)
 		ovDone.Size = UDim2.new(0, 46, 0, 20); ovDone.Position = UDim2.new(1, -54, 0, 3)
 		ovDone.BackgroundColor3 = C.MOON; ovDone.Text = "Done"; ovDone.TextSize = 10.5
 		ovDone.TextColor3 = C.MOONTEXT; ovDone.Font = Enum.Font.GothamBold; ovDone.BorderSizePixel = 0; ovDone.ZIndex = 301
-		corner(ovDone, 7); pressFx(ovDone)
+		corner(ovDone, 100); pressFx(ovDone)
 		local ovList = Instance.new("ScrollingFrame", ov)
 		ovList.Size = UDim2.new(1, 0, 1, -30); ovList.Position = UDim2.new(0, 0, 0, 28)
 		ovList.BackgroundTransparency = 1; ovList.BorderSizePixel = 0; ovList.ScrollBarThickness = 3
@@ -593,7 +593,7 @@ end
 				btn.BackgroundColor3 = Color3.fromRGB(18, 22, 30); btn.BackgroundTransparency = 0.5
 				btn.Text = name; btn.TextSize = 10; btn.TextColor3 = C.TABIDLE; btn.Font = Enum.Font.GothamBold
 				btn.BorderSizePixel = 0; btn.LayoutOrder = #w.order + 1
-				corner(btn, 10); addLivingStroke(btn, 1); pressFx(btn)
+				corner(btn, 100); addLivingStroke(btn, 1); pressFx(btn)
 				tab.btn = btn
 				btn.MouseButton1Click:Connect(function() w.Select(name) end)
 			end
@@ -754,7 +754,7 @@ end
 		b.Size = UDim2.new(0, bw, 0, 20); b.Position = UDim2.new(1, -(bw + 8), 0, hasNote and 9 or 4)
 		b.BackgroundColor3 = C.WHITE; b.AutoButtonColor = false
 		b.Text = ""; b.BorderSizePixel = 0
-		corner(b, 8)
+		corner(b, 100)
 		local bg = Instance.new("UIGradient", b)
 		bg.Rotation = 90
 		bg.Color = ColorSequence.new(C.DEEP4, C.DEEP3)
@@ -1169,7 +1169,7 @@ end
 			btn.Position = UDim2.new(1, -(SZ * 2 + GAP + RIGHT) + col * (SZ + GAP), 0, TOP + rw * (SZ + GAP))
 			btn.BackgroundColor3 = C.ROW; btn.BackgroundTransparency = 0.1; btn.BorderSizePixel = 0
 			btn.Text = ""; btn.AutoButtonColor = false; btn.ZIndex = 500; btn.Active = true
-			corner(btn, 12); addLivingStroke(btn, 1.5); pressFx(btn)
+			corner(btn, 100); addLivingStroke(btn, 1.5); pressFx(btn)
 			local l = Instance.new("TextLabel", btn)
 			l.Size = UDim2.new(1, 0, 1, 0); l.BackgroundTransparency = 1; l.Text = def.label
 			l.TextColor3 = C.WHITE; l.Font = Enum.Font.GothamBold; l.TextSize = 8; l.TextWrapped = true; l.ZIndex = 501
@@ -6627,11 +6627,16 @@ do
 					if sliced22 then
 						local slicedn19 = sliced22.Position.Y + safeCarry.HopLift
 						local x2 = sliced22.Position.X
+						local x0 = x2
+						local z0 = sliced22.Position.Z
 						local hopRatio = safeCarry.HopRatio
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
+						local hopDir = x0 > vector.X and -1 or 1
 
-						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
-							x2 -= slicedn20
+						while math.abs(vector.X - x2) > slicedn20 and steal.Carrying and not slicedfn13(arg) do
+							x2 += hopDir * slicedn20
+							local hopT = math.clamp((x2 - x0) / (vector.X - x0), 0, 1)
+							local z2 = z0 + (slicedn17 - z0) * hopT
 							str2 = string.format("Line Drop: hopping home, X %d", math.floor(x2))
 							local slicedn21 = 0
 
@@ -6640,7 +6645,7 @@ do
 
 								if sliced23 then
 									pcall(function()
-										sliced23.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
+										sliced23.CFrame = CFrame.new(x2, slicedn19, z2) * CFrame.Angles(0, 1.5707963267948966, 0)
 										sliced23.AssemblyLinearVelocity = Vector3.zero
 										sliced23.AssemblyAngularVelocity = Vector3.zero
 									end)
@@ -22622,7 +22627,7 @@ do
 			button.Position = pos or UDim2.new()
 			button.AnchorPoint = anchor or Vector2.new(0, 0)
 			button.ZIndex = 3
-			U.corner(button, 8)
+			U.corner(button, 100)
 			local gradient = Instance.new("UIGradient")
 			gradient.Parent = button
 			local strokeObj = Instance.new("UIStroke")
@@ -28101,15 +28106,31 @@ do
 		return areaId
 	end
 
-	local tbl19 = { lightdark = "LightDark" }
+	-- per-island profile: name (letters only, lower case) -> config name.
+	-- Early islands keep the classic hop system; the last islands (Light Dark, Titan Temple,
+	-- Angel, Demon and any island added later) share the Light Dark line system.
+	local tbl19 = { lightdark = "LightDark", titantemple = "LightDark", angel = "LightDark", demon = "LightDark" }
+	local earlyIslands = {
+		forest = true, desert = true, snow = true, lake = true, jungle = true,
+		volcano = true, prehistoric = true, cosmic = true, abyssocean = true, cherryblossom = true,
+	}
 
 	local function slicedfn30(arg)
-		if type(arg) ~= "string" then
+		if type(arg) ~= "string" or arg == "" then
 			return "Default"
 		end
 		local lower = string.lower
-		local sliced10 = string.gsub(arg, "[^%a]", "")
-		return tbl19[lower(sliced10)] or "Default"
+		local sliced10 = lower((string.gsub(arg, "[^%a]", "")))
+		local profile = tbl19[sliced10]
+
+		if profile then
+			return profile
+		end
+
+		if sliced10 ~= "" and not earlyIslands[sliced10] then
+			return "LightDark"
+		end
+		return "Default"
 	end
 
 	local function slicedfn31()
