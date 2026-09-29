@@ -27152,7 +27152,7 @@ do
 			{ At = 0.75, To = "start" },
 		},
 		ReleaseAt = 0.8,
-		WeldScanGap = 0.03,
+		WeldScanGap = 0.2,
 		BusyLimit = 2.5,
 	}
 
@@ -27183,7 +27183,7 @@ do
 			HoldRandom = 0.395,
 			Steps = tbl15,
 			ReleaseAt = arg5,
-			WeldScanGap = 0.03,
+			WeldScanGap = 0.2,
 			BusyLimit = arg6,
 		}
 	end
@@ -27734,6 +27734,9 @@ slicedfn21(UIScale2, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
 local slicedfn23
 
 slicedfn23 = function()
+	if not antiGuard.Enabled then
+		return nil
+	end
 	local sliced10 = tbl4.Root()
 	if not sliced10 then
 		return nil
