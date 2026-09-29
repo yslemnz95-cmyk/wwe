@@ -1095,7 +1095,7 @@ end
 		local raw = win.AddTab(cfg.tabName or "Tool")
 		local tab = setmetatable(raw, Tab)
 		tab.window = win
-		win.Select("Main")
+		win.Select(cfg.tabName or "Tool")
 		win.tab = tab
 		win.frame.Visible = false
 		win.wantOpen = false
