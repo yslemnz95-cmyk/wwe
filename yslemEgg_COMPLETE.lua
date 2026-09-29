@@ -139,44 +139,78 @@ local function label(parent, text, size, color, font, ax, ay)
 	return l
 end
 
--- "Living" gradients/strokes — same as Moon Hub: continuous rotation,
--- EVERY OTHER FRAME (perf), doubled increment (1.2) to compensate for
--- the half-rate and keep the same perceived speed (~0.6/frame average).
-local _liveGrads, _liveStrokes = {}, {}
-local _livingFrameToggle = false
+-- "Living" gradients/strokes. Only the ones asked for (window borders, window titles)
+-- are animated; rows/buttons use the same colours statically, which costs nothing.
+-- Animated ones are grouped per window and only rotate while their window is visible,
+-- every third frame.
+local _live = {}
+local _liveAny = {}
+local _liveTick = 0
 RunService.RenderStepped:Connect(function()
-	_livingFrameToggle = not _livingFrameToggle
-	if not _livingFrameToggle then return end
-	for _, g in ipairs(_liveGrads) do
-		if g and g.Parent then g.Rotation = (g.Rotation + 1.2) % 360 end
+	_liveTick = _liveTick + 1
+	if _liveTick % 3 ~= 0 then return end
+	for root, list in pairs(_live) do
+		if root.Parent then
+			if root.Visible then
+				for k = 1, #list do
+					local g = list[k]
+					if g.Parent then g.Rotation = (g.Rotation + 1.8) % 360 end
+				end
+			end
+		else
+			_live[root] = nil
+		end
 	end
-	for _, g in ipairs(_liveStrokes) do
-		if g and g.Parent then g.Rotation = (g.Rotation + 1.2) % 360 end
+	for k = 1, #_liveAny do
+		local g = _liveAny[k]
+		if g.Parent then g.Rotation = (g.Rotation + 1.8) % 360 end
 	end
 end)
--- Moon Hub's addLivingTextGradient: DEEP4 -> DEEP3 -> DEEP4 -> DEEP3 -> DEEP4
-local function liveGrad(inst)
+local function registerLive(g, inst)
+	local root = inst
+	while root.Parent and not root.Parent:IsA("ScreenGui") do root = root.Parent end
+	if root:IsA("GuiObject") and root.Parent then
+		local list = _live[root]
+		if not list then list = {}; _live[root] = list end
+		list[#list + 1] = g
+	else
+		_liveAny[#_liveAny + 1] = g
+	end
+end
+local function liveGrad(inst, animated)
 	local g = Instance.new("UIGradient", inst)
 	g.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0,    C.DEEP4), ColorSequenceKeypoint.new(0.25, C.DEEP3),
 		ColorSequenceKeypoint.new(0.5,  C.DEEP4), ColorSequenceKeypoint.new(0.75, C.DEEP3),
 		ColorSequenceKeypoint.new(1,    C.DEEP4),
 	})
-	table.insert(_liveGrads, g); return g
+	if animated then registerLive(g, inst) end
+	return g
 end
--- Moon Hub's addLivingStroke: DEEP3 base stroke + inner gradient
--- DEEP1 -> DEEP2 -> DEEP1 -> DEEP2 -> DEEP1
-local function addLivingStroke(parent, thickness)
+local function addLivingStroke(parent, thickness, animated)
 	local s = Instance.new("UIStroke", parent)
 	s.Color = C.DEEP3; s.Thickness = thickness or 1.5
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	local g = Instance.new("UIGradient", s)
+	g.Rotation = 45
 	g.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0,    C.DEEP1), ColorSequenceKeypoint.new(0.25, C.DEEP2),
 		ColorSequenceKeypoint.new(0.5,  C.DEEP1), ColorSequenceKeypoint.new(0.75, C.DEEP2),
 		ColorSequenceKeypoint.new(1,    C.DEEP1),
 	})
-	table.insert(_liveStrokes, g); return s
+	if animated then registerLive(g, parent) end
+	return s
+end
+-- press feedback shared by every button of the hub
+local function pressFx(btn)
+	local sc = Instance.new("UIScale"); sc.Parent = btn
+	local function tw(v, t, es)
+		TweenService:Create(sc, TweenInfo.new(t, es or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = v}):Play()
+	end
+	btn.MouseButton1Down:Connect(function() tw(0.92, 0.08) end)
+	btn.MouseButton1Up:Connect(function() tw(1, 0.24, Enum.EasingStyle.Back) end)
+	btn.MouseLeave:Connect(function() tw(1, 0.15) end)
+	return function() sc.Scale = 1.14; tw(1, 0.36, Enum.EasingStyle.Back) end
 end
 -- Moon Hub's makeDivider: 1px DEEP3 line + living gradient, between every row
 local function makeDivider(page)
@@ -215,12 +249,7 @@ local function makeSwitch(parent, initial)
 		glow.Transparency = 1
 	end
 	local function startGlow()
-		if _glowTween then return end
-		glow.Transparency = 0.35
-		_glowTween = TweenService:Create(glow,
-			TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-			{Transparency = 0.85})
-		_glowTween:Play()
+		TweenService:Create(glow, TweenInfo.new(0.25), {Transparency = 0.6}):Play()
 	end
 
 	local knob = Instance.new("Frame", pill)
@@ -364,9 +393,8 @@ end
 		frame.Active = true
 		frame.ZIndex = cfg.z or 20
 		corner(frame, 20)
-		stroke(frame, C.BORDER, 1.5)
-		local glow = Instance.new("UIStroke", frame)
-		glow.Color = C.ACCENT; glow.Thickness = 1; glow.Transparency = 0.85
+		addLivingStroke(frame, 1.5, true)
+		local winScale = Instance.new("UIScale", frame)
 		w.frame = frame
 
 		local header = Instance.new("Frame", frame)
@@ -387,17 +415,17 @@ end
 		title.Text = cfg.title; title.TextSize = 14; title.Font = Enum.Font.GothamBold
 		title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
 		title.TextTruncate = Enum.TextTruncate.AtEnd
-		liveGrad(title)
+		liveGrad(title, true)
 		local close = Instance.new("TextButton", header)
 		close.Size = UDim2.new(0, 20, 0, 20); close.Position = UDim2.new(1, -28, 0.5, -10)
 		close.BackgroundColor3 = Color3.fromRGB(58, 20, 20); close.Text = "X"; close.TextSize = 11
 		close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold; close.BorderSizePixel = 0
-		corner(close, 6)
+		corner(close, 7); pressFx(close)
 		local mini = Instance.new("TextButton", header)
 		mini.Size = UDim2.new(0, 20, 0, 20); mini.Position = UDim2.new(1, -52, 0.5, -10)
 		mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
 		mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
-		corner(mini, 6)
+		corner(mini, 7); pressFx(mini)
 		local sep = Instance.new("Frame", frame)
 		sep.Size = UDim2.new(1, -24, 0, 1); sep.Position = UDim2.new(0, 12, 0, 42)
 		sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
@@ -435,12 +463,12 @@ end
 		ovClear.Size = UDim2.new(0, 46, 0, 20); ovClear.Position = UDim2.new(1, -104, 0, 3)
 		ovClear.BackgroundColor3 = Color3.fromRGB(24, 26, 35); ovClear.Text = "Clear"; ovClear.TextSize = 10
 		ovClear.TextColor3 = C.SILVER; ovClear.Font = Enum.Font.GothamBold; ovClear.BorderSizePixel = 0; ovClear.ZIndex = 301
-		corner(ovClear, 6)
+		corner(ovClear, 7); pressFx(ovClear)
 		local ovDone = Instance.new("TextButton", ovHead)
 		ovDone.Size = UDim2.new(0, 46, 0, 20); ovDone.Position = UDim2.new(1, -54, 0, 3)
 		ovDone.BackgroundColor3 = C.MOON; ovDone.Text = "Done"; ovDone.TextSize = 10.5
 		ovDone.TextColor3 = C.MOONTEXT; ovDone.Font = Enum.Font.GothamBold; ovDone.BorderSizePixel = 0; ovDone.ZIndex = 301
-		corner(ovDone, 6)
+		corner(ovDone, 7); pressFx(ovDone)
 		local ovList = Instance.new("ScrollingFrame", ov)
 		ovList.Size = UDim2.new(1, 0, 1, -30); ovList.Position = UDim2.new(0, 0, 0, 28)
 		ovList.BackgroundTransparency = 1; ovList.BorderSizePixel = 0; ovList.ScrollBarThickness = 3
@@ -515,12 +543,26 @@ end
 			end
 		end)
 		w.OnClose = newSignalList()
+		local closing = 0
 		function w.SetOpen(on)
-			frame.Visible = on == true
-			if on then zTop = zTop + 1; frame.ZIndex = zTop end
-			w.OnClose.Fire(on == true)
+			on = on == true
+			closing = closing + 1
+			local mine = closing
+			if on then
+				zTop = zTop + 1; frame.ZIndex = zTop
+				winScale.Scale = 0.9
+				frame.Visible = true
+				TweenService:Create(winScale, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+			elseif frame.Visible then
+				TweenService:Create(winScale, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.88}):Play()
+				task.delay(0.17, function()
+					if closing == mine then frame.Visible = false; winScale.Scale = 1 end
+				end)
+			end
+			w.wantOpen = on
+			w.OnClose.Fire(on)
 		end
-		function w.IsOpen() return frame.Visible end
+		function w.IsOpen() return frame.Visible and w.wantOpen ~= false end
 		close.MouseButton1Click:Connect(function()
 			if cfg.isMain then
 				pcall(function() if lib.OnUnload then lib.OnUnload() end end)
@@ -551,7 +593,7 @@ end
 				btn.BackgroundColor3 = Color3.fromRGB(18, 22, 30); btn.BackgroundTransparency = 0.5
 				btn.Text = name; btn.TextSize = 10; btn.TextColor3 = C.TABIDLE; btn.Font = Enum.Font.GothamBold
 				btn.BorderSizePixel = 0; btn.LayoutOrder = #w.order + 1
-				corner(btn, 9); addLivingStroke(btn, 1)
+				corner(btn, 10); addLivingStroke(btn, 1); pressFx(btn)
 				tab.btn = btn
 				btn.MouseButton1Click:Connect(function() w.Select(name) end)
 			end
@@ -642,6 +684,7 @@ end
 		b.Size = UDim2.new(0, 18, 0, 18); b.Position = UDim2.new(1, x, 0, 5)
 		b.BackgroundTransparency = 1; b.Text = ">"; b.TextSize = 12; b.TextColor3 = C.DIM
 		b.Font = Enum.Font.GothamBold; b.Visible = false
+		pressFx(b)
 		b.MouseButton1Click:Connect(function() info.open = not info.open; handle._refreshSubs() end)
 		handle._setArrow(b)
 	end
@@ -704,22 +747,36 @@ end
 	function Section:CreateButton(cfg)
 		local hasNote = cfg.Note and cfg.Note ~= ""
 		local holder, row = self:_slot(hasNote and 38 or 28, cfg.SubOf)
-		nameLabel(row, cfg.Name, -84)
+		local bw = cfg.ButtonWidth or 64
+		nameLabel(row, cfg.Name, -(bw + 20))
 		noteLabel(row, cfg.Note)
 		local b = Instance.new("TextButton", row)
-		b.Size = UDim2.new(0, 64, 0, 20); b.Position = UDim2.new(1, -72, 0, 4)
-		b.BackgroundColor3 = Color3.fromRGB(20, 32, 54); b.TextColor3 = C.ACCENT2
-		b.Text = cfg.ButtonText or "Run"; b.TextSize = 9.5; b.Font = Enum.Font.GothamBold; b.BorderSizePixel = 0
-		corner(b, 6)
+		b.Size = UDim2.new(0, bw, 0, 20); b.Position = UDim2.new(1, -(bw + 8), 0, hasNote and 9 or 4)
+		b.BackgroundColor3 = C.WHITE; b.AutoButtonColor = false
+		b.Text = ""; b.BorderSizePixel = 0
+		corner(b, 8)
+		local bg = Instance.new("UIGradient", b)
+		bg.Rotation = 90
+		bg.Color = ColorSequence.new(C.DEEP4, C.DEEP3)
+		local bs = Instance.new("UIStroke", b)
+		bs.Color = C.MOON2; bs.Thickness = 1; bs.Transparency = 0.35
+		bs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		local bl = label(b, cfg.ButtonText or "Run", UDim2.new(1, 0, 1, 0), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+		bl.TextSize = 9.5; bl.ZIndex = 2
+		local pulse = pressFx(b)
 		local h = {Instance = holder}
+		function h.SetText(t) bl.Text = tostring(t) end
+		function h.Pulse() pulse() end
 		local busy = false
 		b.MouseButton1Click:Connect(function()
+			pulse()
 			if cfg.Callback then task.spawn(cfg.Callback) end
 			if cfg.ConfirmText and not busy then
 				busy = true
-				local old = b.Text
-				b.Text = cfg.ConfirmText; b.TextColor3 = C.GREEN
-				task.delay(1.4, function() b.Text = old; b.TextColor3 = C.ACCENT2; busy = false end)
+				local old = bl.Text
+				bl.Text = cfg.ConfirmText
+				bg.Color = ColorSequence.new(C.GREEN, Color3.fromRGB(30, 140, 80))
+				task.delay(1.4, function() bl.Text = old; bg.Color = ColorSequence.new(C.DEEP4, C.DEEP3); busy = false end)
 			end
 		end)
 		register(self, cfg, h, "Button")
@@ -1031,6 +1088,20 @@ end
 		end
 	end
 
+	-- ---------- extra tool windows (same look/API as the Events window) ----------
+	lib.NewToolWindow = function(cfg)
+		local win = newWindow({name = cfg.name, frameName = cfg.frameName, title = cfg.title, w = cfg.w or 252, h = cfg.h or 340,
+			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20})
+		local raw = win.AddTab(cfg.tabName or "Tool")
+		local tab = setmetatable(raw, Tab)
+		tab.window = win
+		win.Select("Main")
+		win.tab = tab
+		win.frame.Visible = false
+		win.wantOpen = false
+		return win
+	end
+
 	-- ---------- window API ----------
 	local Win = {}
 	Win.__index = Win
@@ -1098,7 +1169,7 @@ end
 			btn.Position = UDim2.new(1, -(SZ * 2 + GAP + RIGHT) + col * (SZ + GAP), 0, TOP + rw * (SZ + GAP))
 			btn.BackgroundColor3 = C.ROW; btn.BackgroundTransparency = 0.1; btn.BorderSizePixel = 0
 			btn.Text = ""; btn.AutoButtonColor = false; btn.ZIndex = 500; btn.Active = true
-			corner(btn, 11); addLivingStroke(btn, 1.5)
+			corner(btn, 12); addLivingStroke(btn, 1.5); pressFx(btn)
 			local l = Instance.new("TextLabel", btn)
 			l.Size = UDim2.new(1, 0, 1, 0); l.BackgroundTransparency = 1; l.Text = def.label
 			l.TextColor3 = C.WHITE; l.Font = Enum.Font.GothamBold; l.TextSize = 8; l.TextWrapped = true; l.ZIndex = 501
@@ -17338,7 +17409,13 @@ do
 			end
 			local now = os.clock()
 
-			if slicedfn52() or slicedfn50() or slicedfn53() then
+			local scan = tbl4.ArScan
+			if not scan or now - scan.At > 0.1 then
+				scan = { At = now, Value = slicedfn53() }
+				tbl4.ArScan = scan
+			end
+
+			if slicedfn52() or slicedfn50() or scan.Value then
 				slicedn18 = now + slicedn15
 			end
 
@@ -22390,6 +22467,9 @@ do
 			end
 		end
 
+		local flagReady = false
+		local win = nil
+
 		local function slicedfn40()
 			if not tbl16 then
 				return
@@ -22398,21 +22478,19 @@ do
 
 			if tbl16.On ~= sliced20 then
 				tbl16.On = sliced20
-				slicedfn31(tbl16.Toggle, sliced20 and tbl14.Steal or tbl14.Cancel)
-				slicedfn22(tbl16.Toggle.Label, sliced20 and "Auto Steal: ON" or "Auto Steal: OFF")
+				tbl16.ToggleHandle:Set(sliced20, false)
 			end
 
 			local guardOn = tbl4.SafeCarry.LineDrop == true
 
-			if tbl16.Guard and tbl16.GuardOn ~= guardOn then
+			if tbl16.GuardOn ~= guardOn then
 				tbl16.GuardOn = guardOn
-				slicedfn31(tbl16.Guard, guardOn and tbl14.Steal or tbl14.Cancel)
-				slicedfn22(tbl16.Guard.Label, guardOn and "Instant Steal: ON" or "Instant Steal: OFF")
+				tbl16.GuardHandle:Set(guardOn, false)
 			end
 
-			if sliced15 and tbl16.SortShown ~= sliced4 then
+			if tbl16.SortShown ~= sliced4 then
 				tbl16.SortShown = sliced4
-				slicedfn22(sliced15.Label, "Sort: " .. tostring(sliced4))
+				tbl16.SortHandle.SetText(tostring(sliced4))
 			end
 		end
 
@@ -22544,7 +22622,7 @@ do
 			button.Position = pos or UDim2.new()
 			button.AnchorPoint = anchor or Vector2.new(0, 0)
 			button.ZIndex = 3
-			U.corner(button, 9)
+			U.corner(button, 8)
 			local gradient = Instance.new("UIGradient")
 			gradient.Parent = button
 			local strokeObj = Instance.new("UIStroke")
@@ -22594,12 +22672,12 @@ do
 		local function slicedfn43(arg)
 			local U = MoonLib.UI
 			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 60)
-			row.BackgroundColor3 = Color3.fromRGB(6, 10, 22)
-			row.BackgroundTransparency = 0.12
+			row.Size = UDim2.new(1, 0, 0, 58)
+			row.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			row.BackgroundTransparency = 0.35
 			row.BorderSizePixel = 0
-			U.corner(row, 12)
-			U.stroke(row, Color3.fromRGB(30, 52, 100), 1, 0.1)
+			U.corner(row, 10)
+			U.addLivingStroke(row, 1)
 
 			local rowScale = Instance.new("UIScale")
 			rowScale.Scale = 0.9
@@ -22608,8 +22686,8 @@ do
 			local accent = Instance.new("Frame")
 			accent.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			accent.BorderSizePixel = 0
-			accent.Position = UDim2.new(0, 4, 0.5, -19)
-			accent.Size = UDim2.fromOffset(3, 38)
+			accent.Position = UDim2.new(0, 4, 0.5, -18)
+			accent.Size = UDim2.fromOffset(3, 36)
 			accent.ZIndex = 2
 			U.corner(accent, 2)
 			local accentGradient = Instance.new("UIGradient")
@@ -22620,28 +22698,27 @@ do
 			local iconHolder = Instance.new("Frame")
 			iconHolder.BackgroundColor3 = Color3.fromRGB(10, 16, 34)
 			iconHolder.BorderSizePixel = 0
-			iconHolder.Position = UDim2.new(0, 13, 0.5, -23)
-			iconHolder.Size = UDim2.fromOffset(46, 46)
+			iconHolder.Position = UDim2.new(0, 12, 0.5, -20)
+			iconHolder.Size = UDim2.fromOffset(40, 40)
 			iconHolder.ZIndex = 2
-			U.corner(iconHolder, 11)
-			U.stroke(iconHolder, Color3.fromRGB(40, 72, 135), 1, 0.2)
+			U.corner(iconHolder, 9)
 			iconHolder.Parent = row
 
 			local icon = Instance.new("ImageLabel")
 			icon.BackgroundTransparency = 1
 			icon.AnchorPoint = Vector2.new(0.5, 0.5)
 			icon.Position = UDim2.fromScale(0.5, 0.5)
-			icon.Size = UDim2.fromScale(0.9, 0.9)
+			icon.Size = UDim2.fromScale(0.92, 0.92)
 			icon.ScaleType = Enum.ScaleType.Fit
 			icon.ZIndex = 3
 			icon.Parent = iconHolder
 
 			local nameLabel = Instance.new("TextLabel")
 			nameLabel.BackgroundTransparency = 1
-			nameLabel.Position = UDim2.new(0, 68, 0, 8)
-			nameLabel.Size = UDim2.new(1, -196, 0, 16)
+			nameLabel.Position = UDim2.new(0, 58, 0, 5)
+			nameLabel.Size = UDim2.new(1, -64, 0, 15)
 			nameLabel.Font = Enum.Font.GothamBold
-			nameLabel.TextSize = 12
+			nameLabel.TextSize = 11.5
 			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 			nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -22653,10 +22730,10 @@ do
 
 			local valueLabel = Instance.new("TextLabel")
 			valueLabel.BackgroundTransparency = 1
-			valueLabel.Position = UDim2.new(0, 68, 0, 26)
-			valueLabel.Size = UDim2.new(1, -196, 0, 14)
+			valueLabel.Position = UDim2.new(0, 58, 0, 20)
+			valueLabel.Size = UDim2.fromOffset(78, 13)
 			valueLabel.Font = Enum.Font.GothamBold
-			valueLabel.TextSize = 11
+			valueLabel.TextSize = 10.5
 			valueLabel.TextXAlignment = Enum.TextXAlignment.Left
 			valueLabel.TextColor3 = Color3.fromRGB(105, 235, 155)
 			valueLabel.Text = ""
@@ -22665,10 +22742,10 @@ do
 
 			local detailLabel = Instance.new("TextLabel")
 			detailLabel.BackgroundTransparency = 1
-			detailLabel.Position = UDim2.new(0, 68, 0, 42)
-			detailLabel.Size = UDim2.new(1, -196, 0, 12)
+			detailLabel.Position = UDim2.new(0, 138, 0, 20)
+			detailLabel.Size = UDim2.new(1, -144, 0, 13)
 			detailLabel.Font = Enum.Font.GothamMedium
-			detailLabel.TextSize = 9.5
+			detailLabel.TextSize = 9
 			detailLabel.TextXAlignment = Enum.TextXAlignment.Left
 			detailLabel.TextTruncate = Enum.TextTruncate.AtEnd
 			detailLabel.TextColor3 = Color3.fromRGB(140, 162, 205)
@@ -22679,8 +22756,8 @@ do
 			local badge = Instance.new("TextLabel")
 			badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			badge.BorderSizePixel = 0
-			badge.Position = UDim2.new(0, 9, 0.5, -30)
-			badge.Size = UDim2.fromOffset(26, 14)
+			badge.Position = UDim2.new(0, 6, 0, 3)
+			badge.Size = UDim2.fromOffset(24, 13)
 			badge.Font = Enum.Font.GothamBold
 			badge.TextSize = 9.5
 			badge.TextColor3 = Color3.fromRGB(0, 10, 20)
@@ -22705,15 +22782,16 @@ do
 				BadgeGradient = badgeGradient,
 			}
 
-			tbl24.Steal = mkBtn(row, "Steal", UDim2.fromOffset(62, 32), UDim2.new(1, -8, 0.5, 0), Vector2.new(1, 0.5), tbl14.Steal)
-			tbl24.Cancel = mkBtn(row, "X", UDim2.fromOffset(26, 28), UDim2.new(1, -8, 0.5, 0), Vector2.new(1, 0.5), tbl14.Cancel)
-			tbl24.Down = mkBtn(row, "v", UDim2.fromOffset(26, 28), UDim2.new(1, -38, 0.5, 0), Vector2.new(1, 0.5), tbl14.Hud)
-			tbl24.Up = mkBtn(row, "^", UDim2.fromOffset(26, 28), UDim2.new(1, -68, 0.5, 0), Vector2.new(1, 0.5), tbl14.Hud)
-			tbl24.Star = mkBtn(row, "TOP", UDim2.fromOffset(36, 28), UDim2.new(1, -98, 0.5, 0), Vector2.new(1, 0.5), tbl14.Queued)
+			tbl24.Steal = mkBtn(row, "Steal", UDim2.fromOffset(58, 20), UDim2.new(1, -6, 0, 46), Vector2.new(1, 0.5), tbl14.Steal)
+			tbl24.Cancel = mkBtn(row, "X", UDim2.fromOffset(22, 20), UDim2.new(1, -6, 0, 46), Vector2.new(1, 0.5), tbl14.Cancel)
+			tbl24.Down = mkBtn(row, "v", UDim2.fromOffset(22, 20), UDim2.new(1, -31, 0, 46), Vector2.new(1, 0.5), tbl14.Hud)
+			tbl24.Up = mkBtn(row, "^", UDim2.fromOffset(22, 20), UDim2.new(1, -56, 0, 46), Vector2.new(1, 0.5), tbl14.Hud)
+			tbl24.Star = mkBtn(row, "TOP", UDim2.fromOffset(32, 20), UDim2.new(1, -81, 0, 46), Vector2.new(1, 0.5), tbl14.Queued)
 			tbl24.Cancel.Button.Visible = false
 			tbl24.Down.Button.Visible = false
 			tbl24.Up.Button.Visible = false
-			tbl24.Star.Label.TextSize = 9.5
+			tbl24.Star.Label.TextSize = 9
+			tbl24.Steal.Label.TextSize = 10
 
 			for _, sliced20 in ipairs({ { tbl24.Up, -1 }, { tbl24.Down, 1 } }) do
 				sliced20[1].Button.Activated:Connect(function()
@@ -22944,7 +23022,7 @@ do
 		end
 
 		local function slicedfn50(arg)
-			if flag6 or not sliced14 then
+			if flag6 or not win then
 				return
 			end
 			flag6 = true
@@ -22953,30 +23031,12 @@ do
 				sliced18:Set(true)
 			end
 
-			local root = sliced14
-			sliced13.Enabled = true
-
-			if tween then
-				tween:Cancel()
-			end
-
-			local scale = tbl17 and tbl17.Scale
-			root.Position = position + UDim2.fromOffset(0, 28)
-			root.GroupTransparency = 1
-
-			if scale then
-				scale.Scale = 0.9
-				TweenService:Create(scale, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-			end
-
-			TweenService:Create(root, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
-			tween = TweenService:Create(root, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = position })
-			tween:Play()
+			win.SetOpen(true)
 			task.spawn(pcall, slicedfn49, slicedn13)
 		end
 
 		local function slicedfn51(arg, arg2)
-			if not flag6 or not sliced14 then
+			if not flag6 or not win then
 				return
 			end
 			flag6 = false
@@ -22985,30 +23045,7 @@ do
 				sliced18:Set(false)
 			end
 
-			if tween then
-				tween:Cancel()
-			end
-
-			local root = sliced14
-			local gui = sliced13
-			local scale = tbl17 and tbl17.Scale
-
-			if scale then
-				TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.92 }):Play()
-			end
-
-			TweenService:Create(root, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { GroupTransparency = 1 }):Play()
-			local tween3 = TweenService:Create(root, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = position + UDim2.fromOffset(0, 28) })
-			tween = tween3
-
-			tween3.Completed:Connect(function()
-				if tween == tween3 and not flag6 and gui and gui.Parent then
-					gui.Enabled = false
-					root.Position = position
-				end
-			end)
-
-			tween3:Play()
+			win.SetOpen(false)
 		end
 
 		local function slicedfn52()
@@ -23018,305 +23055,61 @@ do
 		local function slicedfn53()
 		end
 
-		-- small Moon slider that drives an existing menu slider handle (both stay in sync)
-		local function mkSlider(parent, y, name, handle, minV, maxV)
-			local U = MoonLib.UI
-			local C = U.C
-			local nameLbl = U.label(parent, name, UDim2.new(0.6, 0, 0, 14), C.SILVER, Enum.Font.GothamMedium)
-			nameLbl.Position = UDim2.new(0, 12, 0, y)
-			nameLbl.TextSize = 10.5
-			local valLbl = U.label(parent, "", UDim2.new(0.4, -12, 0, 14), C.MOON2, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
-			valLbl.Position = UDim2.new(0.6, 0, 0, y)
-			valLbl.TextSize = 10.5
-
-			local track = Instance.new("Frame")
-			track.BackgroundColor3 = Color3.fromRGB(14, 22, 44)
-			track.BorderSizePixel = 0
-			track.Position = UDim2.new(0, 12, 0, y + 19)
-			track.Size = UDim2.new(1, -24, 0, 6)
-			U.corner(track, 3)
-			track.Parent = parent
-
-			local fill = Instance.new("Frame")
-			fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-			fill.BorderSizePixel = 0
-			fill.Size = UDim2.new(0, 0, 1, 0)
-			U.corner(fill, 3)
-			local fillGradient = Instance.new("UIGradient")
-			fillGradient.Color = ColorSequence.new(C.DEEP3, C.MOON2)
-			fillGradient.Parent = fill
-			fill.Parent = track
-
-			local thumb = Instance.new("Frame")
-			thumb.AnchorPoint = Vector2.new(0.5, 0.5)
-			thumb.BackgroundColor3 = C.WHITE
-			thumb.BorderSizePixel = 0
-			thumb.Size = UDim2.fromOffset(14, 14)
-			thumb.ZIndex = 3
-			U.corner(thumb, 7)
-			U.stroke(thumb, C.MOON, 1.5, 0)
-			local thumbScale = Instance.new("UIScale")
-			thumbScale.Parent = thumb
-			thumb.Parent = track
-
-			local hit = Instance.new("TextButton")
-			hit.BackgroundTransparency = 1
-			hit.Text = ""
-			hit.Position = UDim2.new(0, 6, 0, y + 8)
-			hit.Size = UDim2.new(1, -12, 0, 28)
-			hit.ZIndex = 4
-			hit.Parent = parent
-
-			local function paint(v)
-				v = math.clamp(tonumber(v) or minV, minV, maxV)
-				local t = (v - minV) / math.max(maxV - minV, 1)
-				fill.Size = UDim2.new(t, 0, 1, 0)
-				thumb.Position = UDim2.new(t, 0, 0.5, 0)
-				valLbl.Text = string.format("%d%%", math.floor(v + 0.5))
-			end
-
-			local function current()
-				if handle and type(handle.Get) == "function" then
-					local ok, v = pcall(handle.Get, handle)
-					if ok and tonumber(v) then
-						return tonumber(v)
-					end
-				end
-				return 100
-			end
-
-			paint(current())
-			local dragging = false
-
-			local function apply(x)
-				local a, s = track.AbsolutePosition, track.AbsoluteSize
-				local rel = math.clamp((x - a.X) / math.max(s.X, 1), 0, 1)
-				local v = math.floor(minV + (maxV - minV) * rel + 0.5)
-				paint(v)
-
-				if handle and type(handle.Set) == "function" then
-					pcall(handle.Set, handle, v, true)
-				end
-			end
-
-			hit.InputBegan:Connect(function(input)
-				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-					dragging = true
-					TweenService:Create(thumbScale, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.35 }):Play()
-					apply(input.Position.X)
-				end
-			end)
-
-			table.insert(tbl20, UserInputService.InputChanged:Connect(function(input)
-				if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-					apply(input.Position.X)
-				end
-			end))
-
-			table.insert(tbl20, UserInputService.InputEnded:Connect(function(input)
-				if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-					dragging = false
-					TweenService:Create(thumbScale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-				end
-			end))
-
-			if handle and type(handle.Subscribe) == "function" then
-				local ok, connection = pcall(handle.Subscribe, handle, function(v)
-					if not dragging then
-						paint(v)
-					end
-				end)
-
-				if ok and connection then
-					table.insert(tbl20, connection)
-				end
-			end
-		end
-
-		-- Moon Steal Panel window: same controls and behaviour as the reference panel
+		-- Steal Panel built on the same Moon window + widgets as the Events window
 		local function slicedfn54()
 			local U = MoonLib.UI
-			local C = U.C
-			local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
-			local W = 324
-			local H = math.min(470, math.max(300, vp.Y - 60))
+			win = MoonLib.NewToolWindow({
+				name = "steal",
+				tabName = "StealPanel",
+				frameName = "MoonEggSteal",
+				title = "Steal Panel",
+				w = 252,
+				h = 360,
+				pos = UDim2.new(0, 12, 0, 56),
+			})
+			local tab = win.tab
 
-			local screenGui = Instance.new("ScreenGui")
-			screenGui.Name = slicedfn3()
-			screenGui.Archivable = false
-			screenGui.ResetOnSpawn = false
-			screenGui.IgnoreGuiInset = true
-			screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-			screenGui.DisplayOrder = 5
-			screenGui.Enabled = false
+			local controls = tab:CreateSection({ Name = "Controls", Expanded = true })
 
-			local root = Instance.new("CanvasGroup")
-			root.Name = "Root"
-			root.Size = UDim2.fromOffset(W, H)
-			root.Position = UDim2.new(0, 12, 0.5, -math.floor(H / 2))
-			root.BackgroundColor3 = Color3.fromRGB(2, 4, 10)
-			root.BorderSizePixel = 0
-			root.Active = true
-			U.corner(root, 20)
-			U.addLivingStroke(root, 1.5)
-			local uiScale = Instance.new("UIScale")
-			uiScale.Scale = 1
-			uiScale.Parent = root
-
-			local backdrop = Instance.new("Frame")
-			backdrop.Size = UDim2.new(1, 0, 0, 120)
-			backdrop.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-			backdrop.BorderSizePixel = 0
-			backdrop.Parent = root
-			local backdropGradient = Instance.new("UIGradient")
-			backdropGradient.Rotation = 90
-			backdropGradient.Color = ColorSequence.new(Color3.fromRGB(16, 34, 74), Color3.fromRGB(2, 4, 10))
-			backdropGradient.Parent = backdrop
-
-			local header = Instance.new("Frame")
-			header.Size = UDim2.new(1, 0, 0, 46)
-			header.BackgroundTransparency = 1
-			header.Parent = root
-
-			local moon = Instance.new("Frame")
-			moon.Size = UDim2.fromOffset(22, 22)
-			moon.Position = UDim2.new(0, 13, 0.5, -11)
-			moon.BackgroundColor3 = C.MOON2
-			moon.BorderSizePixel = 0
-			moon.ClipsDescendants = true
-			U.corner(moon, 11)
-			moon.Parent = header
-			local shade = Instance.new("Frame")
-			shade.Size = UDim2.fromOffset(22, 22)
-			shade.Position = UDim2.new(0, 7, 0, -4)
-			shade.BackgroundColor3 = Color3.fromRGB(13, 27, 60)
-			shade.BorderSizePixel = 0
-			U.corner(shade, 11)
-			shade.Parent = moon
-
-			local titleLabel = U.label(header, "Steal Panel", UDim2.new(1, -190, 0, 20), C.WHITE, Enum.Font.GothamBold)
-			titleLabel.Position = UDim2.new(0, 44, 0, 6)
-			titleLabel.TextSize = 15
-			U.liveGrad(titleLabel)
-
-			local subLabel = U.label(header, "0 eggs on the field", UDim2.new(1, -190, 0, 12), C.DIM, Enum.Font.GothamMedium)
-			subLabel.Position = UDim2.new(0, 44, 0, 26)
-			subLabel.TextSize = 9.5
-
-			local closeButton = Instance.new("TextButton")
-			closeButton.Size = UDim2.fromOffset(22, 22)
-			closeButton.Position = UDim2.new(1, -32, 0.5, -11)
-			closeButton.BackgroundColor3 = Color3.fromRGB(58, 20, 20)
-			closeButton.Text = "X"
-			closeButton.TextSize = 11
-			closeButton.TextColor3 = C.RED
-			closeButton.Font = Enum.Font.GothamBold
-			closeButton.BorderSizePixel = 0
-			U.corner(closeButton, 7)
-			closeButton.Parent = header
-
-			local sortButton = mkBtn(header, "Sort: " .. tostring(sliced4), UDim2.fromOffset(104, 24), UDim2.new(1, -40, 0.5, 0), Vector2.new(1, 0.5), tbl14.Steal)
-
-			local sep = Instance.new("Frame")
-			sep.Size = UDim2.new(1, -24, 0, 1)
-			sep.Position = UDim2.new(0, 12, 0, 46)
-			sep.BackgroundColor3 = C.DEEP3
-			sep.BackgroundTransparency = 0.5
-			sep.BorderSizePixel = 0
-			sep.Parent = root
-
-			local toggleButton = mkBtn(root, "Auto Steal: OFF", UDim2.new(0.5, -9, 0, 32), UDim2.new(0, 6, 0, 54), nil, tbl14.Cancel)
-			local guardButton = mkBtn(root, "Instant Steal: OFF", UDim2.new(0.5, -9, 0, 32), UDim2.new(0.5, 3, 0, 54), nil, tbl14.Cancel)
-
-			local speedCard = Instance.new("Frame")
-			speedCard.BackgroundColor3 = Color3.fromRGB(6, 10, 22)
-			speedCard.BackgroundTransparency = 0.15
-			speedCard.BorderSizePixel = 0
-			speedCard.Position = UDim2.new(0, 6, 0, 94)
-			speedCard.Size = UDim2.new(1, -12, 0, 76)
-			U.corner(speedCard, 12)
-			U.stroke(speedCard, Color3.fromRGB(30, 52, 100), 1, 0.1)
-			speedCard.Parent = root
-
-			mkSlider(speedCard, 6, "Go Speed", tbl4.SafeCarry.RunHandle, 50, 120)
-			mkSlider(speedCard, 40, "Carry Speed", tbl4.SafeCarry.CarryHandle, 80, 120)
-
-			local list = Instance.new("ScrollingFrame")
-			list.Name = "List"
-			list.BackgroundTransparency = 1
-			list.BorderSizePixel = 0
-			list.Position = UDim2.new(0, 6, 0, 178)
-			list.Size = UDim2.new(1, -12, 1, -184)
-			list.ScrollBarThickness = 3
-			list.ScrollBarImageColor3 = C.ACCENT
-			list.CanvasSize = UDim2.new(0, 0, 0, 0)
-			list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-			list.Parent = root
-			local layout = Instance.new("UIListLayout")
-			layout.Padding = UDim.new(0, 5)
-			layout.SortOrder = Enum.SortOrder.LayoutOrder
-			layout.Parent = list
-
-			local emptyLabel = U.label(root, "No eggs on the field", UDim2.new(1, -24, 0, 30), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
-			emptyLabel.Position = UDim2.new(0, 12, 0, 230)
-			emptyLabel.TextSize = 11
-
-			local function refreshEmpty()
-				local count = 0
-
-				for _, child in ipairs(list:GetChildren()) do
-					if child:IsA("Frame") then
-						count += 1
+			local toggleHandle = controls:CreateToggle({
+				Name = "Auto Steal",
+				Note = "Steals the queued eggs by itself",
+				Default = false,
+				Callback = function(v)
+					if not flagReady then
+						return
 					end
-				end
+					local handle = sliced5
 
-				emptyLabel.Visible = count == 0
-				subLabel.Text = count == 1 and "1 egg on the field" or (count .. " eggs on the field")
-			end
+					if handle and type(handle.Set) == "function" then
+						pcall(handle.Set, handle, v == true)
+					end
 
-			table.insert(tbl20, list.ChildAdded:Connect(function()
-				task.defer(refreshEmpty)
-			end))
-			table.insert(tbl20, list.ChildRemoved:Connect(function()
-				task.defer(refreshEmpty)
-			end))
+					tbl4.UiDefer(slicedfn40)
+				end,
+			})
 
-			toggleButton.Button.Activated:Connect(function()
-				local sliced24 = sliced5
-				local flag12 = sliced5
+			local guardHandle = controls:CreateToggle({
+				Name = "Instant Steal",
+				Note = "Works with Auto Steal, delivers in a few seconds",
+				Default = false,
+				Callback = function(v)
+					if not flagReady then
+						return
+					end
+					local safeCarry = tbl4.SafeCarry
+					local instantHandle = safeCarry.InstantHandle
 
-				if sliced24 then
-					flag12 = type(sliced24.Set) == "function"
-				end
+					if instantHandle and type(instantHandle.Set) == "function" then
+						pcall(instantHandle.Set, instantHandle, v == true)
+					end
 
-				if flag12 then
-					pcall(sliced24.Set, sliced24, not tbl4.Toggle(sliced24, false))
-				end
+					safeCarry.LineDrop = v == true
+					safeCarry.SpeedJitter = v == true and 0 or 0.08
+					tbl4.UiDefer(slicedfn40)
+				end,
+			})
 
-				tbl4.UiDefer(slicedfn40)
-			end)
-
-			guardButton.Button.Activated:Connect(function()
-				local safeCarry = tbl4.SafeCarry
-				local lineDrop = not safeCarry.LineDrop
-				local instantHandle = safeCarry.InstantHandle
-
-				if instantHandle and type(instantHandle.Set) == "function" then
-					pcall(instantHandle.Set, instantHandle, lineDrop)
-				end
-
-				safeCarry.LineDrop = lineDrop
-				tbl4.UiDefer(slicedfn40)
-			end)
-
-			tbl16 = { Toggle = toggleButton, Guard = guardButton }
-
-			tbl4.StealPanelSync = function()
-				tbl4.UiDefer(slicedfn40)
-			end
-
-			title = titleLabel
-			sliced15 = sortButton
 			local slicedn29 = 0
 
 			local function cycleSort()
@@ -23339,37 +23132,118 @@ do
 					end
 				end
 
-				sortButton.Pulse()
-
 				tbl4.UiDefer(function()
-					slicedfn22(sliced15.Label, "Sort: " .. tostring(sliced4))
+					slicedfn40()
 					slicedfn41()
 				end)
 			end
 
-			sortButton.Button.Activated:Connect(cycleSort)
+			local sortHandle = controls:CreateButton({
+				Name = "Sort",
+				ButtonText = tostring(sliced4),
+				ButtonWidth = 104,
+				Callback = cycleSort,
+			})
 
-			closeButton.Activated:Connect(function()
-				tbl4.UiDefer(function()
+			local speed = tab:CreateSection({ Name = "Speed", Expanded = false })
+
+			local function linkSlider(name, minV, maxV, handle)
+				local start = 100
+
+				if handle and type(handle.Get) == "function" then
+					local ok, v = pcall(handle.Get, handle)
+					start = ok and tonumber(v) or 100
+				end
+
+				local mine
+				mine = speed:CreateSlider({
+					Name = name,
+					Min = minV,
+					Max = maxV,
+					Default = start,
+					Increment = 1,
+					Unit = "%",
+					Callback = function(v)
+						if flagReady and handle and type(handle.Set) == "function" then
+							pcall(handle.Set, handle, v, true)
+						end
+					end,
+				})
+
+				if handle and type(handle.Subscribe) == "function" then
+					local ok, connection = pcall(handle.Subscribe, handle, function(v)
+						mine:Set(v, false)
+					end)
+
+					if ok and connection then
+						table.insert(tbl20, connection)
+					end
+				end
+
+				mine:Set(start, false)
+				return mine
+			end
+
+			linkSlider("Go Speed", 50, 120, tbl4.SafeCarry.RunHandle)
+			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
+
+			local eggs = tab:CreateSection({ Name = "Field Eggs", Expanded = true })
+			local list = Instance.new("Frame")
+			list.Name = "EggList"
+			list.BackgroundTransparency = 1
+			list.Size = UDim2.new(1, -6, 0, 0)
+			list.AutomaticSize = Enum.AutomaticSize.Y
+			list.LayoutOrder = 1
+			list.Parent = eggs.body
+			local layout = Instance.new("UIListLayout")
+			layout.Padding = UDim.new(0, 4)
+			layout.SortOrder = Enum.SortOrder.LayoutOrder
+			layout.Parent = list
+
+			local emptyLabel = U.label(list, "No eggs on the field", UDim2.new(1, 0, 0, 28), U.C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+			emptyLabel.TextSize = 10.5
+			emptyLabel.LayoutOrder = -1
+
+			local function refreshEmpty()
+				local count = 0
+
+				for _, child in ipairs(list:GetChildren()) do
+					if child:IsA("Frame") then
+						count += 1
+					end
+				end
+
+				emptyLabel.Visible = count == 0
+			end
+
+			table.insert(tbl20, list.ChildAdded:Connect(function()
+				task.defer(refreshEmpty)
+			end))
+			table.insert(tbl20, list.ChildRemoved:Connect(function()
+				task.defer(refreshEmpty)
+			end))
+
+			tbl16 = { ToggleHandle = toggleHandle, GuardHandle = guardHandle, SortHandle = sortHandle }
+
+			tbl4.StealPanelSync = function()
+				tbl4.UiDefer(slicedfn40)
+			end
+
+			title = win.title
+			sliced16 = list
+			sliced14 = win.frame
+			sliced13 = win.frame
+			position = win.frame.Position
+			tbl17 = {}
+
+			win.OnClose.Connect(function(on)
+				if on == true then
+					slicedfn50(true)
+				else
 					slicedfn51(true, true)
-				end)
-			end)
-
-			U.drag(header, root)
-
-			header.InputEnded:Connect(function()
-				if flag6 then
-					position = root.Position
 				end
 			end)
 
-			sliced16 = list
-			sliced14 = root
-			position = root.Position
-			tbl17 = { Scale = uiScale }
-			root.Parent = screenGui
-			sliced13 = screenGui
-			screenGui.Parent = (MoonLib.Gui and MoonLib.Gui.Parent) or sliced3
 			refreshEmpty()
 			return true
 		end
@@ -23410,6 +23284,7 @@ do
 
 			sliced13 = nil
 			sliced14 = nil
+			win = nil
 			position = nil
 			title = nil
 			sliced15 = nil
@@ -23477,6 +23352,7 @@ do
 				table.insert(tbl20, areaEggSlotsClient.ChildRemoved:Connect(slicedfn47))
 			end
 
+			-- the panel only works while it is open; a closed panel costs nothing
 			task.spawn(function()
 				local slicedn20 = 0
 
@@ -23487,7 +23363,7 @@ do
 						break
 					end
 
-					if not (sliced13 and sliced13.Parent) then
+					if not (win and win.frame and win.frame.Parent) then
 						task.defer(function()
 							slicedfn55()
 
@@ -23499,11 +23375,13 @@ do
 						break
 					end
 
-					if slicedn20 >= slicedn4 then
-						slicedfn47()
-						slicedn20 = 0
-					elseif flag6 then
-						slicedfn41()
+					if flag6 then
+						if slicedn20 >= slicedn4 then
+							slicedfn47()
+							slicedn20 = 0
+						else
+							slicedfn41()
+						end
 					end
 				end
 			end)
@@ -23525,6 +23403,7 @@ do
 		end)
 
 		tbl4.RestoreStealPanel = function()
+			flagReady = true
 			if sliced18:Get() ~= true then
 				return
 			end
@@ -27910,16 +27789,23 @@ do
 	end
 
 	tbl17[#tbl17 + 1] = RunService.RenderStepped:Connect(function(deltaTime)
-		slicedfn24()
+		if not ScreenGui.Enabled then
+			return
+		end
+
+		if tbl18.Disguise then
+			slicedfn24()
+		end
 		huge += deltaTime
 		huge2 += deltaTime
+		local idle = not antiGuard.Enabled and not antiGuard.Busy
 
-		if huge >= 3 then
+		if huge >= (idle and 12 or 3) then
 			huge = 0
 			pcall(slicedfn29)
 		end
 
-		if huge2 >= 0.2 then
+		if huge2 >= (idle and 3 or 0.25) then
 			huge2 = 0
 			pcall(slicedfn31)
 		end
@@ -27943,7 +27829,7 @@ slicedfn21(UIScale2, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
 local slicedfn23
 
 slicedfn23 = function()
-	if not antiGuard.Enabled then
+	if not antiGuard.Enabled or not tbl4.Steal.Active then
 		return nil
 	end
 	local sliced10 = tbl4.Root()
@@ -28617,6 +28503,9 @@ do
 	local slicedn6 = 0
 
 	tbl17[#tbl17 + 1] = RunService.Heartbeat:Connect(function(deltaTime)
+		if not antiGuard.Enabled and not antiGuard.Busy and not tbl18.Active then
+			return
+		end
 		local busy = antiGuard.Busy or tbl18.Active
 		local flag5
 
