@@ -593,34 +593,54 @@ end
 			end)
 		end
 		local frameCornerObj = frame:FindFirstChildOfClass("UICorner")
-		local orbLabel
+		local barLabel
+		local barToken = 0
 		if not cfg.isMain then
-			local initials = ""
-			for word in string.gmatch(tostring(cfg.title or ""), "%a+") do
-				if #initials < 2 then initials = initials .. string.upper(string.sub(word, 1, 1)) end
-			end
-			orbLabel = label(header, initials, UDim2.new(1, 0, 1, 0), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-			orbLabel.TextSize = 14; orbLabel.Visible = false
-			liveGrad(orbLabel, true)
+			barLabel = label(header, string.upper(tostring(cfg.title or "")), UDim2.new(1, -8, 0, 14), C.MOONTEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+			barLabel.Position = UDim2.new(0, 4, 0, 4); barLabel.TextSize = 9; barLabel.Visible = false
+			barLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			header.MouseEnter:Connect(function()
+				if minimized and not cfg.isMain then
+					barLabel.Visible = true
+					TweenService:Create(frame, TweenInfo.new(0.15, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 120, 0, 22)}):Play()
+				end
+			end)
+			header.MouseLeave:Connect(function()
+				if minimized and not cfg.isMain then
+					barLabel.Visible = false
+					TweenService:Create(frame, TweenInfo.new(0.15, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 90, 0, 7)}):Play()
+				end
+			end)
 		end
 		local function setMinimized(on)
 			minimized = on
 			if not cfg.isMain then
-				-- secondary windows collapse into a small round orb (initials + living ring); tap to expand
+				-- secondary windows collapse into a thin pulsing neon bar; hover shows the name, tap expands
+				barToken = barToken + 1
+				local mine = barToken
 				if on then
 					content.Visible = false; sep.Visible = false; ov.Visible = false
 					if tabBar then tabBar.Visible = false end
 					title.Visible = false; mini.Visible = false; close.Visible = false; moon.Visible = false
-					orbLabel.Visible = true
 					header.BackgroundTransparency = 1
-					if frameCornerObj then frameCornerObj.CornerRadius = UDim.new(0, 21) end
+					if frameCornerObj then frameCornerObj.CornerRadius = UDim.new(0, 4) end
+					frame.BackgroundColor3 = C.MOON
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, 42, 0, 42), BackgroundTransparency = 0.1}):Play()
+						Size = UDim2.new(0, 90, 0, 7), BackgroundTransparency = 0.1}):Play()
+					task.spawn(function()
+						local dim = false
+						while minimized and barToken == mine and frame.Parent do
+							dim = not dim
+							TweenService:Create(frame, TweenInfo.new(0.9, Enum.EasingStyle.Sine), {BackgroundTransparency = dim and 0.55 or 0.05}):Play()
+							task.wait(0.9)
+						end
+					end)
 				else
-					orbLabel.Visible = false
+					barLabel.Visible = false
 					title.Visible = true; mini.Visible = true; close.Visible = true; moon.Visible = true
 					header.BackgroundTransparency = 0
 					if frameCornerObj then frameCornerObj.CornerRadius = UDim.new(0, 20) end
+					frame.BackgroundColor3 = C.BG
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
 						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
 					content.Visible = true; sep.Visible = true
