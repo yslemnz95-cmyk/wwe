@@ -4398,99 +4398,487 @@ do
 				return true
 			end
 
+			-- ===== game scan: a full read-only picture of the game (data the client already has) =====
 			A.Scan = function()
-				local out = { "MoonEgg scan " .. os.date("%H:%M:%S") .. " place " .. tostring(game.PlaceId) }
-				local env = getfenv and getfenv() or _G
-				local names = { "setclipboard", "fireproximityprompt", "setfpscap", "writefile", "identifyexecutor", "firesignal" }
-				local caps = {}
+				local out = {}
+				local previousDetail = A.Detail
+				A.Detail = 3
 
-				for _, n in ipairs(names) do
-					local ok, f = pcall(function()
-						return env[n]
-					end)
-					caps[#caps + 1] = n .. (ok and type(f) == "function" and "+" or "-")
+				local function add(line)
+					out[#out + 1] = line
 				end
 
-				out[#out + 1] = "executor: " .. table.concat(caps, " ")
-				out[#out + 1] = "player attributes: " .. ser((function()
-					local t = {}
-					for k, v in pairs(localPlayer:GetAttributes()) do
-						t[k] = v
-					end
-					return t
-				end)())
-				local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
-
-				if humanoid then
-					out[#out + 1] = string.format("humanoid: walkspeed=%s hipheight=%s state=%s", tostring(humanoid.WalkSpeed), tostring(humanoid.HipHeight), tostring(humanoid:GetState()))
+				local function section(name)
+					add("")
+					add("## " .. name)
 				end
 
-				local line = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
-				line = line and line:FindFirstChild("Areas")
-				local sep = line and line:FindFirstChild("SeparationLine")
-				out[#out + 1] = "separation line: " .. (sep and sep:IsA("BasePart") and (ser(sep.Position) .. " size " .. ser(sep.Size)) or "not found")
+				local function try(label, fn)
+					local ok, err = pcall(fn)
 
-				if line then
-					local areas = {}
-
-					for _, child in ipairs(line:GetChildren()) do
-						local pos = child:IsA("BasePart") and child.Position or (child:IsA("Model") and child:GetPivot().Position or nil)
-						areas[#areas + 1] = child.Name .. (pos and (" @ " .. ser(pos)) or "")
-					end
-
-					out[#out + 1] = "areas: " .. string.sub(table.concat(areas, " | "), 1, 500)
-				end
-
-				if type(tbl4.StealHome) == "function" then
-					local ok, value = pcall(tbl4.StealHome)
-					out[#out + 1] = "steal home: " .. (ok and ser(value) or "error")
-				end
-
-				local guards = tbl.Guards
-
-				if type(guards) == "table" and type(guards.Directory) == "table" then
-					for id, data in pairs(guards.Directory) do
-						out[#out + 1] = "guard " .. tostring(id) .. " " .. (A.Detail >= 2 and ser(data) or ("ws " .. tostring(type(data) == "table" and data.WalkSpeed or "?")))
+					if not ok then
+						add("(" .. label .. " failed: " .. string.sub(tostring(err), 1, 90) .. ")")
 					end
 				end
 
-				out[#out + 1] = "events: " .. string.gsub(tbl4.LiveEvents.Text(), "\n", " | ")
+				-- number / boolean / short string fields of a table, sorted
+				local function fields(t, limit)
+					local parts = {}
 
-				local top = {}
+					for k, v in pairs(t) do
+						local ty = type(v)
 
-				for _, child in ipairs(workspace:GetChildren()) do
-					top[#top + 1] = child.ClassName .. ":" .. child.Name
-				end
-
-				table.sort(top)
-				out[#out + 1] = "workspace children: " .. #top .. (A.Detail >= 2 and (" | " .. string.sub(table.concat(top, ", "), 1, A.Detail >= 3 and 3500 or 1200)) or "")
-
-				pcall(function()
-					local net = game:GetService("ReplicatedStorage").Packages.Networking
-					local remotes = {}
-
-					for _, child in ipairs(net:GetChildren()) do
-						remotes[#remotes + 1] = child.Name
+						if ty == "number" or ty == "boolean" then
+							parts[#parts + 1] = tostring(k) .. "=" .. ser(v)
+						elseif ty == "string" and #v <= 40 and not string.find(v, "rbxasset", 1, true) then
+							parts[#parts + 1] = tostring(k) .. "=" .. ser(v)
+						end
 					end
 
-					table.sort(remotes)
-					out[#out + 1] = "remotes: " .. #remotes .. (A.Detail >= 2 and (" | " .. string.sub(table.concat(remotes, ", "), 1, A.Detail >= 3 and 6000 or 1800)) or "")
+					table.sort(parts)
+					local text = table.concat(parts, " ")
+					return limit and string.sub(text, 1, limit) or text
+				end
+
+				local function keyList(t, limit)
+					local parts = {}
+
+					for k, v in pairs(t) do
+						local ty = type(v)
+						parts[#parts + 1] = tostring(k) .. (ty == "function" and "()" or (ty == "table" and "{}" or ""))
+					end
+
+					table.sort(parts)
+					local text = table.concat(parts, ", ")
+					return limit and string.sub(text, 1, limit) or text
+				end
+
+				-- children grouped by name with counts
+				local function compact(container, limit)
+					local counts, order = {}, {}
+
+					for _, child in ipairs(container:GetChildren()) do
+						local isPlayer = child:IsA("Model") and child:FindFirstChildOfClass("Humanoid") ~= nil
+						local key = isPlayer and "<player/npc model>" or (child.ClassName .. ":" .. child.Name)
+
+						if not counts[key] then
+							counts[key] = 0
+							order[#order + 1] = key
+						end
+						counts[key] += 1
+					end
+
+					table.sort(order)
+					local parts = {}
+
+					for _, key in ipairs(order) do
+						parts[#parts + 1] = counts[key] > 1 and (key .. " x" .. counts[key]) or key
+					end
+
+					local text = table.concat(parts, ", ")
+					return limit and string.sub(text, 1, limit) or text
+				end
+
+				add("MoonEgg full game scan " .. os.date("%Y-%m-%d %H:%M:%S"))
+
+				section("META")
+				try("meta", function()
+					local env = getfenv and getfenv() or _G
+					local caps = {}
+
+					for _, n in ipairs({ "setclipboard", "fireproximityprompt", "setfpscap", "writefile", "readfile", "identifyexecutor", "firesignal", "getrawmetatable", "hookmetamethod", "request" }) do
+						local ok, f = pcall(function()
+							return env[n]
+						end)
+						caps[#caps + 1] = n .. (ok and type(f) == "function" and "+" or "-")
+					end
+
+					local exName = "?"
+
+					if typeof(identifyexecutor) == "function" then
+						local okExec, nameExec = pcall(identifyexecutor)
+						exName = okExec and tostring(nameExec) or "?"
+					end
+
+					add("place " .. tostring(game.PlaceId) .. " job " .. tostring(game.JobId) .. " players " .. #game:GetService("Players"):GetPlayers() .. "/" .. tostring(game:GetService("Players").MaxPlayers))
+					add("exec " .. exName .. " | " .. table.concat(caps, " "))
+					add("gravity " .. tostring(workspace.Gravity) .. " | streaming " .. tostring(workspace.StreamingEnabled) .. " | filtering " .. tostring(workspace.FilteringEnabled))
 				end)
 
-				local scanKeys = { "LineDrop", "StopMode", "Smart", "Stops", "Hops", "HopRatio", "HopLift", "DirectBudget", "DirectMargin", "LineWait", "CarryRatio", "Height", "RunSpeed", "CarryScale" }
-				local cfg = {}
+				section("PLAYER")
+				try("player", function()
+					local attrs = {}
 
-				for _, k in ipairs(scanKeys) do
-					cfg[#cfg + 1] = k .. "=" .. ser(tbl4.SafeCarry[k])
-				end
+					for k, v in pairs(localPlayer:GetAttributes()) do
+						attrs[#attrs + 1] = k .. "=" .. ser(v)
+					end
 
-				out[#out + 1] = "cfg: " .. table.concat(cfg, " ")
-								local text = table.concat(out, "\n")
+					table.sort(attrs)
+					add("attributes: " .. table.concat(attrs, ", "))
+					local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
 
-				local scanCap = A.Detail == 1 and 3200 or (A.Detail == 2 and 8000 or 24000)
+					if humanoid then
+						add(string.format("humanoid: walkspeed=%s jump=%s hip=%s maxslope=%s state=%s health=%s", tostring(humanoid.WalkSpeed), tostring(humanoid.JumpPower), tostring(humanoid.HipHeight), tostring(humanoid.MaxSlopeAngle), tostring(humanoid:GetState()), tostring(humanoid.Health)))
+					end
 
-				if #text > scanCap then
-					text = string.sub(text, 1, scanCap) .. "\n..."
+					add("tbl4.WalkSpeed(): " .. tostring(tbl4.WalkSpeed()))
+
+					local stats = localPlayer:FindFirstChild("leaderstats")
+
+					if stats then
+						local values = {}
+
+						for _, v in ipairs(stats:GetChildren()) do
+							if v:IsA("ValueBase") then
+								values[#values + 1] = v.Name .. "=" .. tostring(v.Value)
+							end
+						end
+
+						add("leaderstats: " .. table.concat(values, ", "))
+					end
+
+					local tools = {}
+
+					for _, t in ipairs(localPlayer.Backpack:GetChildren()) do
+						tools[#tools + 1] = t.Name
+					end
+
+					add("backpack: " .. table.concat(tools, ", "))
+					add("guis: " .. compact(localPlayer.PlayerGui, 900))
+				end)
+
+				section("DELIVERY SETTINGS")
+				try("settings", function()
+					add("safecarry: " .. fields(tbl4.SafeCarry))
+					add("steal: " .. fields(tbl4.Steal))
+					add("antiguard: " .. fields(tbl4.AntiGuard) .. " profile " .. tostring(type(tbl4.AntiGuard.ProfileName) == "function" and select(2, pcall(tbl4.AntiGuard.ProfileName)) or "?"))
+					add("method: " .. tostring(tbl4.Method.Current()) .. " | stats " .. ser(tbl4.MethodStats or {}))
+
+					if A.Last then
+						add("last delivery: " .. string.gsub(string.sub(A.Last, 1, 140), "\n", " | "))
+					end
+				end)
+
+				section("WORLD (workspace)")
+				try("world", function()
+					add("top level: " .. compact(workspace, 2600))
+
+					for _, child in ipairs(workspace:GetChildren()) do
+						if child:IsA("Folder") then
+							add("folder " .. child.Name .. ": " .. compact(child, 700))
+						end
+					end
+
+					local world = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+
+					if world then
+						for _, child in ipairs(world:GetChildren()) do
+							add("world/" .. child.Name .. " (" .. child.ClassName .. "): " .. compact(child, 700))
+						end
+					end
+				end)
+
+				section("AREAS AND LINE")
+				try("areas", function()
+					local root = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+					local areas = root and root:FindFirstChild("Areas")
+
+					if areas then
+						for _, child in ipairs(areas:GetChildren()) do
+							local pos, size = nil, nil
+
+							if child:IsA("BasePart") then
+								pos, size = child.Position, child.Size
+							elseif child:IsA("Model") then
+								pos = child:GetPivot().Position
+								local _, s = child:GetBoundingBox()
+								size = s
+							end
+
+							add(child.Name .. " (" .. child.ClassName .. ") " .. (pos and ser(pos) or "") .. (size and (" size " .. ser(size)) or ""))
+						end
+					end
+
+					if type(tbl4.StealHome) == "function" then
+						local ok, home = pcall(tbl4.StealHome)
+						add("steal home " .. (ok and ser(home) or "?"))
+					end
+				end)
+
+				section("GAME MODULES (client API)")
+				try("modules", function()
+					add("tbl keys: " .. keyList(tbl, 1500))
+
+					for k, v in pairs(tbl) do
+						if type(v) == "table" and k ~= "Assets" and k ~= "Guards" then
+							add(tostring(k) .. ": " .. keyList(v, 600))
+						end
+					end
+
+					-- data tables the client holds: dump the entries (areas, mutations, ...)
+					for _, name in ipairs({ "Areas", "Mutations" }) do
+						local t = tbl[name]
+
+						if type(t) == "table" then
+							local source = type(t.Directory) == "table" and t.Directory or t
+							local shown = 0
+
+							for id, entry in pairs(source) do
+								if shown < 24 then
+									if type(entry) == "table" then
+										shown += 1
+										add(name .. "/" .. tostring(id) .. ": " .. fields(entry, 420) .. " | keys " .. keyList(entry, 200))
+									elseif type(entry) == "number" or type(entry) == "boolean" or type(entry) == "string" then
+										shown += 1
+										add(name .. "/" .. tostring(id) .. " = " .. ser(entry))
+									end
+								end
+							end
+						end
+					end
+				end)
+
+				section("GUARD DATA (per area)")
+				try("guard data", function()
+					local guards = tbl.Guards
+
+					if type(guards) == "table" and type(guards.Directory) == "table" then
+						add("guards table keys: " .. keyList(guards, 400))
+
+						for id, data in pairs(guards.Directory) do
+							if type(data) == "table" then
+								local rarity = type(data.Rarity) == "table" and (tostring(data.Rarity.DisplayName) .. "/rank " .. tostring(data.Rarity.Rank)) or "?"
+								add(tostring(id) .. " [" .. rarity .. "]: " .. fields(data) .. " | other keys: " .. keyList(data, 300))
+							end
+						end
+					end
+				end)
+
+				section("EGGS AND PETS DATA")
+				try("assets", function()
+					local directory = tbl.Assets and tbl.Assets.Directory
+
+					if type(directory) == "table" then
+						local count, byRarity, samples = 0, {}, 0
+
+						for id, data in pairs(directory) do
+							count += 1
+
+							if type(data) == "table" then
+								local r = type(data.Rarity) == "table" and tostring(data.Rarity.DisplayName) or "?"
+								byRarity[r] = (byRarity[r] or 0) + 1
+
+								if samples < 3 and r ~= "?" then
+									samples += 1
+									add("sample " .. tostring(id) .. ": " .. fields(data, 400))
+								end
+							end
+						end
+
+						add("entries " .. count .. " | by rarity " .. ser(byRarity))
+					end
+				end)
+
+				section("FIELD EGGS (now)")
+				try("field", function()
+					local snapshot = tbl.EggState and tbl.EggState.ReadFieldEggs and tbl.EggState.ReadFieldEggs()
+					local records = type(snapshot) == "table" and snapshot.Records or nil
+
+					if type(records) == "table" then
+						local perArea, states, shown = {}, {}, 0
+
+						for _, r in pairs(records) do
+							if type(r) == "table" then
+								local area = tostring(r.AreaId)
+								local e = perArea[area] or { n = 0, min = math.huge, max = 0 }
+								local scale = tonumber(r.AssetScale) or 0
+								e.n += 1
+								e.min = math.min(e.min, scale)
+								e.max = math.max(e.max, scale)
+								perArea[area] = e
+								states[tostring(r.State)] = (states[tostring(r.State)] or 0) + 1
+
+								if shown < 4 then
+									shown += 1
+									add("record: " .. fields(r, 300) .. " pos " .. (typeof(r.BottomCFrame) == "CFrame" and ser(r.BottomCFrame.Position) or "?"))
+								end
+							end
+						end
+
+						for area, e in pairs(perArea) do
+							add(string.format("area %s: %d eggs, scale %.2f to %.2f", area, e.n, e.min == math.huge and 0 or e.min, e.max))
+						end
+
+						add("states " .. ser(states))
+					end
+				end)
+
+				section("REMOTES (by family)")
+				try("remotes", function()
+					local net = game:GetService("ReplicatedStorage").Packages.Networking
+					local families, order = {}, {}
+
+					for _, child in ipairs(net:GetChildren()) do
+						local kind, family, rest = string.match(child.Name, "^(%a+)/([^/]+)/(.+)$")
+
+						if kind then
+							local key = family
+							if not families[key] then
+								families[key] = {}
+								order[#order + 1] = key
+							end
+							families[key][#families[key] + 1] = kind .. ":" .. rest
+						else
+							add("other remote " .. child.Name)
+						end
+					end
+
+					table.sort(order)
+					add("total " .. #net:GetChildren() .. " remotes, " .. #order .. " families")
+
+					for _, key in ipairs(order) do
+						table.sort(families[key])
+						add(key .. ": " .. table.concat(families[key], ", "))
+					end
+				end)
+
+				section("STORAGE AND TUNING MODULES")
+				try("storage", function()
+					local rs = game:GetService("ReplicatedStorage")
+					add("replicated storage: " .. compact(rs, 900))
+
+					local packages = rs:FindFirstChild("Packages")
+
+					if packages then
+						add("packages: " .. compact(packages, 900))
+					end
+
+					local shown = 0
+
+					for _, d in ipairs(rs:GetDescendants()) do
+						if shown < 14 and d:IsA("ModuleScript") then
+							local lower = string.lower(d.Name)
+
+							if string.find(lower, "config", 1, true) or string.find(lower, "constant", 1, true) or string.find(lower, "setting", 1, true) or string.find(lower, "tuning", 1, true) or string.find(lower, "balance", 1, true) or string.find(lower, "guard", 1, true) or string.find(lower, "carry", 1, true) or string.find(lower, "speed", 1, true) then
+								local ok, value = pcall(require, d)
+
+								if ok and type(value) == "table" then
+									shown += 1
+									add("module " .. d:GetFullName() .. ": " .. fields(value, 700))
+								end
+							end
+						end
+					end
+				end)
+
+				section("EVENTS (objects in the world and event remotes)")
+				try("events", function()
+					local patterns = { "event", "arena", "boss", "portal", "chest", "rift", "machine", "butterfl", "beanstalk", "monster", "scramble", "bloom", "tree", "light", "dark" }
+					local found = {}
+
+					for _, child in ipairs(workspace:GetChildren()) do
+						local lower = string.lower(child.Name)
+
+						for _, p in ipairs(patterns) do
+							if string.find(lower, p, 1, true) then
+								local attrs = {}
+
+								for k, v in pairs(child:GetAttributes()) do
+									attrs[#attrs + 1] = k .. "=" .. ser(v)
+								end
+
+								table.sort(attrs)
+								found[#found + 1] = child.ClassName .. ":" .. child.Name .. (#attrs > 0 and (" [" .. string.sub(table.concat(attrs, ", "), 1, 200) .. "]") or "")
+								break
+							end
+						end
+					end
+
+					add(#found > 0 and table.concat(found, "\n") or "no event objects in the workspace right now")
+				end)
+
+				section("GUARDS (live objects)")
+				local guardList = {}
+				try("guards", function()
+					local function consider(model)
+						if model:IsA("Model") and model:GetAttribute("GuardState") ~= nil then
+							guardList[#guardList + 1] = model
+						end
+					end
+
+					for _, child in ipairs(workspace:GetChildren()) do
+						consider(child)
+
+						if child:IsA("Folder") then
+							for _, inner in ipairs(child:GetChildren()) do
+								consider(inner)
+							end
+						end
+					end
+
+					add(#guardList .. " guard objects with a GuardState attribute")
+
+					for _, g in ipairs(guardList) do
+						local attrs = {}
+
+						for k, v in pairs(g:GetAttributes()) do
+							attrs[#attrs + 1] = k .. "=" .. ser(v)
+						end
+
+						table.sort(attrs)
+						local humanoid = g:FindFirstChildOfClass("Humanoid")
+						add(g:GetFullName() .. " at " .. ser(g:GetPivot().Position) .. " | " .. table.concat(attrs, ", ") .. (humanoid and (" | humanoid ws " .. tostring(humanoid.WalkSpeed)) or "") .. " | children: " .. compact(g, 300))
+					end
+				end)
+
+				section("GUARD MOTION (6 s sample)")
+				try("motion", function()
+					local samples = {}
+
+					for _, g in ipairs(guardList) do
+						samples[g] = { last = g:GetPivot().Position, lastT = os.clock(), max = 0, travelled = 0, states = { tostring(g:GetAttribute("GuardState")) }, changes = {} }
+					end
+
+					local startClock = os.clock()
+
+					for _ = 1, 12 do
+						task.wait(0.5)
+
+						for g, s in pairs(samples) do
+							if g.Parent then
+								local now = os.clock()
+								local pos = g:GetPivot().Position
+								local dt = math.max(now - s.lastT, 0.001)
+								local d = (pos - s.last).Magnitude
+								s.travelled += d
+								s.max = math.max(s.max, d / dt)
+								s.last, s.lastT = pos, now
+								local st = tostring(g:GetAttribute("GuardState"))
+
+								if st ~= s.states[#s.states] then
+									s.states[#s.states + 1] = st
+									s.changes[#s.changes + 1] = string.format("t=%.1f %s", now - startClock, st)
+								end
+							end
+						end
+					end
+
+					local me = tbl4.Root()
+
+					for g, s in pairs(samples) do
+						add(string.format("%s: max speed %.1f, avg %.1f studs/s, states %s %s, dist to me %s", g.Name, s.max, s.travelled / 6, table.concat(s.states, ">"), table.concat(s.changes, " "), me and string.format("%.0f", (s.last - me.Position).Magnitude) or "?"))
+					end
+
+					if next(samples) == nil then
+						add("no guard to observe")
+					end
+				end)
+
+				A.Detail = previousDetail
+				local text = table.concat(out, "\n")
+
+				if #text > 60000 then
+					text = string.sub(text, 1, 60000) .. "\n...cut..."
 				end
 
 				A.LastScan = text
@@ -4548,87 +4936,6 @@ do
 						end)
 					end)
 				end)
-			end
-
-			-- live game events: what the server announces, plus event objects present in the world
-			local LE = { Active = {}, Log = {} }
-			tbl4.LiveEvents = LE
-
-			local function eventKey(args)
-				local first = args[1]
-
-				if type(first) == "string" then
-					return first
-				elseif type(first) == "table" then
-					return tostring(first.Id or first.Name or first.EventId or first.Type or first.Event or ser(first))
-				end
-				return ser(args)
-			end
-
-			hook("RE/LiveEvents/Began", function(...)
-				local args = { ... }
-				local key = eventKey(args)
-				LE.Active[key] = { At = os.time(), Text = ser(args) }
-				LE.Log[#LE.Log + 1] = os.date("%H:%M:%S") .. " began " .. key
-				A.Event("liveevent began", args)
-			end)
-
-			hook("RE/LiveEvents/Ended", function(...)
-				local args = { ... }
-				local key = eventKey(args)
-				LE.Active[key] = nil
-				LE.Log[#LE.Log + 1] = os.date("%H:%M:%S") .. " ended " .. key
-				A.Event("liveevent ended", args)
-			end)
-
-			local patterns = { "event", "arena", "boss", "portal", "chest", "rift", "machine", "butterfl", "beanstalk", "monster", "scramble", "bloom", "tree" }
-
-			LE.World = function()
-				local found = {}
-
-				local function visit(container, where)
-					for _, child in ipairs(container:GetChildren()) do
-						local lower = string.lower(child.Name)
-
-						for _, p in ipairs(patterns) do
-							if string.find(lower, p, 1, true) then
-								local attrs = {}
-
-								for k, v in pairs(child:GetAttributes()) do
-									attrs[#attrs + 1] = k .. "=" .. ser(v)
-								end
-
-								table.sort(attrs)
-								found[#found + 1] = where .. "/" .. child.Name .. (#attrs > 0 and (" [" .. string.sub(table.concat(attrs, ", "), 1, 160) .. "]") or "")
-								break
-							end
-						end
-					end
-				end
-
-				visit(workspace, "workspace")
-				pcall(visit, game:GetService("ReplicatedStorage"), "storage")
-				return found
-			end
-
-			LE.Text = function()
-				local lines = {}
-
-				for key, info in pairs(LE.Active) do
-					lines[#lines + 1] = "ACTIVE " .. key .. " (since " .. os.date("%H:%M:%S", info.At) .. ")"
-				end
-
-				table.sort(lines)
-
-				for _, w in ipairs(LE.World()) do
-					lines[#lines + 1] = w
-				end
-
-				for i = math.max(1, #LE.Log - 3), #LE.Log do
-					lines[#lines + 1] = "log " .. LE.Log[i]
-				end
-
-				return #lines > 0 and table.concat(lines, "\n") or "none seen yet"
 			end
 
 			-- ladder memory: which method works on which island
@@ -29886,7 +30193,6 @@ do
 	local tPerf = live:CreateText({ Name = "Performance", Text = "-" })
 	local tActive = live:CreateText({ Name = "Active features", Text = "-" })
 	local tStats = live:CreateText({ Name = "Method results", Text = "-" })
-	local tEvents = live:CreateText({ Name = "Live events", Text = "-" })
 	local analyzerSection = statusTab:CreateSection({ Name = "Analyzer", Expanded = true })
 
 	analyzerSection:CreateToggle({
@@ -29951,13 +30257,14 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Game scan: next part (of 5)",
-		Note = "First press builds the scan and copies part 1",
+		Name = "Game scan: next part",
+		Note = "Say how many parts it has when copying; first press builds it (about 8 s)",
 		ButtonText = "Next",
 		Callback = function()
 			local A = tbl4.Analyzer
 
 			if #A.Queues.scan.Parts == 0 then
+				pcall(tbl4.Notify, "Analyzer", "Scanning the game, about 8 seconds...")
 				A.SetQueue(A.Scan(), "scan")
 			end
 
@@ -29966,10 +30273,11 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Game scan: rebuild",
+		Name = "Game scan: rebuild (about 8 s)",
 		ButtonText = "Rescan",
 		Callback = function()
 			local A = tbl4.Analyzer
+			pcall(tbl4.Notify, "Analyzer", "Scanning the game, about 8 seconds...")
 			A.SetQueue(A.Scan(), "scan")
 			A.CopyNext("scan")
 		end,
@@ -30050,8 +30358,6 @@ do
 
 					lines[#lines + 1] = island .. ": " .. table.concat(parts, ", ")
 				end
-
-				tEvents:Set(string.sub(tbl4.LiveEvents.Text(), 1, 700))
 
 				table.sort(lines)
 				tStats:Set(#lines > 0 and table.concat(lines, "\n") or "no delivery yet (ok/fail)")
