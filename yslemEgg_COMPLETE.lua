@@ -782,7 +782,23 @@ end
 				acc = acc + dt; frames = frames + 1
 				if acc >= 0.5 then
 						hudFps = math.floor(frames / acc + 0.5); acc = 0; frames = 0
-						if hudFps < 30 then lib.AnimAuto = false elseif hudFps >= 45 then lib.AnimAuto = true end
+						lib.T0 = lib.T0 or os.clock()
+						if os.clock() - lib.T0 > 6 then lib.PeakFps = math.max(lib.PeakFps or 0, hudFps) end
+						local ref = lib.RefFps or 60
+
+						if lib.PeakFps then
+							for _, candidate in ipairs({ 30, 60, 90, 120, 144, 165, 240 }) do
+								ref = candidate
+								if candidate >= lib.PeakFps * 0.92 then break end
+							end
+						end
+
+						if lib.RefFps ~= ref then
+							lib.RefFps = ref
+							if lib.OnRefFps then pcall(lib.OnRefFps, ref) end
+						end
+						local lowT, highT = (lib.RefFps or 60) * 0.58, (lib.RefFps or 60) * 0.75
+						if hudFps < lowT then lib.AnimAuto = false elseif hudFps >= highT then lib.AnimAuto = true end
 					end
 			end)
 			hudLabel = label(header, "", UDim2.new(1, -44, 0, 20), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
@@ -4377,7 +4393,7 @@ do
 		end
 
 		-- FPS dip while the delivery is running (restores the FPS Cap slider value afterwards)
-		tbl4.SafeCarry.CarryFps = 20
+		tbl4.SafeCarry.CarryFps = 35
 		tbl4.CarryCap = {
 			Active = false,
 			On = function()
@@ -4387,7 +4403,7 @@ do
 				end
 				cap.Active = true
 				cap.At = os.clock()
-				pcall(setfpscap, math.clamp(math.floor(tonumber(tbl4.SafeCarry.CarryFps) or 20), 5, 60))
+				pcall(setfpscap, math.clamp(math.floor(tonumber(tbl4.SafeCarry.CarryFps) or 35), 5, 240))
 				task.delay(30, function()
 					if cap.Active and os.clock() - cap.At >= 29 then
 						cap.Off()
@@ -4416,16 +4432,34 @@ do
 
 		tbl4.SafeCarry.CarryFpsHandle = sliced8:CreateSlider({
 			Name = "Carry FPS Cap",
-			Note = "Delivery Stop: FPS dip while the egg is carried",
+			Note = "FPS dip while the egg is carried (35 on a 60 FPS screen, scaled automatically on faster ones)",
 			Min = 5,
-			Max = 60,
-			Default = 20,
+			Max = 240,
+			Default = 35,
 			Increment = 1,
 			Unit = " FPS",
 			Callback = function(arg)
-				tbl4.SafeCarry.CarryFps = math.clamp(math.floor(tonumber(arg) or 20), 5, 60)
+				local v = math.clamp(math.floor(tonumber(arg) or 35), 5, 240)
+				tbl4.SafeCarry.CarryFps = v
+				tbl4.SafeCarry.CarryFpsUser = v ~= 35
 			end,
 		})
+
+		-- screen-aware default: 35 FPS on a 60 FPS screen, 70 on 120, and so on (only while the slider is untouched)
+		MoonLib.OnRefFps = function(ref)
+			local sc = tbl4.SafeCarry
+
+			if sc.CarryFpsUser then
+				return
+			end
+			local v = math.clamp(math.floor(ref * 35 / 60 + 0.5), 5, 240)
+			sc.CarryFps = v
+			local handle = sc.CarryFpsHandle
+
+			if handle and type(handle.Set) == "function" then
+				pcall(handle.Set, handle, v, false)
+			end
+		end
 
 		-- ===== analyzer: records every delivery and copies a report to the clipboard =====
 		do
@@ -24967,7 +25001,7 @@ do
 			linkSlider("Go Speed", 50, 120, tbl4.SafeCarry.RunHandle)
 			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
 			linkSlider("Delivery Steps", 1, 6, tbl4.SafeCarry.StopsHandle, "", 3)
-			linkSlider("Carry FPS Cap", 5, 60, tbl4.SafeCarry.CarryFpsHandle, " FPS", 20)
+			linkSlider("Carry FPS Cap", 5, 240, tbl4.SafeCarry.CarryFpsHandle, " FPS", 35)
 
 			local eggs = tab:CreateSection({ Name = "Field Eggs", Expanded = true })
 			local list = Instance.new("Frame")
