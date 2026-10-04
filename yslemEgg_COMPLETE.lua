@@ -5014,6 +5014,187 @@ do
 				return text
 			end
 
+			-- ===== Beanstalk recorder: watch the event while the player does it by hand (read-only) =====
+			A.Beanstalk = function(seconds)
+				seconds = seconds or 60
+
+				if A.BeanBusy then
+					pcall(tbl4.Notify, "Analyzer", "Beanstalk recording already running")
+					return
+				end
+
+				A.BeanBusy = true
+				local out, log, connections = {}, {}, {}
+				local started = os.clock()
+				local match = { "bean", "stalk", "firefl", "cloud", "vine", "seed", "pour", "giant", "castle", "harp", "slide", "escape", "flight", "launch" }
+
+				local function stamp()
+					return string.format("%5.1f", os.clock() - started)
+				end
+
+				local function note(line)
+					if #log < 220 then
+						log[#log + 1] = stamp() .. "s " .. string.sub(line, 1, 200)
+					end
+				end
+
+				local function path(obj)
+					local ok, name = pcall(function()
+						return obj:GetFullName()
+					end)
+					return ok and string.gsub(name, "^Workspace%.", "") or tostring(obj)
+				end
+
+				local function promptLine(prompt)
+					local parent = prompt.Parent
+					local pos = ""
+
+					if parent and parent:IsA("BasePart") then
+						pos = " at " .. ser(parent.Position)
+					elseif parent and parent:IsA("Attachment") then
+						pos = " at " .. ser(parent.WorldPosition)
+					end
+
+					return string.format("prompt %s action=%q object=%q hold=%s dist=%s enabled=%s%s", path(prompt), prompt.ActionText, prompt.ObjectText, tostring(prompt.HoldDuration), tostring(prompt.MaxActivationDistance), tostring(prompt.Enabled), pos)
+				end
+
+				pcall(tbl4.Notify, "Analyzer", "Beanstalk: recording " .. seconds .. " s - do the event by hand now")
+
+				-- every server event of the Beanstalk family
+				local family = false
+				local names = {}
+
+				for _, remote in ipairs(networking:GetChildren()) do
+					if string.find(remote.Name, "BeanstalkEvent", 1, true) then
+						family = true
+						names[#names + 1] = remote.Name
+						if remote:IsA("RemoteEvent") then
+							pcall(function()
+								connections[#connections + 1] = remote.OnClientEvent:Connect(function(...)
+									local parts = {}
+									for i, v in ipairs({ ... }) do
+										parts[i] = ser(v)
+									end
+									note("server->me " .. remote.Name .. "(" .. table.concat(parts, ", ") .. ")")
+								end)
+							end)
+						end
+					end
+				end
+
+				-- prompts the player triggers by hand
+				pcall(function()
+					connections[#connections + 1] = game:GetService("ProximityPromptService").PromptTriggered:Connect(function(prompt)
+						note("TRIGGERED " .. promptLine(prompt))
+					end)
+				end)
+
+				-- new things appearing in the workspace
+				connections[#connections + 1] = workspace.DescendantAdded:Connect(function(obj)
+					local name = string.lower(obj.Name)
+					for _, key in ipairs(match) do
+						if string.find(name, key, 1, true) then
+							note("new " .. obj.ClassName .. " " .. path(obj))
+							return
+						end
+					end
+					if obj:IsA("ProximityPrompt") then
+						note("new " .. promptLine(obj))
+					end
+				end)
+
+				-- player attributes and tools
+				local function watch(owner, label)
+					connections[#connections + 1] = owner.AttributeChanged:Connect(function(attribute)
+						note(label .. " attr " .. attribute .. "=" .. ser(owner:GetAttribute(attribute)))
+					end)
+				end
+
+				pcall(watch, localPlayer, "player")
+				pcall(function()
+					connections[#connections + 1] = localPlayer.Backpack.ChildAdded:Connect(function(c) note("backpack +" .. c.Name) end)
+					connections[#connections + 1] = localPlayer.Backpack.ChildRemoved:Connect(function(c) note("backpack -" .. c.Name) end)
+				end)
+
+				task.spawn(function()
+					local lastArea, positions = nil, {}
+
+					while os.clock() - started < seconds do
+						local character = localPlayer.Character
+						local root = character and character:FindFirstChild("HumanoidRootPart")
+
+						if root and #positions < 70 then
+							positions[#positions + 1] = stamp() .. "s " .. ser(root.Position)
+						end
+
+						local area = localPlayer:GetAttribute("AreaId")
+						if area ~= lastArea then
+							lastArea = area
+							note("area " .. tostring(area))
+						end
+
+						task.wait(1)
+					end
+
+					for _, c in ipairs(connections) do
+						pcall(function() c:Disconnect() end)
+					end
+
+					out[#out + 1] = "MoonEgg Beanstalk recording " .. os.date("%Y-%m-%d %H:%M:%S") .. " (" .. seconds .. " s)"
+					out[#out + 1] = ""
+					out[#out + 1] = "## REMOTES (BeanstalkEvent)"
+					out[#out + 1] = family and table.concat(names, ", ") or "family not found"
+					out[#out + 1] = ""
+					out[#out + 1] = "## EVENT LOG (what the server sent and what I triggered)"
+					for _, l in ipairs(log) do out[#out + 1] = l end
+					if #log == 0 then out[#out + 1] = "nothing happened" end
+
+					out[#out + 1] = ""
+					out[#out + 1] = "## OBJECTS NOW (names matching the event)"
+					local n = 0
+					for _, obj in ipairs(workspace:GetDescendants()) do
+						local name = string.lower(obj.Name)
+						for _, key in ipairs(match) do
+							if string.find(name, key, 1, true) and n < 45 then
+								n += 1
+								local extra = ""
+								if obj:IsA("BasePart") then
+									extra = " " .. ser(obj.Position) .. " size " .. ser(obj.Size)
+								elseif obj:IsA("Model") and obj.PrimaryPart then
+									extra = " " .. ser(obj.PrimaryPart.Position)
+								end
+								out[#out + 1] = obj.ClassName .. " " .. path(obj) .. extra
+								break
+							end
+						end
+					end
+					if n == 0 then out[#out + 1] = "none (the event is probably not running)" end
+
+					out[#out + 1] = ""
+					out[#out + 1] = "## PROMPTS NOW (up to 40)"
+					n = 0
+					for _, obj in ipairs(workspace:GetDescendants()) do
+						if obj:IsA("ProximityPrompt") and n < 40 then
+							n += 1
+							out[#out + 1] = promptLine(obj)
+						end
+					end
+
+					out[#out + 1] = ""
+					out[#out + 1] = "## MY PATH (1 sample per second)"
+					for _, p in ipairs(positions) do out[#out + 1] = p end
+
+					local text = string.gsub(table.concat(out, "\n"), "[^\n\32-\126]", "?")
+					if #text > 9000 then
+						text = string.sub(text, 1, 9000) .. "\n...cut..."
+					end
+
+					A.SetQueue(text, "scan", 1)
+					A.CopyNext("scan")
+					A.BeanBusy = false
+				end)
+			end
+
 			-- server signals: everything that can explain a cancelled delivery
 			local function hook(name, fn)
 				local remote = networking:FindFirstChild(name)
@@ -30394,6 +30575,15 @@ do
 			pcall(tbl4.Notify, "Analyzer", "Scanning, about 8 seconds...")
 			A.SetQueue(A.Scan("missing"), "scan", 1)
 			A.CopyNext("scan")
+		end,
+	})
+
+	analyzerSection:CreateButton({
+		Name = "Beanstalk: record 60 s (1 part)",
+		Note = "Start it, then do the Beanstalk event by hand: it learns the steps for the auto farm",
+		ButtonText = "Record",
+		Callback = function()
+			tbl4.Analyzer.Beanstalk(60)
 		end,
 	})
 
