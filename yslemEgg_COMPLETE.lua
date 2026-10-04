@@ -3798,7 +3798,7 @@ do
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
 			Name = "Delivery Stops",
-			Note = "Instant Steal: pauses on the way to the line",
+			Note = "Delivery Stop mode: stops on the way home, teleport past the guard at each stop",
 			Min = 0,
 			Max = 6,
 			Default = 3,
@@ -3812,8 +3812,12 @@ do
 		tbl4.Method = {
 			Names = { "Normal", "Instant TP", "Delivery Stop" },
 			Current = function()
-				if tbl4.SafeCarry.LineDrop then
+				if tbl4.SafeCarry.StopMode and tbl4.AntiGuard.Enabled and not tbl4.SafeCarry.LineDrop then
 					return "Delivery Stop"
+				end
+
+				if tbl4.SafeCarry.LineDrop then
+					return "Instant Steal"
 				end
 
 				if tbl4.AntiGuard.Enabled then
@@ -3850,12 +3854,11 @@ do
 					sc.SpeedJitter = on and 0 or 0.08
 				end
 
-				if name == "Instant TP" then
+				sc.StopMode = name == "Delivery Stop"
+
+				if name == "Instant TP" or name == "Delivery Stop" then
 					setInstant(false)
 					setGuard(true)
-				elseif name == "Delivery Stop" then
-					setGuard(false)
-					setInstant(true)
 				else
 					setInstant(false)
 					setGuard(false)
@@ -6718,8 +6721,6 @@ do
 						local hopRatio = safeCarry.HopRatio
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
 						local hopDir = x0 > vector.X and -1 or 1
-						local stopsDone = 0
-						local stopsWanted = math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6)
 
 						while math.abs(vector.X - x2) > slicedn20 and steal.Carrying and not slicedfn13(arg) do
 							x2 += hopDir * slicedn20
@@ -6740,26 +6741,6 @@ do
 								end
 
 								slicedn21 += RunService.Heartbeat:Wait()
-							end
-
-							if stopsDone < stopsWanted and math.abs(x2 - x0) / math.max(math.abs(vector.X - x0), 1) >= (stopsDone + 1) / (stopsWanted + 1) then
-								stopsDone += 1
-								str2 = string.format("Line Drop: stop %d/%d", stopsDone, stopsWanted)
-								local stopHeld = 0
-
-								while stopHeld < (tonumber(safeCarry.StopTime) or 0.7) and steal.Carrying and not slicedfn13(arg) do
-									local stopRoot = tbl4.Root()
-
-									if stopRoot then
-										pcall(function()
-											stopRoot.CFrame = CFrame.new(x2, slicedn19, z2) * CFrame.Angles(0, 1.5707963267948966, 0)
-											stopRoot.AssemblyLinearVelocity = Vector3.zero
-											stopRoot.AssemblyAngularVelocity = Vector3.zero
-										end)
-									end
-
-									stopHeld += RunService.Heartbeat:Wait()
-								end
 							end
 						end
 					end
@@ -7089,6 +7070,10 @@ do
 					slicedfn55()
 				end
 
+				local stopStartX = sliced22 and sliced22.Position.X or sliced19.X
+				local stopsDone = 0
+				local stopsWanted = safeCarry.StopMode and math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6) or 0
+
 				while not slicedfn13(arg) do
 					local sliced23 = tbl4.Root()
 					if not sliced23 then
@@ -7143,6 +7128,44 @@ do
 							return false
 						end
 						now = slicedn22
+					end
+
+					if stopsDone < stopsWanted and tbl4.Steal.Carrying then
+						local totalX = stopStartX - sliced19.X
+
+						if totalX > 40 and (stopStartX - sliced23.Position.X) / totalX >= (stopsDone + 1) / (stopsWanted + 1) then
+							stopsDone += 1
+							str2 = string.format("Stop %d/%d: teleport past the guard", stopsDone, stopsWanted)
+							local guardRun = tbl4.AntiGuard
+							local usedGuard = false
+
+							if guardRun.Enabled and type(guardRun.Fire) == "function" then
+								usedGuard = select(2, pcall(guardRun.Fire)) == true
+							end
+
+							local stopStart = os.clock()
+
+							while os.clock() - stopStart < (tonumber(safeCarry.StopTime) or 0.7) and tbl4.Steal.Carrying and not slicedfn13(arg) do
+								local stopRoot = tbl4.Root()
+
+								if stopRoot and not guardRun.Busy then
+									pcall(function()
+										stopRoot.AssemblyLinearVelocity = Vector3.new(0, stopRoot.AssemblyLinearVelocity.Y, 0)
+									end)
+								end
+
+								RunService.Heartbeat:Wait()
+							end
+
+							local guardWait = 0
+
+							while usedGuard and guardRun.Busy and guardWait < 6 and not slicedfn13(arg) do
+								guardWait += RunService.Heartbeat:Wait()
+							end
+
+							now2 = os.clock()
+							continue
+						end
 					end
 
 					local now3 = os.clock()
@@ -23249,12 +23272,13 @@ do
 
 				safeCarry.LineDrop = v == true
 				safeCarry.SpeedJitter = v == true and 0 or 0.08
+				safeCarry.StopMode = false
 				tbl4.UiDefer(slicedfn40)
 			end)
 
 			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
 			modeButton.Label.TextSize = 9
-			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
+			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn, ["Instant Steal"] = tbl14.Hud }
 			local guardHandle = { Name = "Normal" }
 
 			function guardHandle:Set(name)
