@@ -4306,52 +4306,57 @@ do
 
 				A.Last = text
 
-				A.SetQueue(text)
+				A.SetQueue(text, "report")
 
 				if A.Enabled then
-					A.CopyNext()
+					A.CopyNext("report")
 				end
 			end
 
 			-- reports are sent in 4 parts: each press copies the next one and says which it is
-			A.Parts = {}
-			A.NextPart = 1
+			-- two separate queues: the delivery report and the game scan never overwrite each other
+			A.Queues = { report = { Parts = {}, Next = 1 }, scan = { Parts = {}, Next = 1 } }
 
-			A.SetQueue = function(text)
+			A.SetQueue = function(text, which)
+				local q = A.Queues[which or "report"]
 				local size = math.max(1, math.ceil(#text / 4))
-				A.Parts = {}
+				q.Parts = {}
 
 				for k = 1, 4 do
-					A.Parts[k] = string.sub(text, (k - 1) * size + 1, k * size)
+					q.Parts[k] = string.sub(text, (k - 1) * size + 1, k * size)
 				end
 
-				A.NextPart = 1
+				q.Next = 1
 			end
 
-			A.CopyNext = function()
-				if #A.Parts == 0 then
-					pcall(tbl4.Notify, "Analyzer", "Nothing to copy yet")
+			A.CopyNext = function(which)
+				which = which or "report"
+				local q = A.Queues[which]
+				local label = which == "scan" and "scan" or "report"
+
+				if #q.Parts == 0 then
+					pcall(tbl4.Notify, "Analyzer", "No " .. label .. " yet")
 					return false
 				end
 
-				if A.NextPart > 4 then
-					A.NextPart = 1
+				if q.Next > 4 then
+					q.Next = 1
 				end
 
-				local k = A.NextPart
-				local ok = copy(string.format("[%d/4]\n%s", k, A.Parts[k]))
+				local k = q.Next
+				local ok = copy(string.format("[%s %d/4]\n%s", label, k, q.Parts[k]))
 
 				if not ok then
 					pcall(tbl4.Notify, "Analyzer", "Copy is not available on this executor")
 					return false
 				end
 
-				A.NextPart = k + 1
+				q.Next = k + 1
 
 				if k < 4 then
-					pcall(tbl4.Notify, "Analyzer", string.format("Part %d/4 copied. Paste it, then press Copy next part", k))
+					pcall(tbl4.Notify, "Analyzer", string.format("%s part %d/4 copied. Paste it, then press the same button", label, k))
 				else
-					pcall(tbl4.Notify, "Analyzer", "Part 4/4 copied. All parts done")
+					pcall(tbl4.Notify, "Analyzer", label .. " part 4/4 copied. All parts done")
 				end
 				return true
 			end
@@ -29781,24 +29786,23 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Copy next part (of 4)",
+		Name = "Delivery report: next part (of 4)",
 		Note = "Says which part was copied; press again for the next one",
 		ButtonText = "Next",
 		Callback = function()
-			tbl4.Analyzer.CopyNext()
+			tbl4.Analyzer.CopyNext("report")
 		end,
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Last delivery report",
-		Note = "Loads it in 4 parts and copies part 1",
+		Name = "Delivery report: restart at part 1",
 		ButtonText = "Part 1",
 		Callback = function()
 			local text = tbl4.Analyzer.Last
 
 			if text then
-				tbl4.Analyzer.SetQueue(text)
-				tbl4.Analyzer.CopyNext()
+				tbl4.Analyzer.SetQueue(text, "report")
+				tbl4.Analyzer.CopyNext("report")
 			else
 				pcall(tbl4.Notify, "Analyzer", "No delivery recorded yet")
 			end
@@ -29806,12 +29810,27 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Game scan",
-		ButtonText = "Copy",
-		ConfirmText = "Copied",
+		Name = "Game scan: next part (of 4)",
+		Note = "First press builds the scan and copies part 1",
+		ButtonText = "Next",
 		Callback = function()
-			tbl4.Analyzer.SetQueue(tbl4.Analyzer.Scan())
-			tbl4.Analyzer.CopyNext()
+			local A = tbl4.Analyzer
+
+			if #A.Queues.scan.Parts == 0 then
+				A.SetQueue(A.Scan(), "scan")
+			end
+
+			A.CopyNext("scan")
+		end,
+	})
+
+	analyzerSection:CreateButton({
+		Name = "Game scan: rebuild",
+		ButtonText = "Rescan",
+		Callback = function()
+			local A = tbl4.Analyzer
+			A.SetQueue(A.Scan(), "scan")
+			A.CopyNext("scan")
 		end,
 	})
 
