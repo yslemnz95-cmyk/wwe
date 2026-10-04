@@ -4473,7 +4473,7 @@ do
 					if ok then
 						Tune.JumpCap = math.min(1e6, math.max(Tune.JumpCap, jumped.Longest) * 1.3)
 					elseif rejected then
-						Tune.JumpCap = math.max(150, math.min(Tune.JumpCap, jumped.Longest) * 0.6)
+						Tune.JumpCap = math.max(40, math.min(Tune.JumpCap, jumped.Longest) * 0.6)
 						Tune.JumpGap = math.min(0.4, Tune.JumpGap + 0.05)
 						A.Event("tune", string.format("jump cap %d, gap %.2f", Tune.JumpCap, Tune.JumpGap))
 					end
@@ -8015,6 +8015,21 @@ do
 						if untilImpulse and A.ImpulseAt >= started then
 							return nil, true
 						end
+
+						if A.RelocateAt >= started then
+							-- server pulled us back: stop fighting it, let the character settle
+							local settle = 0
+							while settle < 0.35 and not slicedfn13(arg) do
+								local here = tbl4.Root()
+								if here then
+									pcall(function()
+										here.AssemblyLinearVelocity = Vector3.zero
+									end)
+								end
+								settle += RunService.Heartbeat:Wait()
+							end
+							return nil, false, true
+						end
 						local current = tbl4.Root()
 
 						if not current then
@@ -8042,6 +8057,7 @@ do
 				local tune = tbl4.Tune
 				local stop = reach > 0 and reach * 0.85 or 0
 				local longest = 0
+				local retries = 0
 				tune.Jumped = { Longest = 0 }
 				local height = math.max(root.Position.Y, home.Y) + 42
 
@@ -8075,10 +8091,25 @@ do
 					longest = math.max(longest, step)
 					tune.Jumped.Longest = longest
 					str2 = string.format("Instant TP: jumping %d studs", math.floor(step + 0.5))
-					local result, boosted = hold(landing, last and 0.8 or tune.JumpGap, last)
+					local result, boosted, pulled = hold(landing, last and 0.8 or tune.JumpGap, last)
 
 					if result ~= nil then
 						return result
+					end
+
+					if pulled then
+						retries += 1
+						tune.JumpCap = math.max(35, step * 0.5)
+						str2 = string.format("Instant TP: pulled back, hops now %d studs", math.floor(tune.JumpCap))
+						if retries > 8 then
+							return false
+						end
+						local back = tbl4.Root()
+						if not back then
+							return false
+						end
+						flat = Vector3.new(back.Position.X - home.X, 0, back.Position.Z - home.Z)
+						continue
 					end
 
 					if boosted then
@@ -8114,7 +8145,7 @@ do
 					if here2 then
 						flat = Vector3.new(here2.Position.X - home.X, 0, here2.Position.Z - home.Z)
 					end
-					local safeHop = 110
+					local safeHop = math.min(110, tune.JumpCap)
 					while flat.Magnitude > 6 and not slicedfn13(arg) do
 						local step2 = math.min(flat.Magnitude, safeHop)
 						local last2 = step2 >= flat.Magnitude - 1
@@ -8123,9 +8154,18 @@ do
 						local landY2 = last2 and (ground2 and ground2 + 3 or home.Y + 3) or (ground2 and math.max(ground2 + 5, home.Y + 5) or home.Y + 5)
 						local landing2 = CFrame.new(ahead2.X, landY2, ahead2.Z) * rotation
 						str2 = string.format("Instant TP: final %d studs", math.floor(step2 + 0.5))
-						local result2 = hold(landing2, last2 and 1.0 or 0.15, false)
+						local result2, _, pulled2 = hold(landing2, last2 and 1.0 or 0.15, false)
 						if result2 ~= nil then
 							return result2
+						end
+						if pulled2 then
+							retries += 1
+							safeHop = math.max(30, step2 * 0.5)
+							tune.JumpCap = safeHop
+							str2 = string.format("Instant TP: pulled back, hops now %d studs", math.floor(safeHop))
+							if retries > 14 then
+								return false
+							end
 						end
 						here2 = tbl4.Root()
 						if not here2 then
