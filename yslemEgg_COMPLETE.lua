@@ -3797,7 +3797,7 @@ do
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
 			Name = "Delivery Stops",
-			Note = "Delivery Stop mode: stops on the way home, teleport past the guard at each stop",
+			Note = "Delivery Stop mode: the teleport hops pause this many times on the way",
 			Min = 0,
 			Max = 6,
 			Default = 3,
@@ -3811,12 +3811,8 @@ do
 		tbl4.Method = {
 			Names = { "Normal", "Instant TP", "Delivery Stop" },
 			Current = function()
-				if tbl4.SafeCarry.StopMode and tbl4.AntiGuard.Enabled and not tbl4.SafeCarry.LineDrop then
-					return "Delivery Stop"
-				end
-
 				if tbl4.SafeCarry.LineDrop then
-					return "Instant Steal"
+					return tbl4.SafeCarry.StopMode and "Delivery Stop" or "Instant Steal"
 				end
 
 				if tbl4.AntiGuard.Enabled then
@@ -3855,7 +3851,10 @@ do
 
 				sc.StopMode = name == "Delivery Stop"
 
-				if name == "Instant TP" or name == "Delivery Stop" then
+				if name == "Delivery Stop" then
+					setGuard(false)
+					setInstant(true)
+				elseif name == "Instant TP" then
 					setInstant(false)
 					setGuard(true)
 				else
@@ -6717,6 +6716,9 @@ do
 						local x2 = sliced22.Position.X
 						local hopRatio = safeCarry.HopRatio
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
+						local hopStartX = x2
+						local hopStops = 0
+						local hopStopsWanted = safeCarry.StopMode and math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6) or 0
 
 						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
 							x2 -= slicedn20
@@ -6735,6 +6737,26 @@ do
 								end
 
 								slicedn21 += RunService.Heartbeat:Wait()
+							end
+
+							if hopStops < hopStopsWanted and (hopStartX - x2) / math.max(hopStartX - vector.X, 1) >= (hopStops + 1) / (hopStopsWanted + 1) then
+								hopStops += 1
+								str2 = string.format("Delivery stop %d/%d", hopStops, hopStopsWanted)
+								local held = 0
+
+								while held < (tonumber(safeCarry.StopTime) or 0.7) and steal.Carrying and not slicedfn13(arg) do
+									local stopRoot = tbl4.Root()
+
+									if stopRoot then
+										pcall(function()
+											stopRoot.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
+											stopRoot.AssemblyLinearVelocity = Vector3.zero
+											stopRoot.AssemblyAngularVelocity = Vector3.zero
+										end)
+									end
+
+									held += RunService.Heartbeat:Wait()
+								end
 							end
 						end
 					end
@@ -7064,10 +7086,6 @@ do
 					slicedfn55()
 				end
 
-				local stopStartX = sliced22 and sliced22.Position.X or sliced19.X
-				local stopsDone = 0
-				local stopsWanted = safeCarry.StopMode and math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6) or 0
-
 				while not slicedfn13(arg) do
 					local sliced23 = tbl4.Root()
 					if not sliced23 then
@@ -7122,44 +7140,6 @@ do
 							return false
 						end
 						now = slicedn22
-					end
-
-					if stopsDone < stopsWanted and tbl4.Steal.Carrying then
-						local totalX = stopStartX - sliced19.X
-
-						if totalX > 40 and (stopStartX - sliced23.Position.X) / totalX >= (stopsDone + 1) / (stopsWanted + 1) then
-							stopsDone += 1
-							str2 = string.format("Stop %d/%d: teleport past the guard", stopsDone, stopsWanted)
-							local guardRun = tbl4.AntiGuard
-							local usedGuard = false
-
-							if guardRun.Enabled and type(guardRun.Fire) == "function" then
-								usedGuard = select(2, pcall(guardRun.Fire)) == true
-							end
-
-							local stopStart = os.clock()
-
-							while os.clock() - stopStart < (tonumber(safeCarry.StopTime) or 0.7) and tbl4.Steal.Carrying and not slicedfn13(arg) do
-								local stopRoot = tbl4.Root()
-
-								if stopRoot and not guardRun.Busy then
-									pcall(function()
-										stopRoot.AssemblyLinearVelocity = Vector3.new(0, stopRoot.AssemblyLinearVelocity.Y, 0)
-									end)
-								end
-
-								RunService.Heartbeat:Wait()
-							end
-
-							local guardWait = 0
-
-							while usedGuard and guardRun.Busy and guardWait < 6 and not slicedfn13(arg) do
-								guardWait += RunService.Heartbeat:Wait()
-							end
-
-							now2 = os.clock()
-							continue
-						end
 					end
 
 					local now3 = os.clock()
