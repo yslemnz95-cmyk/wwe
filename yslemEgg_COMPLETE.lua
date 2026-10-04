@@ -7666,7 +7666,7 @@ do
 				local tbl22 = nil
 
 				local function slicedfn54()
-					if tbl22 or not currentCamera or safeCarry.StopMode or safeCarry.Teleport then
+					if tbl22 or not currentCamera or safeCarry.StopMode then
 						return
 					end
 					tbl22 = { Type = currentCamera.CameraType, CFrame = currentCamera.CFrame }
