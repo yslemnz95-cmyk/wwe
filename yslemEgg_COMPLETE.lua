@@ -209,7 +209,7 @@ do
 	end
 	TH.runHooks = function(list)
 		for _, fn in ipairs(TH.hooks) do
-			pcall(fn, function(c) return TH.mapColor(list, c) end, function(q) return TH.mapSeq(list, q) end)
+			pcall(fn, function(c) return TH.mapColor(list, c) end, function(q) return TH.mapSeq(list, q) end, function(root) TH.recolor(root, list) end)
 		end
 	end
 end
@@ -24636,13 +24636,17 @@ do
 						total += 16 + #group.Names * 28
 					end
 
-					branch = Instance.new("Frame")
+					branch = Instance.new("ScrollingFrame")
 					branch.Name = "ModeBranch"
+					branch.CanvasSize = UDim2.new(0, 0, 0, total)
+					branch.ScrollBarThickness = 3
+					branch.ScrollBarImageColor3 = U.C.MOON
+					branch.ScrollingDirection = Enum.ScrollingDirection.Y
 					branch.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 					branch.BackgroundTransparency = 0.2
 					branch.BorderSizePixel = 0
 					branch.Position = UDim2.new(0, 8, 0, 126)
-					branch.Size = UDim2.new(1, -16, 0, total)
+					branch.Size = UDim2.new(1, -16, 0, math.min(total, 220))
 					branch.ZIndex = 60
 					branch.Visible = false
 					U.corner(branch, 8)
@@ -29567,6 +29571,15 @@ render(true)
 antiGuard.ShowPanel = function(arg)
 	ScreenGui.Enabled = arg == true
 end
+
+MoonLib.ThemeHooks[#MoonLib.ThemeHooks + 1] = function(mapColor, mapSeq, recolorTree)
+	for _, key in ipairs({ "Card", "CardTop", "Stroke", "AccentA", "AccentB" }) do
+		tbl15[key] = mapColor(tbl15[key])
+	end
+	pcall(recolorTree, ScreenGui)
+	pcall(render, false)
+end
+MoonLib.RunThemeHooksFrom("Moon")
 
 ScreenGui.Enabled = antiGuard.PanelShown == true
 ScreenGui.Parent = hui
