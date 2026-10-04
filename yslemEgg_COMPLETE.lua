@@ -185,13 +185,13 @@ local _liveAny = {}
 local _liveTick = 0
 RunService.RenderStepped:Connect(function()
 	_liveTick = _liveTick + 1
-	if _liveTick % 3 ~= 0 then return end
+	if _liveTick % 6 ~= 0 then return end
 	for root, list in pairs(_live) do
 		if root.Parent then
 			if root.Visible then
 				for k = 1, #list do
 					local g = list[k]
-					if g.Parent then g.Rotation = (g.Rotation + 1.8) % 360 end
+					if g.Parent then g.Rotation = (g.Rotation + 3.6) % 360 end
 				end
 			end
 		else
@@ -200,7 +200,7 @@ RunService.RenderStepped:Connect(function()
 	end
 	for k = 1, #_liveAny do
 		local g = _liveAny[k]
-		if g.Parent then g.Rotation = (g.Rotation + 1.8) % 360 end
+		if g.Parent then g.Rotation = (g.Rotation + 3.6) % 360 end
 	end
 end)
 local function registerLive(g, inst)
@@ -4153,7 +4153,7 @@ do
 				end
 
 				tbl4.MethodApplying = true
-				local hops = name ~= "Normal"
+				local hops = name == "Delivery Stop"
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name ~= "Normal"
@@ -8359,7 +8359,7 @@ do
 			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
-				if antiGuard.Enabled and not tbl4.SafeCarry.LineDrop then
+				if antiGuard.Enabled and (not tbl4.SafeCarry.LineDrop or tbl4.SafeCarry.Teleport) then
 					local slicedn17 = 0
 
 					while not antiGuard.Busy and slicedn17 < 1 and not slicedfn13(arg) do
@@ -8595,6 +8595,7 @@ do
 				local attemptAt = os.clock()
 				A.Event("attempt", mode)
 				local okCall, callResult = pcall(deliverOnce, arg)
+				pcall(tbl4.CarryCap.Off)
 				local ok = okCall and callResult == true
 
 				if not okCall then
@@ -8629,6 +8630,7 @@ do
 					sc.DirectMargin = math.max(1.0, (tonumber(sc.DirectMargin) or 1.2) - 0.05)
 				end
 
+				tbl4.LastFail = (not ok) and {Reason = reason, Detail = tostring(str2), Mode = mode, At = os.clock()} or nil
 				pcall(A.Finish, ok, reason)
 				return ok
 			end
@@ -24388,11 +24390,11 @@ do
 			local bar = Instance.new("Frame")
 			bar.Name = "Bar"
 			bar.BackgroundTransparency = 1
-			bar.Size = UDim2.new(1, 0, 0, 82)
+			bar.Size = UDim2.new(1, 0, 0, 98)
 			bar.Position = UDim2.new(0, 0, 0, 66)
 			bar.Parent = win.content
-			page.Position = UDim2.new(0, 0, 0, 148)
-			page.Size = UDim2.new(1, 0, 1, -148)
+			page.Position = UDim2.new(0, 0, 0, 164)
+			page.Size = UDim2.new(1, 0, 1, -164)
 
 			-- hero card: picture of the strongest egg on the field right now
 			local hero = Instance.new("Frame")
@@ -24637,6 +24639,12 @@ do
 				ticks[i] = tick
 			end
 
+			local failLabel = U.label(bar, "", UDim2.new(1, -16, 0, 14), U.C.RED, Enum.Font.GothamMedium)
+			failLabel.Position = UDim2.new(0, 8, 0, 82)
+			failLabel.TextSize = 8.5
+			failLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			failLabel.Visible = false
+
 			local shownStops = -1
 
 			local function updateStrip()
@@ -24674,6 +24682,14 @@ do
 				end
 
 				phaseText.Text = text
+				local failure = tbl4.LastFail
+
+				if failure and os.clock() - failure.At < 20 then
+					failLabel.Text = "Failed (" .. tostring(failure.Mode) .. "): " .. tostring(failure.Reason) .. " - " .. tostring(failure.Detail)
+					failLabel.Visible = true
+				else
+					failLabel.Visible = false
+				end
 				fill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
 
 
@@ -29385,7 +29401,7 @@ do
 		huge2 += deltaTime
 		local idle = not antiGuard.Enabled and not antiGuard.Busy
 
-		if huge >= (idle and 12 or 3) then
+		if huge >= (idle and 30 or 6) then
 			huge = 0
 			pcall(slicedfn29)
 		end
@@ -30064,7 +30080,7 @@ do
 		local flag5
 
 		if enabled then
-			flag5 = not (tbl4.SafeCarry.LineDrop and tbl4.Steal.Active)
+			flag5 = not (tbl4.SafeCarry.LineDrop and not tbl4.SafeCarry.Teleport and tbl4.Steal.Active)
 		else
 			flag5 = enabled
 		end
