@@ -3808,6 +3808,77 @@ do
 			end,
 		})
 
+		-- three delivery methods, always derived from the real switches (no hidden state)
+		tbl4.Method = {
+			Names = { "Normal", "Instant TP", "Delivery Stop" },
+			Current = function()
+				if tbl4.SafeCarry.LineDrop then
+					return "Delivery Stop"
+				end
+
+				if tbl4.AntiGuard.Enabled then
+					return "Instant TP"
+				end
+				return "Normal"
+			end,
+			Apply = function(name)
+				local sc = tbl4.SafeCarry
+				local ag = tbl4.AntiGuard
+
+				local function setGuard(on)
+					local handle = ag.Handle
+
+					if handle and type(handle.Set) == "function" then
+						pcall(handle.Set, handle, on)
+					end
+					ag.Enabled = on
+
+					if ag.Render and tbl4.UiDefer then
+						tbl4.UiDefer(function()
+							pcall(ag.Render, false)
+						end)
+					end
+				end
+
+				local function setInstant(on)
+					local handle = sc.InstantHandle
+
+					if handle and type(handle.Set) == "function" then
+						pcall(handle.Set, handle, on)
+					end
+					sc.LineDrop = on
+					sc.SpeedJitter = on and 0 or 0.08
+				end
+
+				if name == "Instant TP" then
+					setInstant(false)
+					setGuard(true)
+				elseif name == "Delivery Stop" then
+					setGuard(false)
+					setInstant(true)
+				else
+					setInstant(false)
+					setGuard(false)
+				end
+
+				if tbl4.StealPanelSync then
+					pcall(tbl4.StealPanelSync)
+				end
+			end,
+		}
+
+		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
+			Name = "Delivery Method",
+			Note = "Normal / Instant TP (Anti Guard) / Delivery Stop",
+			Options = tbl4.Method.Names,
+			Default = "Normal",
+			Callback = function(arg)
+				if tbl4.MethodReady and table.find(tbl4.Method.Names, arg) and tbl4.Method.Current() ~= arg then
+					tbl4.Method.Apply(arg)
+				end
+			end,
+		})
+
 		tbl4.AntiGuard.Handle = sliced2:CreateState({ Name = "Anti Guard Enabled", Default = false })
 
 		pcall(function()
@@ -22523,11 +22594,16 @@ do
 				tbl16.ToggleHandle:Set(sliced20, false)
 			end
 
-			local guardOn = tbl4.SafeCarry.LineDrop == true
+			local method = tbl4.Method.Current()
 
-			if tbl16.GuardOn ~= guardOn then
-				tbl16.GuardOn = guardOn
-				tbl16.GuardHandle:Set(guardOn, false)
+			if tbl16.Mode ~= method then
+				tbl16.Mode = method
+				tbl16.GuardHandle:Set(method)
+				local methodHandle = tbl4.SafeCarry.MethodHandle
+
+				if methodHandle and type(methodHandle.Set) == "function" then
+					pcall(methodHandle.Set, methodHandle, method, false)
+				end
 			end
 
 			if tbl16.SortShown ~= sliced4 then
@@ -23154,16 +23230,24 @@ do
 				tbl4.UiDefer(slicedfn40)
 			end)
 
-			local guardHandle = makeSwitchButton("Instant Steal", UDim2.new(0.5, 3, 0, 4), function(v)
-				local safeCarry = tbl4.SafeCarry
-				local instantHandle = safeCarry.InstantHandle
+			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 36), UDim2.new(0.5, 3, 0, 4), nil, tbl14.Queued)
+			modeButton.Label.TextSize = 11.5
+			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
+			local guardHandle = { Name = "Normal" }
 
-				if instantHandle and type(instantHandle.Set) == "function" then
-					pcall(instantHandle.Set, instantHandle, v == true)
+			function guardHandle:Set(name)
+				if not modeStyles[name] then
+					return
 				end
+				self.Name = name
+				slicedfn31(modeButton, modeStyles[name])
+				modeButton.Label.Text = "Mode: " .. name
+			end
 
-				safeCarry.LineDrop = v == true
-				safeCarry.SpeedJitter = v == true and 0 or 0.08
+			modeButton.Button.Activated:Connect(function()
+				local names = tbl4.Method.Names
+				local nextName = names[(table.find(names, tbl4.Method.Current()) or 0) % #names + 1]
+				tbl4.Method.Apply(nextName)
 				tbl4.UiDefer(slicedfn40)
 			end)
 
@@ -23467,6 +23551,7 @@ do
 
 		tbl4.RestoreStealPanel = function()
 			flagReady = true
+			tbl4.MethodReady = true
 			if sliced18:Get() ~= true then
 				return
 			end
