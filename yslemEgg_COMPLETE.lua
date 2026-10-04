@@ -8061,7 +8061,7 @@ do
 				tune.Jumped = { Longest = 0 }
 				local height = math.max(root.Position.Y, home.Y) + 42
 
-				-- real ground under a landing point (never lands inside the terrain or over the void)
+				-- solid ground under a point (nil over water / void, so we only ever land on islands)
 				local function groundAt(x, z)
 					local params = RaycastParams.new()
 					params.FilterType = Enum.RaycastFilterType.Exclude
@@ -8075,19 +8075,74 @@ do
 					return nil
 				end
 
-				while flat.Magnitude > stop + 8 and not slicedfn13(arg) do
-					local step = math.min(flat.Magnitude - stop, tune.JumpCap)
-					local last = step >= flat.Magnitude - stop - 1
-					local ahead = home + flat.Unit * (flat.Magnitude - step)
-					local ground = groundAt(ahead.X, ahead.Z)
-					local landingY = height
+				local function solidAt(x, z)
+					local y = groundAt(x, z)
 
-					if ground then
-						landingY = last and ground + 4 or math.max(ground + 8, home.Y + 8)
-					elseif last then
-						landingY = home.Y + 40
+					if not y then
+						return nil
 					end
-					local landing = CFrame.new(ahead.X, landingY, ahead.Z) * rotation
+
+					for _, off in ipairs({ Vector3.new(5, 0, 0), Vector3.new(-5, 0, 0), Vector3.new(0, 0, 5), Vector3.new(0, 0, -5) }) do
+						local y2 = groundAt(x + off.X, z + off.Z)
+
+						if not y2 or math.abs(y2 - y) > 12 then
+							return nil
+						end
+					end
+					return y
+				end
+
+				-- best island spot within `cap` studs that gets us closer to the base (never over water)
+				local function pickLanding(from, minDist, cap)
+					local curDist = Vector3.new(from.X - home.X, 0, from.Z - home.Z).Magnitude
+					local toward = Vector3.new(home.X - from.X, 0, home.Z - from.Z)
+
+					if toward.Magnitude < 1 then
+						return nil
+					end
+					toward = toward.Unit
+					local best, bestDist, bestAngle = nil, math.huge, 0
+
+					for _, radius in ipairs({ cap, cap * 0.8, cap * 0.6, cap * 0.45, cap * 0.3, 20 }) do
+						for _, deg in ipairs({ 0, 12, -12, 25, -25, 40, -40, 55, -55, 70, -70, 85, -85 }) do
+							local rad = math.rad(deg)
+							local dir = Vector3.new(toward.X * math.cos(rad) - toward.Z * math.sin(rad), 0, toward.X * math.sin(rad) + toward.Z * math.cos(rad))
+							local spot = from + dir * math.min(radius, curDist)
+							local dist = Vector3.new(spot.X - home.X, 0, spot.Z - home.Z).Magnitude
+
+							if dist <= curDist - 8 and dist >= minDist - 6 then
+								local y = solidAt(spot.X, spot.Z)
+
+								if y and (dist < bestDist - 2 or (dist < bestDist + 2 and math.abs(deg) < math.abs(bestAngle))) then
+									best, bestDist, bestAngle = Vector3.new(spot.X, y, spot.Z), dist, deg
+								end
+							end
+						end
+					end
+					return best
+				end
+
+				while flat.Magnitude > stop + 8 and not slicedfn13(arg) do
+					local cur = tbl4.Root()
+
+					if not cur then
+						return false
+					end
+					local cap = math.min(flat.Magnitude - stop, tune.JumpCap)
+					local pick = pickLanding(cur.Position, stop, cap)
+
+					if not pick then
+						retries += 1
+						tune.JumpCap = math.max(30, tune.JumpCap * 0.6)
+
+						if retries > 8 then
+							break
+						end
+						continue
+					end
+					local step = (Vector3.new(pick.X, 0, pick.Z) - Vector3.new(cur.Position.X, 0, cur.Position.Z)).Magnitude
+					local last = Vector3.new(pick.X - home.X, 0, pick.Z - home.Z).Magnitude <= stop + 10
+					local landing = CFrame.new(pick.X, pick.Y + 4, pick.Z) * rotation
 					longest = math.max(longest, step)
 					tune.Jumped.Longest = longest
 					str2 = string.format("Instant TP: jumping %d studs", math.floor(step + 0.5))
@@ -8147,12 +8202,30 @@ do
 					end
 					local safeHop = math.min(110, tune.JumpCap)
 					while flat.Magnitude > 6 and not slicedfn13(arg) do
-						local step2 = math.min(flat.Magnitude, safeHop)
-						local last2 = step2 >= flat.Magnitude - 1
-						local ahead2 = home + flat.Unit * (flat.Magnitude - step2)
-						local ground2 = groundAt(ahead2.X, ahead2.Z)
-						local landY2 = last2 and (ground2 and ground2 + 3 or home.Y + 3) or (ground2 and math.max(ground2 + 5, home.Y + 5) or home.Y + 5)
-						local landing2 = CFrame.new(ahead2.X, landY2, ahead2.Z) * rotation
+						local cur2 = tbl4.Root()
+
+						if not cur2 then
+							return false
+						end
+						local pick2 = pickLanding(cur2.Position, 0, math.min(flat.Magnitude, safeHop))
+						local homeGround = solidAt(home.X, home.Z)
+
+						if flat.Magnitude <= safeHop and homeGround then
+							pick2 = Vector3.new(home.X, homeGround, home.Z)
+						end
+
+						if not pick2 then
+							retries += 1
+							safeHop = math.max(30, safeHop * 0.6)
+
+							if retries > 14 then
+								return false
+							end
+							continue
+						end
+						local step2 = (Vector3.new(pick2.X, 0, pick2.Z) - Vector3.new(cur2.Position.X, 0, cur2.Position.Z)).Magnitude
+						local last2 = Vector3.new(pick2.X - home.X, 0, pick2.Z - home.Z).Magnitude < 6
+						local landing2 = CFrame.new(pick2.X, pick2.Y + 3.5, pick2.Z) * rotation
 						str2 = string.format("Instant TP: final %d studs", math.floor(step2 + 0.5))
 						local result2, _, pulled2 = hold(landing2, last2 and 1.0 or 0.15, false)
 						if result2 ~= nil then
