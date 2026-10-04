@@ -1622,7 +1622,7 @@ end
 		main.Select((cfg and cfg.MainTab and cfg.MainTab.name) or main.order[1])
 		main.frame.Visible = true
 		buildDock()
-		if lib.Intro then lib.Intro() end
+		task.delay(0.3, function() if lib.IntroOn ~= false and lib.Intro then lib.Intro() end end)
 		task.delay(3, function() lib.ParticlesOn = true end)
 		UIS.InputBegan:Connect(function(inp, gp)
 			if gp then return end
@@ -28125,6 +28125,19 @@ do
 			if MoonLib.SetTheme then
 				MoonLib.SetTheme(arg)
 			end
+		end,
+	})
+
+	local introToggle
+	introToggle = sliced14:CreateToggle({
+		Name = "Intro Animation",
+		Note = "The orb animation at startup",
+		Default = true,
+		Callback = function(arg)
+			if type(arg) ~= "boolean" then
+				arg = tbl4.Toggle(introToggle, true)
+			end
+			MoonLib.IntroOn = arg == true
 		end,
 	})
 
