@@ -7458,6 +7458,7 @@ do
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
 						local hopStartX = x2
 						local hopStops = 0
+						local hopRetries = 0
 						local hopStopsWanted = safeCarry.StopMode and not safeCarry.Straight and math.clamp(math.floor(tonumber(safeCarry.Stops) or 3) - 1, 0, 5) or 0
 
 						-- a clone stays where the egg was taken, the lag starts here
@@ -7483,6 +7484,36 @@ do
 								end
 
 								slicedn21 += RunService.Heartbeat:Wait()
+							end
+
+							-- failure detection: the server pulled us back (Relocate) or the body is far behind the hop target
+							local checkRoot = tbl4.Root()
+							local pulledBack = flag3 or (checkRoot ~= nil and checkRoot.Position.X - x2 > 10)
+
+							if pulledBack and steal.Carrying and not slicedfn13(arg) then
+								flag3 = false
+								hopRetries += 1
+								pcall(tbl4.Analyzer.Event, "pullback", string.format("retry %d at x=%.0f", hopRetries, x2))
+
+								if hopRetries <= 6 then
+									str2 = string.format("Delivery Stop: pulled back, retry %d/6 with smaller hops", hopRetries)
+									tbl4.Trip = { Phase = "Hopping", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops + 1, Stops = hopStopsWanted + 1, At = os.clock() }
+									local settleT = 0
+
+									while settleT < 0.25 and not slicedfn13(arg) do
+										settleT += RunService.Heartbeat:Wait()
+									end
+
+									local realRoot = tbl4.Root()
+
+									if realRoot then
+										x2 = math.min(realRoot.Position.X, hopStartX)
+									end
+									slicedn20 = math.max(slicedn20 * 0.75, 25)
+									continue
+								else
+									str2 = "Delivery Stop: pulled back too often, finishing from here"
+								end
 							end
 
 							if hopStops < hopStopsWanted and (hopStartX - x2) / math.max(hopStartX - vector.X, 1) >= (hopStops + 1) / (hopStopsWanted + 1) then
