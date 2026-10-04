@@ -246,7 +246,7 @@ local function pressFx(btn)
 	local function tw(v, t, es)
 		TweenService:Create(sc, TweenInfo.new(t, es or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = v}):Play()
 	end
-	btn.MouseButton1Down:Connect(function() tw(0.92, 0.08) end)
+	btn.MouseButton1Down:Connect(function() tw(0.92, 0.08); if lib.Sound then lib.Sound("click") end end)
 	btn.MouseButton1Up:Connect(function() tw(1, 0.24, Enum.EasingStyle.Back) end)
 	btn.MouseLeave:Connect(function() tw(1, 0.15) end)
 	return function() sc.Scale = 1.14; tw(1, 0.36, Enum.EasingStyle.Back) end
@@ -498,6 +498,37 @@ end
 		setStored("Theme", name)
 	end
 
+	lib.SoundOn = true
+	local sounds = {}
+	lib.Sound = function(kind)
+		if lib.SoundOn == false or not lib.ParticlesOn then return end
+		pcall(function()
+			local snd = sounds[kind]
+			if not snd or not snd.Parent then
+				snd = Instance.new("Sound")
+				snd.Volume = kind == "click" and 0.25 or 0.35
+				snd.SoundId = kind == "click" and "rbxasset://sounds/switch.wav" or "rbxasset://sounds/electronicpingshort.wav"
+				snd.PlaybackSpeed = kind == "close" and 0.8 or (kind == "open" and 1.15 or 1)
+				snd.Parent = gui
+				sounds[kind] = snd
+			end
+			snd:Play()
+		end)
+	end
+
+	-- ---------- global panel transparency ----------
+	lib.PanelAlpha = 0
+	lib.SetPanelAlpha = function(t)
+		t = math.clamp(tonumber(t) or 0, 0, 0.6)
+		lib.PanelAlpha = t
+		for _, w in ipairs(lib.windows or {}) do
+			if w.IsMinimized and not w.IsMinimized() then
+				w.frame.BackgroundTransparency = t
+				if w.header then w.header.BackgroundTransparency = t end
+			end
+		end
+	end
+
 	-- ---------- intro: an orb grows, shows the name, then flies up to the top bar ----------
 	lib.Intro = function()
 		task.spawn(function()
@@ -627,6 +658,7 @@ end
 
 	-- ---------- window ----------
 	local windows = {}
+	lib.windows = windows
 	local function newWindow(cfg)
 		local w = {tabs = {}, order = {}, current = nil, name = cfg.name}
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
@@ -788,6 +820,30 @@ end
 			liveGrad(hudLabel, true)
 			hudHint = label(header, "tap to open", UDim2.new(1, -44, 0, 12), C.SILVER, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
 			hudHint.Position = UDim2.new(0, 38, 0, 24); hudHint.TextSize = 8.5; hudHint.Visible = false
+			local tripStroke = Instance.new("UIStroke", frame)
+			tripStroke.Thickness = 2.5; tripStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			tripStroke.Color = C.MOON2; tripStroke.Enabled = false
+			local tripGrad = Instance.new("UIGradient", tripStroke)
+			task.spawn(function()
+				while frame.Parent do
+					task.wait(0.1)
+					local prog, kind = nil, nil
+					if minimized and lib.TripStatus then
+						local ok, a, b = pcall(lib.TripStatus)
+						if ok then prog, kind = a, b end
+					end
+					if prog then
+						prog = math.clamp(prog, 0.02, 0.99)
+						tripGrad.Transparency = NumberSequence.new({
+							NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(prog, 0),
+							NumberSequenceKeypoint.new(math.min(prog + 0.002, 0.999), 1), NumberSequenceKeypoint.new(1, 1)})
+						tripStroke.Color = kind == "fail" and C.RED or (kind == "done" and C.GREEN or C.MOON2)
+						tripStroke.Enabled = true
+					else
+						tripStroke.Enabled = false
+					end
+				end
+			end)
 			task.spawn(function()
 				while frame.Parent do
 					task.wait(0.5)
@@ -857,9 +913,9 @@ end
 				else
 					hudLabel.Visible = false; hudHint.Visible = false
 					title.Visible = true; mini.Visible = true; close.Visible = true
-					header.BackgroundTransparency = 0
+					header.BackgroundTransparency = lib.PanelAlpha
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
+						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = lib.PanelAlpha}):Play()
 					content.Visible = true; sep.Visible = true
 					if tabBar then tabBar.Visible = true end
 					mini.Text = "-"
@@ -879,6 +935,7 @@ end
 			end
 		end
 		w.SetMinimized = setMinimized
+		w.IsMinimized = function() return minimized end
 		mini.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
 		do
 			local tapAt
@@ -898,6 +955,7 @@ end
 		local closing = 0
 		function w.SetOpen(on)
 			on = on == true
+			if lib.Sound and on ~= w.IsOpen() then lib.Sound(on and "open" or "close") end
 			closing = closing + 1
 			local mine = closing
 			if on and minimized and not cfg.isMain then minimized = false; mini.Text = "-" end
@@ -4273,6 +4331,29 @@ do
 			if sliced5 and type(sliced5.Set) == "function" then
 				pcall(sliced5.Set, sliced5, v == true)
 			end
+		end
+
+		MoonLib.TripStatus = function()
+			local now = os.clock()
+			local sc = tbl4.SafeCarry
+
+			if sc.LastFailed and now - sc.LastFailed < 3 and sc.LastFailed > (sc.LastDelivered or 0) then
+				return 1, "fail"
+			end
+
+			if sc.LastDelivered and now - sc.LastDelivered < 2 then
+				return 1, "done"
+			end
+			local trip = tbl4.Trip
+
+			if trip and now - (trip.At or 0) < 1.5 then
+				return trip.Progress or 0, "run"
+			end
+
+			if tbl4.Steal.Carrying then
+				return 0.03, "run"
+			end
+			return nil
 		end
 
 		-- emergency stop: Auto Steal off, delivery cancelled, FPS dip and Speed Boost released
@@ -24372,6 +24453,10 @@ do
 				local hero = tbl4.Hero
 				if hero and hero.Name and hero.Name.Parent then
 					hero.Name.Text = sliced21 and tostring(sliced21.Style.Name) or "None"
+
+					if hero.Grad and sliced21 and typeof(sliced21.Style.GradientColor) == "ColorSequence" then
+						hero.Grad.Color = sliced21.Style.GradientColor
+					end
 					hero.Value.Text = sliced21 and slicedfn21(sliced21.Value) or ""
 				end
 
@@ -24504,7 +24589,7 @@ do
 			heroValue.Position = UDim2.new(0, 64, 0, 38)
 			heroValue.TextSize = 11
 			imageLabel = heroIcon
-			tbl4.Hero = { Name = heroName, Value = heroValue }
+			tbl4.Hero = { Name = heroName, Value = heroValue, Grad = U.liveGrad(heroName, true) }
 
 			local function makeSwitchButton(text, pos, onChange)
 				local btn = mkBtn(bar, text .. ": OFF", UDim2.new(0.5, -11, 0, 26), pos, nil, tbl14.Queued)
@@ -28124,6 +28209,34 @@ do
 		Callback = function(arg)
 			if MoonLib.SetTheme then
 				MoonLib.SetTheme(arg)
+			end
+		end,
+	})
+
+	local soundToggle
+	soundToggle = sliced14:CreateToggle({
+		Name = "Interface Sounds",
+		Note = "Soft click and open/close sounds",
+		Default = true,
+		Callback = function(arg)
+			if type(arg) ~= "boolean" then
+				arg = tbl4.Toggle(soundToggle, true)
+			end
+			MoonLib.SoundOn = arg == true
+		end,
+	})
+
+	sliced14:CreateSlider({
+		Name = "Panel Transparency",
+		Note = "Makes every panel more or less see-through",
+		Min = 0,
+		Max = 60,
+		Default = 0,
+		Increment = 1,
+		Unit = "%",
+		Callback = function(arg)
+			if MoonLib.SetPanelAlpha then
+				MoonLib.SetPanelAlpha((tonumber(arg) or 0) / 100)
 			end
 		end,
 	})
