@@ -7424,6 +7424,7 @@ do
 						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
 							x2 -= slicedn20
 							tbl4.Trip = { Phase = "Hopping", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops + 1, Stops = hopStopsWanted + 1, At = os.clock() }
+							pcall(tbl4.Analyzer.Event, "hop", string.format("x=%.0f", x2))
 							str2 = string.format("Line Drop: hopping home, X %d", math.floor(x2))
 							local slicedn21 = 0
 
@@ -7444,6 +7445,7 @@ do
 							if hopStops < hopStopsWanted and (hopStartX - x2) / math.max(hopStartX - vector.X, 1) >= (hopStops + 1) / (hopStopsWanted + 1) then
 								hopStops += 1
 								str2 = string.format("Delivery step %d/%d", hopStops, hopStopsWanted + 1)
+								pcall(tbl4.Analyzer.Event, "step", string.format("%d/%d at x=%.0f", hopStops, hopStopsWanted + 1, x2))
 
 								local function tripStop()
 									tbl4.Trip = { Phase = "Stop", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted + 1, At = os.clock() }
@@ -7464,6 +7466,8 @@ do
 										ground = hit.Position
 									end
 								end
+
+								pcall(tbl4.Analyzer.Event, "ground", ground ~= nil and string.format("y=%.1f", ground.Y) or "none")
 
 								if ground and carryUid then
 									-- go down to the ground, drop the egg, take it back, climb back to the lane
