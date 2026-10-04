@@ -7653,10 +7653,11 @@ do
 				local tbl22 = nil
 
 				local function slicedfn54()
-					if tbl22 or not currentCamera or safeCarry.StopMode then
+					if tbl22 or not currentCamera or safeCarry.StopMode or safeCarry.Teleport then
 						return
 					end
 					tbl22 = { Type = currentCamera.CameraType, CFrame = currentCamera.CFrame }
+					tbl4.CameraFrozen = tbl22.Type
 
 					pcall(function()
 						currentCamera.CameraType = Enum.CameraType.Scriptable
@@ -7670,6 +7671,7 @@ do
 					end
 					local sliced21 = tbl22
 					tbl22 = nil
+					tbl4.CameraFrozen = nil
 
 					pcall(function()
 						currentCamera.CameraType = sliced21.Type
@@ -8732,6 +8734,18 @@ do
 				A.Event("attempt", mode)
 				local okCall, callResult = pcall(deliverOnce, arg)
 				pcall(tbl4.CarryCap.Off)
+
+				if tbl4.CameraFrozen then
+					local cam = workspace.CurrentCamera
+					local savedType = tbl4.CameraFrozen
+					tbl4.CameraFrozen = nil
+
+					if cam then
+						pcall(function()
+							cam.CameraType = savedType
+						end)
+					end
+				end
 				local ok = okCall and callResult == true
 
 				if not okCall then
