@@ -870,20 +870,125 @@ end
 			corner(arrowBtn, 14); addLivingStroke(arrowBtn, 1.5); liveGrad(arrowBtn)
 			arrowBtn.MouseButton1Click:Connect(function() w.SetMinimized(false) end)
 		end
+		-- dust forge: the panel builds itself from small stroked tiles and dust, and folds back into the top bar
+		local forgeToken = 0
+		local function forge(mode)
+			forgeToken = forgeToken + 1
+			local mine = forgeToken
+			local old = gui:FindFirstChild("Forge_" .. tostring(cfg.name))
+			if old then old:Destroy() end
+
+			if mode == "in" then frame.Visible = true; updateArrow() end
+			local pos, size = frame.AbsolutePosition, frame.AbsoluteSize
+
+			if size.X < 20 or size.Y < 20 then
+				frame.Visible = mode == "in"
+				updateArrow()
+				return
+			end
+			local box = Instance.new("Folder", gui)
+			box.Name = "Forge_" .. tostring(cfg.name)
+			local cols = 6
+			local tw = size.X / cols
+			local rows = math.max(5, math.floor(size.Y / tw + 0.5))
+			local th = size.Y / rows
+			local center = pos + size / 2
+			local maxDist = (size / 2).Magnitude
+			local tiles = {}
+
+			for r = 0, rows - 1 do
+				for c = 0, cols - 1 do
+					local tile = Instance.new("Frame", box)
+					tile.BorderSizePixel = 0
+					tile.BackgroundColor3 = C.BG
+					tile.ZIndex = 800
+					tile.AnchorPoint = Vector2.new(0.5, 0.5)
+					tile.Size = UDim2.fromOffset(tw + 1, th + 1)
+					local home = pos + Vector2.new((c + 0.5) * tw, (r + 0.5) * th)
+					tile.Position = UDim2.fromOffset(home.X, home.Y)
+					local ts = Instance.new("UIStroke", tile)
+					ts.Color = C.DEEP4; ts.Thickness = 1; ts.Transparency = 0.2
+					tiles[#tiles + 1] = {Frame = tile, Stroke = ts, Home = home, Delay = (home - center).Magnitude / maxDist}
+				end
+			end
+
+			local function dust(count, fromOutside)
+				for i = 1, count do
+					local d = Instance.new("Frame", box)
+					d.Size = UDim2.fromOffset(3, 3); d.AnchorPoint = Vector2.new(0.5, 0.5)
+					d.BorderSizePixel = 0; d.ZIndex = 801
+					d.BackgroundColor3 = i % 2 == 0 and C.MOON2 or C.DEEP4
+					local inside = Vector2.new(pos.X + math.random() * size.X, pos.Y + math.random() * size.Y)
+					local outside = inside + Vector2.new(math.random(-90, 90), math.random(-90, 90))
+					local a, b = inside, outside
+					if fromOutside then a, b = outside, inside end
+					d.Position = UDim2.fromOffset(a.X, a.Y)
+					d.BackgroundTransparency = fromOutside and 0.2 or 0.6
+					TweenService:Create(d, TweenInfo.new(0.5 + math.random() * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						Position = UDim2.fromOffset(b.X, b.Y), BackgroundTransparency = fromOutside and 0.9 or 1}):Play()
+				end
+			end
+
+			if mode == "in" then
+				dust(18, true)
+
+				for _, t in ipairs(tiles) do
+					task.delay(t.Delay * 0.45 + math.random() * 0.1, function()
+						if forgeToken ~= mine then return end
+						TweenService:Create(t.Frame, TweenInfo.new(0.26, Enum.EasingStyle.Quad), {
+							BackgroundTransparency = 1, Size = UDim2.fromOffset(tw * 0.35, th * 0.35)}):Play()
+						TweenService:Create(t.Stroke, TweenInfo.new(0.26), {Transparency = 1}):Play()
+					end)
+				end
+				task.delay(0.95, function()
+					if forgeToken == mine then box:Destroy() end
+					updateArrow()
+				end)
+			else
+				for _, t in ipairs(tiles) do
+					t.Frame.BackgroundTransparency = 1
+					t.Frame.Size = UDim2.fromOffset(tw * 0.35, th * 0.35)
+					t.Stroke.Transparency = 1
+					task.delay((1 - t.Delay) * 0.3 + math.random() * 0.08, function()
+						if forgeToken ~= mine then return end
+						TweenService:Create(t.Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+							BackgroundTransparency = 0, Size = UDim2.fromOffset(tw + 1, th + 1)}):Play()
+						TweenService:Create(t.Stroke, TweenInfo.new(0.2), {Transparency = 0.2}):Play()
+					end)
+				end
+				dust(10, false)
+				task.delay(0.5, function()
+					if forgeToken ~= mine then return end
+					frame.Visible = false
+					local target = Vector2.new(gui.AbsoluteSize.X / 2, 18)
+
+					for _, t in ipairs(tiles) do
+						local jitter = Vector2.new(math.random(-40, 40), math.random(-6, 6))
+						TweenService:Create(t.Frame, TweenInfo.new(0.45 + math.random() * 0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+							Position = UDim2.fromOffset(target.X + jitter.X, target.Y + jitter.Y),
+							Size = UDim2.fromOffset(4, 4), BackgroundTransparency = 0.6}):Play()
+						TweenService:Create(t.Stroke, TweenInfo.new(0.5), {Transparency = 0.8}):Play()
+					end
+					task.delay(0.8, function()
+						if forgeToken == mine then box:Destroy() end
+						updateArrow()
+					end)
+				end)
+			end
+		end
+
 		local function setMinimized(on)
 			minimized = on
 			if not cfg.isMain then
 				if on then
 					ov.Visible = false
-					frame.Visible = false
+					forge("out")
 				else
 					zTop = zTop + 1; frame.ZIndex = zTop
-					winScale.Scale = 0.9
-					frame.Visible = true
-					TweenService:Create(winScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+					winScale.Scale = 1
 					mini.Text = "-"
+					forge("in")
 				end
-				updateArrow()
 				return
 			end
 			if cfg.isMain then
