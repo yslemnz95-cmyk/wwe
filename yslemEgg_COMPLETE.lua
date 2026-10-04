@@ -7249,6 +7249,8 @@ do
 
 				local slicedn17 = math.clamp(z + sliced19.Lane, -425, -300)
 				local slicedn18 = position.Y + 3
+				-- coming back from the base side: always on the ground, in run
+				local runHeight = str3 == "safe" and 0 or safeCarry.RunHeight
 
 				local function slicedfn54(arg3)
 					local sliced22 = tbl4.Root()
@@ -7274,10 +7276,10 @@ do
 				end
 
 				local function slicedfn55()
-					if safeCarry.RunHeight <= 0.5 then
+					if runHeight <= 0.5 then
 						return
 					end
-					slicedfn54(slicedn18 + safeCarry.RunHeight)
+					slicedfn54(slicedn18 + runHeight)
 				end
 
 				if str3 == "field" then
@@ -7294,7 +7296,7 @@ do
 					local magnitude = vector.Magnitude
 					local unit = magnitude > 0.01 and vector.Unit or Vector3.zero
 
-					if safeCarry.RunHeight > 0.5 and str3 == "field" and not arg6 then
+					if runHeight > 0.5 and str3 == "field" and not arg6 then
 						local runSpeed = safeCarry.Cap(safeCarry.RunSpeed)
 						local slicedn19 = math.max(tbl4.WalkSpeed() * runSpeed * arg5, 8)
 						local slicedn20 = math.clamp(safeCarry.ClimbShare, 0.1, 0.9)
@@ -7306,7 +7308,7 @@ do
 							end
 						end
 
-						local slicedn21 = magnitude2 <= 3 and slicedn18 or slicedn18 + safeCarry.RunHeight
+						local slicedn21 = magnitude2 <= 3 and slicedn18 or slicedn18 + runHeight
 						if math.abs(slicedn21 - arg3.Position.Y) > 2 and slicedfn54(slicedn21) then
 							return
 						end
@@ -7360,7 +7362,7 @@ do
 					local now4 = os.clock()
 					local slicedn19 = math.max(now4 - now2, 0.0041666666666666666)
 					local vector = Vector3.new(position.X - sliced22.Position.X, 0, position.Z - sliced22.Position.Z)
-					if str3 == "field" and vector.Magnitude <= 2.5 and (safeCarry.RunHeight <= 0.5 or sliced22.Position.Y - slicedn18 < 4) then
+					if str3 == "field" and vector.Magnitude <= 2.5 and (runHeight <= 0.5 or sliced22.Position.Y - slicedn18 < 4) then
 						break
 					end
 					local sliced23, sliced24, flag3 = sliced19.Step(slicedn19, humanoid, humanoid and humanoid.FloorMaterial ~= Enum.Material.Air)
@@ -7380,7 +7382,7 @@ do
 						str2 = "Walking out to the safe zone"
 						vector2 = sliced20
 					else
-						if not safeCarry.StraightRun and safeCarry.RunHeight <= 0.5 and math.abs(position.X - sliced22.Position.X) > 25 then
+						if not safeCarry.StraightRun and runHeight <= 0.5 and math.abs(position.X - sliced22.Position.X) > 25 then
 							vector2 = Vector3.new(position.X, position.Y, math.clamp(slicedn17 + sliced24, -425, -300))
 						end
 
