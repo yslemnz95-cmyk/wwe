@@ -8051,7 +8051,7 @@ do
 					params.FilterType = Enum.RaycastFilterType.Exclude
 					params.FilterDescendantsInstances = { character, tbl4.StealClone }
 					params.IgnoreWater = true
-					local hit = workspace:Raycast(Vector3.new(x, height + 150, z), Vector3.new(0, -700, 0), params)
+					local hit = workspace:Raycast(Vector3.new(x, 2000, z), Vector3.new(0, -4000, 0), params)
 
 					if hit and hit.Material ~= Enum.Material.Water then
 						return hit.Position.Y
@@ -8108,12 +8108,31 @@ do
 					end
 				end
 
-				-- stage 2: straight onto the base, held until the verdict
-				str2 = "Instant TP: jumping onto the base"
-				local result = hold(CFrame.new(home + Vector3.new(0, 3, 0)) * rotation, 1.2, false)
-
-				if result ~= nil then
-					return result
+				-- stage 2: approach home in safe hops (≤ 110 studs, well below Desert's ~130 which works reliably)
+				do
+					local here2 = tbl4.Root()
+					if here2 then
+						flat = Vector3.new(here2.Position.X - home.X, 0, here2.Position.Z - home.Z)
+					end
+					local safeHop = 110
+					while flat.Magnitude > 6 and not slicedfn13(arg) do
+						local step2 = math.min(flat.Magnitude, safeHop)
+						local last2 = step2 >= flat.Magnitude - 1
+						local ahead2 = home + flat.Unit * (flat.Magnitude - step2)
+						local ground2 = groundAt(ahead2.X, ahead2.Z)
+						local landY2 = last2 and (ground2 and ground2 + 3 or home.Y + 3) or (ground2 and math.max(ground2 + 5, home.Y + 5) or home.Y + 5)
+						local landing2 = CFrame.new(ahead2.X, landY2, ahead2.Z) * rotation
+						str2 = string.format("Instant TP: final %d studs", math.floor(step2 + 0.5))
+						local result2 = hold(landing2, last2 and 1.0 or 0.15, false)
+						if result2 ~= nil then
+							return result2
+						end
+						here2 = tbl4.Root()
+						if not here2 then
+							return false
+						end
+						flat = Vector3.new(here2.Position.X - home.X, 0, here2.Position.Z - home.Z)
+					end
 				end
 
 				if tbl4.Steal.Carrying then
