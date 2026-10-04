@@ -4403,7 +4403,7 @@ do
 				end
 
 				if type(setfpscap) == "function" then
-					pcall(setfpscap, math.clamp(math.floor(normal), 30, 1000))
+					pcall(setfpscap, math.clamp(math.floor(normal), 5, 1000))
 				end
 			end,
 		}
@@ -7336,12 +7336,29 @@ do
 					local tpChar = localPlayer.Character
 
 					if tpRoot and tpChar then
-						str2 = "Go Method: jumping in front of the egg"
+						str2 = "Go Method: first jump, half way"
+						local startPos = tpRoot.Position
+						local halfway = Vector3.new((startPos.X + position.X) / 2, slicedn18, (startPos.Z + position.Z) / 2)
 						pcall(function()
-							tpChar:PivotTo(CFrame.new(position.X, slicedn18, position.Z) * tpRoot.CFrame.Rotation)
+							tpChar:PivotTo(CFrame.new(halfway) * tpRoot.CFrame.Rotation)
 							tpRoot.AssemblyLinearVelocity = Vector3.zero
 							tpRoot.AssemblyAngularVelocity = Vector3.zero
 						end)
+						local pause = 0
+
+						while pause < 0.18 and not slicedfn13(arg2) do
+							pause += RunService.Heartbeat:Wait()
+						end
+						tpRoot = tbl4.Root()
+
+						if tpRoot then
+							str2 = "Go Method: second jump, in front of the egg"
+							pcall(function()
+								tpChar:PivotTo(CFrame.new(position.X, slicedn18, position.Z) * tpRoot.CFrame.Rotation)
+								tpRoot.AssemblyLinearVelocity = Vector3.zero
+								tpRoot.AssemblyAngularVelocity = Vector3.zero
+							end)
+						end
 						str3 = "field"
 						RunService.Heartbeat:Wait()
 					end
@@ -28239,14 +28256,14 @@ do
 
 	tbl4.FpsCapHandle = sliced14:CreateSlider({
 		Name = "FPS Cap",
-		Min = 30,
+		Min = 5,
 		Max = 1000,
 		Default = 240,
 		AllowDecimals = false,
 		Increment = 1,
 		Unit = " FPS",
 		Callback = function(arg)
-			local slicedn14 = math.clamp(math.floor(tonumber(arg) or 240), 30, 1000)
+			local slicedn14 = math.clamp(math.floor(tonumber(arg) or 240), 5, 1000)
 			if type(setfpscap) == "function" and pcall(setfpscap, slicedn14) then
 				flag4 = false
 				return
