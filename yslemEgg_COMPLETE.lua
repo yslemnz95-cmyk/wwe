@@ -3957,7 +3957,7 @@ do
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
 			Name = "Delivery Steps",
-			Note = "Delivery Stop: stops on the way home (1 = straight hop, no stop)",
+			Note = "Delivery Stop: stops on the way home. 3 is recommended; fewer steps is possible but the chance it works drops (1 = no stop)",
 			Min = 1,
 			Max = 6,
 			Default = 3,
