@@ -4171,9 +4171,9 @@ do
 
 		-- three delivery modes. The mode is the only switch for the hops: Instant TP hops home the moment the egg is
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
-		-- Go Method: how the character reaches the egg (Fly = Chilli's tween above the ground, Run = on the ground, TP = jump in front of it)
+		-- Go Method: how the character reaches the egg (Fly = Chilli's tween above the ground, Run = on the ground)
 		tbl4.GoMethod = {
-			Names = { "Run", "Fly", "TP" },
+			Names = { "Run", "Fly" },
 			Current = function()
 				return tbl4.SafeCarry.GoMethod or "Fly"
 			end,
@@ -4305,7 +4305,7 @@ do
 
 		tbl4.SafeCarry.GoHandle = sliced8:CreateDropdown({
 			Name = "Go Method",
-			Note = "How you reach the egg: Run (ground), Fly (above the ground), TP (jump in front of the egg)",
+			Note = "How you reach the egg: Run (on the ground) or Fly (above the ground)",
 			Options = tbl4.GoMethod.Names,
 			Default = "Fly",
 			Callback = function(arg)
@@ -7329,41 +7329,6 @@ do
 							end
 						end
 					end)
-				end
-
-				if safeCarry.GoMethod == "TP" then
-					local tpRoot = tbl4.Root()
-					local tpChar = localPlayer.Character
-
-					if tpRoot and tpChar then
-						str2 = "Go Method: first jump, half way"
-						pcall(tbl4.CarryCap.On)
-						local startPos = tpRoot.Position
-						local halfway = Vector3.new((startPos.X + position.X) / 2, slicedn18, (startPos.Z + position.Z) / 2)
-						pcall(function()
-							tpChar:PivotTo(CFrame.new(halfway) * tpRoot.CFrame.Rotation)
-							tpRoot.AssemblyLinearVelocity = Vector3.zero
-							tpRoot.AssemblyAngularVelocity = Vector3.zero
-						end)
-						local pause = 0
-
-						while pause < 0.18 and not slicedfn13(arg2) do
-							pause += RunService.Heartbeat:Wait()
-						end
-						tpRoot = tbl4.Root()
-
-						if tpRoot then
-							str2 = "Go Method: second jump, in front of the egg"
-							pcall(function()
-								tpChar:PivotTo(CFrame.new(position.X, slicedn18, position.Z) * tpRoot.CFrame.Rotation)
-								tpRoot.AssemblyLinearVelocity = Vector3.zero
-								tpRoot.AssemblyAngularVelocity = Vector3.zero
-							end)
-						end
-						str3 = "field"
-						RunService.Heartbeat:Wait()
-						pcall(tbl4.CarryCap.Off)
-					end
 				end
 
 				while os.clock() - now < 240 do
