@@ -7607,6 +7607,7 @@ do
 			end
 
 			tbl4.SafeCarry.LineDropHome = function(arg)
+				if MoonLib.ReleaseCamera then pcall(MoonLib.ReleaseCamera) end
 				local safeCarry = tbl4.SafeCarry
 				local steal = tbl4.Steal
 				local carryUid = steal.CarryUid
@@ -8164,7 +8165,7 @@ do
 
 				local slicedn22 = 0
 
-				while not slicedfn13(arg) and slicedn22 < 4 do
+				while not slicedfn13(arg) and slicedn22 < 6 do
 					slicedn22 += 1
 					local sliced22 = slicedfn48(carryUid)
 
@@ -8209,15 +8210,17 @@ do
 
 						if safeCarry.SnapPickup then
 							local sliced24 = tbl4.Root()
+							sliced22 = slicedfn48(carryUid) or sliced22
 
-							if sliced24 and Vector3.new(sliced24.Position.X - sliced22.X, 0, sliced24.Position.Z - sliced22.Z).Magnitude > 6 then
+							if sliced24 and Vector3.new(sliced24.Position.X - sliced22.X, 0, sliced24.Position.Z - sliced22.Z).Magnitude > 3 then
 								pcall(function()
 									sliced24.CFrame = CFrame.new(sliced22 + Vector3.new(0, 3, 0)) * CFrame.Angles(0, 1.5707963267948966, 0)
+									sliced24.AssemblyLinearVelocity = Vector3.zero
 								end)
 							end
 						end
 
-						slicedn24 += task.wait(0.15)
+						slicedn24 += task.wait(safeCarry.SnapPickup and 0.1 or 0.15)
 					end
 
 					if steal.Carrying and not steal.WrongEgg(carryUid) then
@@ -29840,6 +29843,11 @@ do
 		arg2 = arg2 or Vector3.zero
 		local disguise = { Camera = currentCamera, CameraType = currentCamera.CameraType, CameraCFrame = currentCamera.CFrame, Copies = {}, Hidden = {} }
 		tbl18.Disguise = disguise
+		task.delay(14, function()
+			if tbl18.Disguise == disguise then
+				slicedfn24()
+			end
+		end)
 		local tbl19 = { arg }
 		local ok, result = pcall(slicedfn23)
 
@@ -29900,6 +29908,10 @@ do
 				disguise.Copies[#disguise.Copies + 1] = result2
 			end
 		end
+	end
+
+	MoonLib.ReleaseCamera = function()
+		slicedfn24()
 	end
 
 	slicedfn24 = function()
