@@ -29297,7 +29297,7 @@ do
 			{ At = 0.75, To = "start" },
 		},
 		ReleaseAt = 0.8,
-		WeldScanGap = 0.1,
+		WeldScanGap = 0.03,
 		BusyLimit = 2.5,
 	}
 
@@ -29328,7 +29328,7 @@ do
 			HoldRandom = 0.395,
 			Steps = tbl15,
 			ReleaseAt = arg5,
-			WeldScanGap = 0.1,
+			WeldScanGap = 0.03,
 			BusyLimit = arg6,
 		}
 	end
@@ -29839,23 +29839,16 @@ do
 	end
 
 	tbl17[#tbl17 + 1] = RunService.RenderStepped:Connect(function(deltaTime)
-		if not ScreenGui.Enabled then
-			return
-		end
-
-		if tbl18.Disguise then
-			slicedfn24()
-		end
+		slicedfn24()
 		huge += deltaTime
 		huge2 += deltaTime
-		local idle = not antiGuard.Enabled and not antiGuard.Busy
 
-		if huge >= (idle and 30 or 6) then
+		if huge >= 3 then
 			huge = 0
 			pcall(slicedfn29)
 		end
 
-		if huge2 >= (idle and 3 or 0.25) then
+		if huge2 >= 0.2 then
 			huge2 = 0
 			pcall(slicedfn31)
 		end
@@ -29888,32 +29881,8 @@ slicedfn21(UIScale2, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
 local slicedfn23
 
 slicedfn23 = function()
-	if not antiGuard.Enabled or not tbl4.Steal.Active then
-		return nil
-	end
 	local sliced10 = tbl4.Root()
 	if not sliced10 then
-		return nil
-	end
-	local okJ, joints = pcall(sliced10.GetJoints, sliced10)
-	if okJ and type(joints) == "table" then
-		for _, joint in ipairs(joints) do
-			local ok, p0, p1 = pcall(function()
-				return joint.Part0, joint.Part1
-			end)
-			if ok then
-				local other = p0 == sliced10 and p1 or p0
-				if other and other ~= sliced10 then
-					local model = other
-					while model and model.Parent ~= workspace do
-						model = model.Parent
-					end
-					if model and model:IsA("Model") and model:FindFirstChild("Hitbox") then
-						return model
-					end
-				end
-			end
-		end
 		return nil
 	end
 
@@ -30170,31 +30139,15 @@ do
 		return areaId
 	end
 
-	-- per-island profile: name (letters only, lower case) -> config name.
-	-- Early islands keep the classic hop system; the last islands (Light Dark (Angels and Demons), Titan Temple,
-	-- Enchanted Forest and any island added later) share the Light Dark line system.
-	local tbl19 = { lightdark = "LightDark", titantemple = "LightDark", enchantedforest = "LightDark" }
-	local earlyIslands = {
-		forest = true, desert = true, snow = true, lake = true, jungle = true,
-		volcano = true, prehistoric = true, cosmic = true, abyssocean = true, cherryblossom = true,
-	}
+	local tbl19 = { lightdark = "LightDark" }
 
 	local function slicedfn30(arg)
-		if type(arg) ~= "string" or arg == "" then
+		if type(arg) ~= "string" then
 			return "Default"
 		end
 		local lower = string.lower
-		local sliced10 = lower((string.gsub(arg, "[^%a]", "")))
-		local profile = tbl19[sliced10]
-
-		if profile then
-			return profile
-		end
-
-		if sliced10 ~= "" and not earlyIslands[sliced10] then
-			return "LightDark"
-		end
-		return "Default"
+		local sliced10 = string.gsub(arg, "[^%a]", "")
+		return tbl19[lower(sliced10)] or "Default"
 	end
 
 	antiGuard.ProfileName = function()
@@ -30604,9 +30557,6 @@ do
 	local slicedn6 = 0
 
 	tbl17[#tbl17 + 1] = RunService.Heartbeat:Connect(function(deltaTime)
-		if not antiGuard.Enabled and not antiGuard.Busy and not tbl18.Active then
-			return
-		end
 		local busy = antiGuard.Busy or tbl18.Active
 		local flag5
 
