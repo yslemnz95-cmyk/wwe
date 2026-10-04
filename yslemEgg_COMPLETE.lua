@@ -711,7 +711,7 @@ end
 		local ovl = Instance.new("UIListLayout", ovList)
 		ovl.Padding = UDim.new(0, 3); ovl.SortOrder = Enum.SortOrder.LayoutOrder
 		local ovp = Instance.new("UIPadding", ovList)
-		ovp.PaddingLeft = UDim.new(0, 6); ovp.PaddingRight = UDim.new(0, 6)
+		ovp.PaddingLeft = UDim.new(0, 24); ovp.PaddingRight = UDim.new(0, 6); ovp.PaddingTop = UDim.new(0, 4)
 		ovDone.MouseButton1Click:Connect(function() ov.Visible = false end)
 		local clearFn
 		ovClear.MouseButton1Click:Connect(function() if clearFn then clearFn() end end)
@@ -732,7 +732,20 @@ end
 				local r = Instance.new("Frame", ovList)
 				r.Size = UDim2.new(1, 0, 0, 28); r.BackgroundColor3 = C.ROW; r.BackgroundTransparency = 0.35
 				r.BorderSizePixel = 0; r.ZIndex = 301; r.LayoutOrder = i
-				corner(r, 6)
+				corner(r, 8); addLivingStroke(r, 1)
+				-- tree branch: trunk segment, stub and node dot to the left of the row
+				local trunkTop = i == 1 and 14 or -4
+				local trunkBottom = i == #opts.options and 14 or 32
+				local seg = Instance.new("Frame", r)
+				seg.Size = UDim2.new(0, 1, 0, trunkBottom - trunkTop); seg.Position = UDim2.new(0, -14, 0, trunkTop)
+				seg.BackgroundColor3 = C.DEEP4; seg.BorderSizePixel = 0; seg.ZIndex = 301
+				local stub = Instance.new("Frame", r)
+				stub.Size = UDim2.new(0, 10, 0, 1); stub.Position = UDim2.new(0, -14, 0, 14)
+				stub.BackgroundColor3 = C.DEEP4; stub.BorderSizePixel = 0; stub.ZIndex = 301
+				local node = Instance.new("Frame", r)
+				node.Size = UDim2.new(0, 5, 0, 5); node.Position = UDim2.new(0, -6, 0, 12)
+				node.BackgroundColor3 = C.MOON2; node.BorderSizePixel = 0; node.ZIndex = 302
+				corner(node, 3)
 				local off = 8
 				local ic = iconOf(opt)
 				if ic then
@@ -930,6 +943,11 @@ end
 			w.wantOpen = on
 			updateArrow()
 			w.OnClose.Fire(on)
+
+			if on and cfg.startCollapsed and not w.collapsedInit then
+				w.collapsedInit = true
+				setMinimized(true)
+			end
 		end
 		function w.IsOpen() return frame.Visible and w.wantOpen ~= false end
 		close.MouseButton1Click:Connect(function()
@@ -937,7 +955,7 @@ end
 				pcall(function() if lib.OnUnload then lib.OnUnload() end end)
 				gui:Destroy()
 			else
-				w.SetOpen(false)
+				setMinimized(true)
 			end
 		end)
 		drag(header, frame)
@@ -1464,7 +1482,7 @@ end
 	-- ---------- extra tool windows (same look/API as the Events window) ----------
 	lib.NewToolWindow = function(cfg)
 		local win = newWindow({name = cfg.name, frameName = cfg.frameName, title = cfg.title, w = cfg.w or 252, h = cfg.h or 340,
-			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20})
+			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20, startCollapsed = true})
 		local raw = win.AddTab(cfg.tabName or "Tool")
 		local tab = setmetatable(raw, Tab)
 		tab.window = win
@@ -1510,11 +1528,12 @@ end
 		local main = newWindow({name = "main", frameName = "Main", title = "MoonEgg", w = 288, h = 350,
 			pos = UDim2.new(0.5, -144, 0.5, -175), isMain = true, z = 20})
 		local events = newWindow({name = "events", frameName = "MoonEggEvents", title = "Events · Dr Scramble", w = 252, h = 340,
-			pos = UDim2.new(1, -262, 0, 56), noTabs = true, z = 20})
+			pos = UDim2.new(1, -262, 0, 56), noTabs = true, z = 20, startCollapsed = true})
 		events.AddTab("Events")
 		events.Select("Events")
 		events.frame.Visible = store["Window>Events"] == true
 		events.OnClose.Connect(function(on) setStored("Window>Events", on) end)
+		if store["Window>Events"] ~= false then events.SetOpen(true) end
 		lib.eventsWindow = events
 		lib.newWindow = newWindow
 		lib.UI = {C = C, corner = corner, stroke = stroke, label = label, liveGrad = liveGrad,
@@ -1532,7 +1551,7 @@ end
 		local locked = store["Dock>Locked"] == true
 		local defs = {
 			{id = "speed", label = "Speed"}, {id = "lock", label = "Lock"},
-			{id = "steal", label = "Steal\nPanel"}, {id = "events", label = "Events"},
+			
 			
 		}
 		for i, def in ipairs(defs) do
@@ -1581,11 +1600,6 @@ end
 				if def.id == "speed" then
 					local hd = lib.handles["Player>Movement>Speed Boost"]
 					if hd then hd:Set(not hd.Get(), true) end
-				elseif def.id == "steal" then
-					local st = lib.states["Steal Panel Open"]
-					if st then st:Set(not st.Get()) end
-				elseif def.id == "events" then
-					lib.eventsWindow.SetOpen(not lib.eventsWindow.IsOpen())
 				elseif def.id == "lock" then
 					locked = not locked; setStored("Dock>Locked", locked); mark(locked)
 				end
@@ -1598,17 +1612,6 @@ end
 						task.wait(0.5)
 					end
 				end)
-			elseif def.id == "steal" then
-				task.spawn(function()
-					while btn.Parent do
-						local st = lib.states["Steal Panel Open"]
-						mark(st and st.Get())
-						task.wait(0.5)
-					end
-				end)
-			elseif def.id == "events" then
-				lib.eventsWindow.OnClose.Connect(mark)
-				mark(lib.eventsWindow.IsOpen())
 			else
 				mark(locked)
 			end
