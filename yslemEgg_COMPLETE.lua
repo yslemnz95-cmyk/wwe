@@ -3828,19 +3828,15 @@ do
 			end,
 		})
 
-		-- three delivery modes. The mode is the only switch: it sets Delivery Stop / Anti Guard together,
-		-- so a combination that fights itself (Anti Guard running during the hops) can not exist.
+		-- three delivery modes. The mode is the only switch for the hops: Instant TP hops home the moment the egg is
+		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
 		tbl4.Method = {
 			Names = { "Normal", "Instant TP", "Delivery Stop" },
 			Current = function()
 				local sc = tbl4.SafeCarry
 
 				if sc.LineDrop then
-					return "Delivery Stop"
-				end
-
-				if tbl4.AntiGuard.Enabled then
-					return "Instant TP"
+					return sc.Straight and "Instant TP" or "Delivery Stop"
 				end
 				return "Normal"
 			end,
@@ -3848,26 +3844,25 @@ do
 				local sc = tbl4.SafeCarry
 				local ag = tbl4.AntiGuard
 
-				if name == "Smart" then
-					name = "Instant TP"
-				end
-
 				if not table.find(tbl4.Method.Names, name) then
 					name = "Normal"
 				end
 
 				tbl4.MethodApplying = true
-				sc.StopMode = name == "Delivery Stop"
-				sc.LineDrop = name == "Delivery Stop"
-				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
+				local hops = name ~= "Normal"
+				sc.StopMode = hops
+				sc.LineDrop = hops
+				sc.Straight = name == "Instant TP"
+				sc.SpeedJitter = hops and 0 or 0.08
 
-				local guardOn = name == "Instant TP"
-				local handle = ag.Handle
+				if hops then
+					local handle = ag.Handle
 
-				if handle and type(handle.Set) == "function" then
-					pcall(handle.Set, handle, guardOn)
+					if handle and type(handle.Set) == "function" then
+						pcall(handle.Set, handle, false)
+					end
+					ag.Enabled = false
 				end
-				ag.Enabled = guardOn
 
 				local methodHandle = sc.MethodHandle
 
@@ -3890,7 +3885,7 @@ do
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
-			Note = "Normal / Instant TP (Anti Guard) / Delivery Stop",
+			Note = "Normal / Instant TP (hops home as soon as you hold the egg) / Delivery Stop (same with stops)",
 			Options = tbl4.Method.Names,
 			Default = "Normal",
 			Callback = function(arg)
@@ -4446,47 +4441,40 @@ do
 				end)
 			end
 
-			-- ===== Instant TP / Normal tuning: starts careful and only speeds up after clean deliveries; when the
-			-- ===== server rejects Instant TP twice on an island the Anti Guard profile of that island is switched =====
+			-- ===== delivery tuning: the hop pacing and the walk speed go back a step after every server rejection and
+			-- ===== return to their defaults after clean deliveries =====
 			tbl4.MethodStats = {}
-			tbl4.AgOverride = {}
 
-			local Tune = { Ratio = 1.0, Min = 0.85, Max = 1.3, Fails = {} }
+			local sc0 = tbl4.SafeCarry
+			local Tune = { Ratio = 1.0, Min = 0.85, Max = 1.3, HopRatio = sc0.HopRatio, HopGap = sc0.HopGap, DefaultHopRatio = sc0.HopRatio, DefaultHopGap = sc0.HopGap }
 			tbl4.Tune = Tune
 
 			Tune.Apply = function()
-				tbl4.SafeCarry.EasyRatio = Tune.Ratio
+				local sc = tbl4.SafeCarry
+				sc.EasyRatio = Tune.Ratio
+				sc.HopRatio = Tune.HopRatio
+				sc.HopGap = Tune.HopGap
 			end
 
 			Tune.Learn = function(mode, island, ok, rejected)
-				local key = string.lower((string.gsub(tostring(island), "[^%a]", "")))
-
 				if ok then
 					Tune.Ratio = math.min(Tune.Max, Tune.Ratio + 0.03)
-					Tune.Fails[key] = 0
+					Tune.HopRatio = math.min(Tune.DefaultHopRatio, Tune.HopRatio + 0.05)
+					Tune.HopGap = math.max(Tune.DefaultHopGap, Tune.HopGap - 0.01)
 					return
 				end
 
 				if not rejected then
 					return
 				end
-				Tune.Ratio = math.max(Tune.Min, Tune.Ratio - 0.05)
 
-				if mode == "Instant TP" then
-					Tune.Fails[key] = (Tune.Fails[key] or 0) + 1
-
-					if Tune.Fails[key] >= 2 then
-						Tune.Fails[key] = 0
-						local current = "Default"
-
-						pcall(function()
-							current = tbl4.AntiGuard.ProfileName()
-						end)
-
-						tbl4.AgOverride[key] = current == "LightDark" and "Default" or "LightDark"
-						A.Event("profile", tostring(island) .. " -> " .. tbl4.AgOverride[key])
-					end
+				if mode == "Normal" then
+					Tune.Ratio = math.max(Tune.Min, Tune.Ratio - 0.05)
+				else
+					Tune.HopRatio = math.max(0.9, Tune.HopRatio - 0.15)
+					Tune.HopGap = math.min(0.2, Tune.HopGap + 0.02)
 				end
+				A.Event("tune", string.format("hop %.2f every %.2fs, walk %.2f", Tune.HopRatio, Tune.HopGap, Tune.Ratio))
 			end
 		end
 
@@ -4507,9 +4495,7 @@ do
 				if tbl4.MethodReady and not tbl4.MethodApplying then
 					local mode = tbl4.Method.Current()
 
-					if tbl4.AntiGuard.Enabled and (mode == "Normal" or mode == "Delivery Stop") then
-						tbl4.Method.Apply("Instant TP")
-					elseif not tbl4.AntiGuard.Enabled and mode == "Instant TP" then
+					if tbl4.AntiGuard.Enabled and mode ~= "Normal" then
 						tbl4.Method.Apply("Normal")
 					end
 				end
@@ -7341,7 +7327,7 @@ do
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
 						local hopStartX = x2
 						local hopStops = 0
-						local hopStopsWanted = safeCarry.StopMode and math.clamp(math.floor(tonumber(safeCarry.Stops) or 3) - 1, 0, 5) or 0
+						local hopStopsWanted = safeCarry.StopMode and not safeCarry.Straight and math.clamp(math.floor(tonumber(safeCarry.Stops) or 3) - 1, 0, 5) or 0
 
 						-- a clone stays where the egg was taken, the lag starts here
 						pcall(tbl4.PostClone)
@@ -8183,7 +8169,7 @@ do
 				local island = A.Island()
 				pcall(A.Begin, mode, { mode })
 				tbl4.Tune.Apply()
-				A.Event("tune", string.format("walk ratio %.2f", tbl4.Tune.Ratio))
+				A.Event("tune", string.format("hop %.2f every %.2fs, walk %.2f", tbl4.Tune.HopRatio, tbl4.Tune.HopGap, tbl4.Tune.Ratio))
 
 				local attemptAt = os.clock()
 				A.Event("attempt", mode)
@@ -29141,7 +29127,7 @@ do
 		end
 		local lower = string.lower
 		local sliced10 = lower((string.gsub(arg, "[^%a]", "")))
-		local profile = tbl4.AgOverride and tbl4.AgOverride[sliced10] or tbl19[sliced10]
+		local profile = tbl19[sliced10]
 
 		if profile then
 			return profile
