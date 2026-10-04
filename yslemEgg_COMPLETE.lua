@@ -4157,24 +4157,24 @@ do
 			Name = "Tween Speed",
 			Note = "Over 100% may glitch",
 			Min = 50,
-			Max = 120,
+			Max = 115,
 			Default = 100,
 			Increment = 1,
 			Unit = "%",
 			Callback = function(arg)
-				tbl4.SafeCarry.RunSpeed = math.clamp(tonumber(arg) or 100, 50, 120) / 100
+				tbl4.SafeCarry.RunSpeed = math.clamp(tonumber(arg) or 100, 50, 115) / 100
 			end,
 		})
 
 		tbl4.SafeCarry.CarryHandle = sliced8:CreateSlider({
 			Name = "Carry Speed",
 			Min = 80,
-			Max = 120,
+			Max = 115,
 			Default = 100,
 			Increment = 1,
 			Unit = "%",
 			Callback = function(arg)
-				tbl4.SafeCarry.CarryScale = math.clamp(tonumber(arg) or 100, 80, 120) / 100
+				tbl4.SafeCarry.CarryScale = math.clamp(tonumber(arg) or 100, 80, 115) / 100
 			end,
 		})
 
@@ -4214,18 +4214,9 @@ do
 			end,
 		}
 
-		-- speed ceiling of the hop modes: Delivery Stop 115%, Instant TP 120%, Normal unlimited
+		-- one speed ceiling for the whole delivery, in every mode: 115% (hop distance is not a speed and keeps its own ratio)
 		tbl4.SafeCarry.Cap = function(ratio)
-			local sc = tbl4.SafeCarry
-
-			if sc.StopMode then
-				return math.min(ratio, 1.15)
-			end
-
-			if sc.Teleport then
-				return math.min(ratio, 1.2)
-			end
-			return ratio
+			return math.min(ratio, 1.15)
 		end
 
 		tbl4.Method = {
@@ -4287,7 +4278,7 @@ do
 				tbl4.MethodApplying = false
 
 				if name ~= "Normal" and MoonLib and MoonLib.Banner then
-					MoonLib.Banner(name .. ": max " .. (name == "Delivery Stop" and "115" or "120") .. "%, faster = bug", 5)
+					MoonLib.Banner(name .. ": max 115%, faster = bug", 5)
 				end
 
 				if ag.Render and tbl4.UiDefer then
@@ -7523,7 +7514,7 @@ do
 					arg3 = math.max(arg3, safeCarry.LightMult)
 				end
 
-				local slicedn17 = sliced19 * safeCarry.CarryRatio * arg3
+				local slicedn17 = sliced19 * safeCarry.Cap(safeCarry.CarryRatio) * arg3
 				local slicedn18 = slicedn17 * safeCarry.SpeedRatio
 				local slicedn19 = safeCarry.ExcessSeconds * slicedn17
 				local slicedn20
@@ -7539,7 +7530,7 @@ do
 				local slicedn21 = type(flag3) == "table" and tonumber(flag3.WalkSpeed) or 0
 
 				if not safeCarry.BeatGuard then
-					return math.max(math.min(slicedn17 * safeCarry.EasyRatio, slicedn20), slicedn17), true, slicedn17, slicedn20, slicedn21
+					return math.min(math.max(math.min(slicedn17 * safeCarry.EasyRatio, slicedn20), slicedn17), math.max(sliced19 * 1.15, slicedn17)), true, slicedn17, slicedn20, slicedn21
 				end
 				local slicedn22 = math.max(slicedn21 + safeCarry.GuardMargin, slicedn17 * safeCarry.MinRatio)
 				local slicedn23 = math.max(slicedn22, slicedn21 * safeCarry.GuardRatio)
@@ -17971,10 +17962,10 @@ do
 				end
 				local boost = slicedn15
 
-				local capMul = tbl4.SafeCarry.Cap(math.huge)
+				local sc = tbl4.SafeCarry
 
-				if capMul < math.huge then
-					boost = math.min(boost, math.max(tbl4.WalkSpeed(), 16) * capMul)
+				if sc.StopMode or sc.Teleport or tbl4.Steal.Carrying then
+					boost = math.min(boost, math.max(tbl4.WalkSpeed(), 16) * sc.Cap(math.huge))
 				end
 				local slicedn16 = vector.Unit * boost
 				local assemblyLinearVelocity = sliced15.AssemblyLinearVelocity
@@ -18011,8 +18002,8 @@ do
 			Name = "Speed Boost",
 			Default = false,
 			Callback = function()
-				if tbl4.SafeCarry.Cap(math.huge) < math.huge and tbl4.Toggle(createToggle, false) and MoonLib and MoonLib.Banner then
-					MoonLib.Banner((tbl4.SafeCarry.StopMode and "Delivery Stop: max 115%" or "Instant TP: max 120%") .. ", faster = bug", 5)
+				if (tbl4.SafeCarry.StopMode or tbl4.SafeCarry.Teleport) and tbl4.Toggle(createToggle, false) and MoonLib and MoonLib.Banner then
+					MoonLib.Banner((tbl4.SafeCarry.StopMode and "Delivery Stop" or "Instant TP") .. ": max 115%, faster = bug", 5)
 				end
 				if tbl4.SpeedForced and not tbl4.Toggle(createToggle, false) then
 					flag5 = true
@@ -24998,8 +24989,8 @@ do
 				return mine
 			end
 
-			linkSlider("Go Speed", 50, 120, tbl4.SafeCarry.RunHandle)
-			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
+			linkSlider("Go Speed", 50, 115, tbl4.SafeCarry.RunHandle)
+			linkSlider("Carry Speed", 80, 115, tbl4.SafeCarry.CarryHandle)
 			linkSlider("Delivery Steps", 1, 6, tbl4.SafeCarry.StopsHandle, "", 3)
 			linkSlider("Carry FPS Cap", 5, 240, tbl4.SafeCarry.CarryFpsHandle, " FPS", 35)
 
