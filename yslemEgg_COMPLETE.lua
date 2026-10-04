@@ -432,45 +432,10 @@ end
 		frame.ClipsDescendants = true
 		frame.Active = true
 		frame.ZIndex = cfg.z or 20
-		local frameCorner = corner(frame, 20)
+		corner(frame, 20)
 		addLivingStroke(frame, 1.5, true)
 		local winScale = Instance.new("UIScale", frame)
 		w.frame = frame
-		local docked = cfg.dock == "left"
-		local NEON = Color3.fromRGB(70, 225, 255)
-		local dockHandle
-		if docked then
-			frameCorner.CornerRadius = UDim.new(0, 8)
-			frame.AnchorPoint = Vector2.new(0, 0.5)
-			frame.Size = UDim2.new(0, cfg.w + 8, 1, -96)
-			frame.Position = UDim2.new(0, -(cfg.w + 16), 0.5, 0)
-			frame.BackgroundColor3 = Color3.fromRGB(4, 9, 16)
-			frame.BackgroundTransparency = 0.06
-			local lim = Instance.new("UISizeConstraint", frame)
-			lim.MinSize = Vector2.new(0, 220); lim.MaxSize = Vector2.new(9999, 540)
-			local fs = frame:FindFirstChildOfClass("UIStroke")
-			local fg = fs and fs:FindFirstChildOfClass("UIGradient")
-			if fs then fs.Thickness = 1.2 end
-			if fg then
-				fg.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 40, 60)), ColorSequenceKeypoint.new(0.25, NEON),
-					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 40, 60)), ColorSequenceKeypoint.new(0.75, NEON),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 40, 60)),
-				})
-			end
-			-- slim handle glued to the panel's edge: tap to slide the panel in / out
-			dockHandle = Instance.new("TextButton", gui)
-			dockHandle.Name = "MoonEggDockHandle"
-			dockHandle.AnchorPoint = Vector2.new(0, 0.5)
-			dockHandle.Size = UDim2.new(0, 22, 0, 92)
-			dockHandle.Position = UDim2.new(0, 0, 0.5, 0)
-			dockHandle.BackgroundColor3 = Color3.fromRGB(4, 9, 16); dockHandle.BackgroundTransparency = 0.1
-			dockHandle.BorderSizePixel = 0; dockHandle.AutoButtonColor = false
-			dockHandle.Text = "S\nT\nE\nA\nL"; dockHandle.TextSize = 10; dockHandle.Font = Enum.Font.SciFi
-			dockHandle.TextColor3 = NEON; dockHandle.ZIndex = 400
-			corner(dockHandle, 6); stroke(dockHandle, NEON, 1, 0.25)
-			frame.Destroying:Connect(function() pcall(function() dockHandle:Destroy() end) end)
-		end
 
 		local header = Instance.new("Frame", frame)
 		header.Size = UDim2.new(1, 0, 0, 42)
@@ -495,30 +460,15 @@ end
 		close.Size = UDim2.new(0, 20, 0, 20); close.Position = UDim2.new(1, -28, 0.5, -10)
 		close.BackgroundColor3 = Color3.fromRGB(58, 20, 20); close.Text = "X"; close.TextSize = 11
 		close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold; close.BorderSizePixel = 0
-		corner(close, 100); pressFx(close)
+		corner(close, 7); addLivingStroke(close, 1); pressFx(close)
 		local mini = Instance.new("TextButton", header)
 		mini.Size = UDim2.new(0, 20, 0, 20); mini.Position = UDim2.new(1, -52, 0.5, -10)
 		mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
 		mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
-		corner(mini, 100); pressFx(mini)
+		corner(mini, 7); addLivingStroke(mini, 1); pressFx(mini)
 		local sep = Instance.new("Frame", frame)
 		sep.Size = UDim2.new(1, -24, 0, 1); sep.Position = UDim2.new(0, 12, 0, 42)
 		sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
-		if docked then
-			moon.Visible = false; mini.Visible = false
-			header.BackgroundTransparency = 1
-			title.Position = UDim2.new(0, 24, 0, 2); title.Size = UDim2.new(1, -70, 0, 24)
-			title.Font = Enum.Font.SciFi; title.TextSize = 16; title.Text = string.upper(cfg.title)
-			title.TextColor3 = NEON
-			local sub = label(header, "// TARGET LINK ONLINE", UDim2.new(1, -70, 0, 12), Color3.fromRGB(70, 130, 160), Enum.Font.SciFi)
-			sub.Position = UDim2.new(0, 24, 0, 24); sub.TextSize = 9
-			close.Text = "<"; close.TextColor3 = NEON; close.BackgroundColor3 = Color3.fromRGB(6, 24, 34)
-			close.Position = UDim2.new(1, -30, 0.5, -10)
-			local cc = close:FindFirstChildOfClass("UICorner")
-			if cc then cc.CornerRadius = UDim.new(0, 4) end
-			sep.BackgroundColor3 = NEON; sep.BackgroundTransparency = 0.55
-			sep.Position = UDim2.new(0, 16, 0, 42)
-		end
 
 		local bodyTop = 46
 		local tabBar
@@ -553,12 +503,12 @@ end
 		ovClear.Size = UDim2.new(0, 46, 0, 20); ovClear.Position = UDim2.new(1, -104, 0, 3)
 		ovClear.BackgroundColor3 = Color3.fromRGB(24, 26, 35); ovClear.Text = "Clear"; ovClear.TextSize = 10
 		ovClear.TextColor3 = C.SILVER; ovClear.Font = Enum.Font.GothamBold; ovClear.BorderSizePixel = 0; ovClear.ZIndex = 301
-		corner(ovClear, 100); pressFx(ovClear)
+		corner(ovClear, 8); addLivingStroke(ovClear, 1); pressFx(ovClear)
 		local ovDone = Instance.new("TextButton", ovHead)
 		ovDone.Size = UDim2.new(0, 46, 0, 20); ovDone.Position = UDim2.new(1, -54, 0, 3)
 		ovDone.BackgroundColor3 = C.MOON; ovDone.Text = "Done"; ovDone.TextSize = 10.5
 		ovDone.TextColor3 = C.MOONTEXT; ovDone.Font = Enum.Font.GothamBold; ovDone.BorderSizePixel = 0; ovDone.ZIndex = 301
-		corner(ovDone, 100); pressFx(ovDone)
+		corner(ovDone, 8); addLivingStroke(ovDone, 1); pressFx(ovDone)
 		local ovList = Instance.new("ScrollingFrame", ov)
 		ovList.Size = UDim2.new(1, 0, 1, -30); ovList.Position = UDim2.new(0, 0, 0, 28)
 		ovList.BackgroundTransparency = 1; ovList.BorderSizePixel = 0; ovList.ScrollBarThickness = 3
@@ -625,10 +575,11 @@ end
 				acc = acc + dt; frames = frames + 1
 				if acc >= 0.5 then hudFps = math.floor(frames / acc + 0.5); acc = 0; frames = 0 end
 			end)
-			hudLabel = label(header, "", UDim2.new(1, 0, 0, 22), Color3.fromRGB(150, 235, 255), Enum.Font.SciFi, Enum.TextXAlignment.Center)
-			hudLabel.Position = UDim2.new(0, 0, 0, 4); hudLabel.TextSize = 14; hudLabel.Visible = false
-			hudHint = label(header, "TAP TO OPEN", UDim2.new(1, 0, 0, 12), Color3.fromRGB(120, 150, 175), Enum.Font.SciFi, Enum.TextXAlignment.Center)
-			hudHint.Position = UDim2.new(0, 0, 0, 25); hudHint.TextSize = 9; hudHint.Visible = false
+			hudLabel = label(header, "", UDim2.new(1, -44, 0, 20), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+			hudLabel.Position = UDim2.new(0, 38, 0, 4); hudLabel.TextSize = 13; hudLabel.Visible = false
+			liveGrad(hudLabel, true)
+			hudHint = label(header, "tap to open", UDim2.new(1, -44, 0, 12), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
+			hudHint.Position = UDim2.new(0, 38, 0, 24); hudHint.TextSize = 8.5; hudHint.Visible = false
 			task.spawn(function()
 				while frame.Parent do
 					task.wait(0.5)
@@ -636,7 +587,7 @@ end
 						pcall(function()
 							hudPing = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5)
 						end)
-						hudLabel.Text = hudFps .. " FPS  |  " .. hudPing .. " MS"
+						hudLabel.Text = hudFps .. " FPS   " .. hudPing .. " ms"
 					end
 				end
 			end)
@@ -647,15 +598,15 @@ end
 				if on then
 					content.Visible = false; sep.Visible = false; ov.Visible = false
 					if tabBar then tabBar.Visible = false end
-					title.Visible = false; mini.Visible = false; close.Visible = false; moon.Visible = false
-					hudLabel.Text = hudFps .. " FPS  |  " .. hudPing .. " MS"
+					title.Visible = false; mini.Visible = false; close.Visible = false
+					hudLabel.Text = hudFps .. " FPS   " .. hudPing .. " ms"
 					hudLabel.Visible = true; hudHint.Visible = true
 					header.BackgroundTransparency = 1
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, 176, 0, 42), BackgroundTransparency = 0.6}):Play()
+						Size = UDim2.new(0, 168, 0, 42), BackgroundTransparency = 0.55}):Play()
 				else
 					hudLabel.Visible = false; hudHint.Visible = false
-					title.Visible = true; mini.Visible = true; close.Visible = true; moon.Visible = true
+					title.Visible = true; mini.Visible = true; close.Visible = true
 					header.BackgroundTransparency = 0
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
 						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
@@ -698,23 +649,6 @@ end
 			on = on == true
 			closing = closing + 1
 			local mine = closing
-			if docked then
-				local slide = TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-				if on then
-					frame.Visible = true
-					TweenService:Create(frame, slide, {Position = UDim2.new(0, -8, 0.5, 0)}):Play()
-					TweenService:Create(dockHandle, slide, {Position = UDim2.new(0, cfg.w, 0.5, 0)}):Play()
-				else
-					TweenService:Create(frame, slide, {Position = UDim2.new(0, -(cfg.w + 16), 0.5, 0)}):Play()
-					TweenService:Create(dockHandle, slide, {Position = UDim2.new(0, 0, 0.5, 0)}):Play()
-					task.delay(0.34, function()
-						if closing == mine then frame.Visible = false end
-					end)
-				end
-				w.wantOpen = on
-				w.OnClose.Fire(on)
-				return
-			end
 			if on then
 				zTop = zTop + 1; frame.ZIndex = zTop
 				winScale.Scale = 0.9
@@ -738,13 +672,7 @@ end
 				w.SetOpen(false)
 			end
 		end)
-		if docked then
-			dockHandle.MouseButton1Click:Connect(function()
-				if cfg.onHandle then cfg.onHandle() else w.SetOpen(not w.IsOpen()) end
-			end)
-		else
-			drag(header, frame)
-		end
+		drag(header, frame)
 
 		-- tabs
 		function w.AddTab(name, hidden)
@@ -766,7 +694,7 @@ end
 				btn.BackgroundColor3 = Color3.fromRGB(18, 22, 30); btn.BackgroundTransparency = 0.5
 				btn.Text = name; btn.TextSize = 10; btn.TextColor3 = C.TABIDLE; btn.Font = Enum.Font.GothamBold
 				btn.BorderSizePixel = 0; btn.LayoutOrder = #w.order + 1
-				corner(btn, 100); addLivingStroke(btn, 1); pressFx(btn)
+				corner(btn, 8); addLivingStroke(btn, 1); pressFx(btn)
 				tab.btn = btn
 				btn.MouseButton1Click:Connect(function() w.Select(name) end)
 			end
@@ -925,17 +853,12 @@ end
 		noteLabel(row, cfg.Note)
 		local b = Instance.new("TextButton", row)
 		b.Size = UDim2.new(0, bw, 0, 20); b.Position = UDim2.new(1, -(bw + 8), 0, hasNote and 9 or 4)
-		b.BackgroundColor3 = C.WHITE; b.AutoButtonColor = false
+		b.BackgroundColor3 = C.ROW; b.BackgroundTransparency = 0.35; b.AutoButtonColor = false
 		b.Text = ""; b.BorderSizePixel = 0
-		corner(b, 100)
-		local bg = Instance.new("UIGradient", b)
-		bg.Rotation = 90
-		bg.Color = ColorSequence.new(C.DEEP4, C.DEEP3)
-		local bs = Instance.new("UIStroke", b)
-		bs.Color = C.MOON2; bs.Thickness = 1; bs.Transparency = 0.35
-		bs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		corner(b, 8); addLivingStroke(b, 1)
 		local bl = label(b, cfg.ButtonText or "Run", UDim2.new(1, 0, 1, 0), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
 		bl.TextSize = 9.5; bl.ZIndex = 2
+		liveGrad(bl)
 		local pulse = pressFx(b)
 		local h = {Instance = holder}
 		function h.SetText(t) bl.Text = tostring(t) end
@@ -948,8 +871,8 @@ end
 				busy = true
 				local old = bl.Text
 				bl.Text = cfg.ConfirmText
-				bg.Color = ColorSequence.new(C.GREEN, Color3.fromRGB(30, 140, 80))
-				task.delay(1.4, function() bl.Text = old; bg.Color = ColorSequence.new(C.DEEP4, C.DEEP3); busy = false end)
+				b.BackgroundColor3 = Color3.fromRGB(20, 80, 50)
+				task.delay(1.4, function() bl.Text = old; b.BackgroundColor3 = C.ROW; busy = false end)
 			end
 		end)
 		register(self, cfg, h, "Button")
@@ -1264,7 +1187,7 @@ end
 	-- ---------- extra tool windows (same look/API as the Events window) ----------
 	lib.NewToolWindow = function(cfg)
 		local win = newWindow({name = cfg.name, frameName = cfg.frameName, title = cfg.title, w = cfg.w or 252, h = cfg.h or 340,
-			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20, dock = cfg.dock, onHandle = cfg.onHandle})
+			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20})
 		local raw = win.AddTab(cfg.tabName or "Tool")
 		local tab = setmetatable(raw, Tab)
 		tab.window = win
@@ -1307,8 +1230,8 @@ end
 
 	function lib:CreateWindow(cfg)
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
-		local main = newWindow({name = "main", frameName = "Main", title = "MoonEgg", w = 268, h = 380,
-			pos = UDim2.new(0.5, -134, 0.5, -190), isMain = true, z = 20})
+		local main = newWindow({name = "main", frameName = "Main", title = "MoonEgg", w = 288, h = 350,
+			pos = UDim2.new(0.5, -144, 0.5, -175), isMain = true, z = 20})
 		local events = newWindow({name = "events", frameName = "MoonEggEvents", title = "Events · Dr Scramble", w = 252, h = 340,
 			pos = UDim2.new(1, -262, 0, 56), noTabs = true, z = 20})
 		events.AddTab("Events")
@@ -1328,7 +1251,7 @@ end
 
 	-- ---------- dock (floating quick buttons) ----------
 	local function buildDock()
-		local SZ, GAP, TOP, RIGHT = 38, 6, 66, 10
+		local SZ, GAP, TOP, RIGHT = 44, 8, 66, 10
 		local locked = store["Dock>Locked"] == true
 		local defs = {
 			{id = "speed", label = "Speed"}, {id = "lock", label = "Lock"},
@@ -1340,17 +1263,24 @@ end
 			btn.Name = "YE_Float_" .. def.id
 			btn.Size = UDim2.new(0, SZ, 0, SZ)
 			btn.Position = UDim2.new(1, -(SZ * 2 + GAP + RIGHT) + col * (SZ + GAP), 0, TOP + rw * (SZ + GAP))
-			btn.BackgroundColor3 = C.ROW; btn.BackgroundTransparency = 0.1; btn.BorderSizePixel = 0
+			btn.BackgroundColor3 = C.ROW; btn.BackgroundTransparency = 0.25; btn.BorderSizePixel = 0
 			btn.Text = ""; btn.AutoButtonColor = false; btn.ZIndex = 500; btn.Active = true
-			corner(btn, 100); addLivingStroke(btn, 1.5); pressFx(btn)
+			corner(btn, 12); addLivingStroke(btn, 1.5); pressFx(btn)
 			local l = Instance.new("TextLabel", btn)
 			l.Size = UDim2.new(1, 0, 1, 0); l.BackgroundTransparency = 1; l.Text = def.label
-			l.TextColor3 = C.WHITE; l.Font = Enum.Font.GothamBold; l.TextSize = 8; l.TextWrapped = true; l.ZIndex = 501
+			l.TextColor3 = C.WHITE; l.Font = Enum.Font.GothamBold; l.TextSize = 9; l.TextWrapped = true; l.ZIndex = 501
+			liveGrad(l)
+			local glow = Instance.new("UIStroke", btn)
+			glow.Thickness = 2.5; glow.Color = C.GREEN; glow.Transparency = 1
+			glow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			local dot = Instance.new("Frame", btn)
-			dot.Size = UDim2.new(0, 7, 0, 7); dot.Position = UDim2.new(1, -10, 0, 3)
+			dot.Size = UDim2.new(0, 7, 0, 7); dot.Position = UDim2.new(1, -11, 0, 4)
 			dot.BackgroundColor3 = C.GREEN; dot.BorderSizePixel = 0; dot.Visible = false; dot.ZIndex = 502
 			corner(dot, 4)
-			local function mark(on) dot.Visible = on == true end
+			local function mark(on)
+				dot.Visible = on == true
+				TweenService:Create(glow, TweenInfo.new(0.25), {Transparency = on == true and 0.45 or 1}):Play()
+			end
 			local dragging, ds, dp, moved = false, nil, nil, false
 			btn.InputBegan:Connect(function(inp)
 				if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
@@ -23188,18 +23118,24 @@ do
 
 	do
 		local c3 = Color3.fromRGB
-		local function moonStyle(style, a, b, strokeColor, transparency)
+		local function moonStyle(style, a, b, strokeColor, fill)
 			style.Color = ColorSequence.new(a, b)
-			style.Rotation = 90
+			style.Rotation = 0
 			style.Stroke = strokeColor
+			style.StrokeSeq = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, strokeColor),
+				ColorSequenceKeypoint.new(0.5, strokeColor:Lerp(c3(4, 7, 16), 0.65)),
+				ColorSequenceKeypoint.new(1, strokeColor),
+			})
+			style.Fill = fill or c3(0, 0, 0)
 			style.Light = strokeColor
 		end
-		-- same look as the hub buttons: blue gradient + light stroke
-		moonStyle(tbl14.Hud, c3(8, 38, 58), c3(16, 92, 124), c3(70, 225, 255))
-		moonStyle(tbl14.Steal, c3(20, 210, 240), c3(0, 100, 140), c3(170, 252, 255))
-		moonStyle(tbl14.Queued, c3(9, 15, 24), c3(5, 9, 16), c3(36, 84, 112))
-		moonStyle(tbl14.PriorityOn, c3(255, 200, 60), c3(200, 120, 30), c3(255, 225, 140))
-		moonStyle(tbl14.Cancel, c3(215, 64, 76), c3(130, 30, 44), c3(255, 130, 130))
+		-- hub look: black translucent fill, living stroke, gradient text
+		moonStyle(tbl14.Hud, c3(210, 225, 255), c3(140, 180, 255), c3(90, 150, 255))
+		moonStyle(tbl14.Steal, c3(255, 255, 255), c3(160, 200, 255), c3(160, 200, 255), c3(20, 45, 80))
+		moonStyle(tbl14.Queued, c3(165, 180, 210), c3(110, 125, 160), c3(40, 80, 165))
+		moonStyle(tbl14.PriorityOn, c3(255, 225, 140), c3(255, 190, 70), c3(255, 200, 60), c3(45, 34, 8))
+		moonStyle(tbl14.Cancel, c3(255, 160, 160), c3(235, 90, 100), c3(220, 60, 60), c3(50, 14, 16))
 	end
 
 	local slicedfn19
@@ -23544,7 +23480,15 @@ do
 		end
 
 		if arg.Stroke then
-			arg.Stroke.Color = style.Stroke
+			if arg.Stroke:IsA("UIGradient") then
+				arg.Stroke.Color = style.StrokeSeq or ColorSequence.new(style.Stroke)
+			else
+				arg.Stroke.Color = style.Stroke
+			end
+		end
+
+		if style.Fill and arg.Button then
+			arg.Button.BackgroundColor3 = style.Fill
 		end
 
 		if arg.Light then
@@ -23955,45 +23899,30 @@ do
 			local U = MoonLib.UI
 			local button = Instance.new("TextButton")
 			button.AutoButtonColor = false
-			button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			button.BackgroundTransparency = 0.35
 			button.BorderSizePixel = 0
 			button.Text = ""
 			button.Size = size
 			button.Position = pos or UDim2.new()
 			button.AnchorPoint = anchor or Vector2.new(0, 0)
 			button.ZIndex = 3
-			U.corner(button, 3)
+			U.corner(button, 8)
+			local liveStroke = U.addLivingStroke(button, 1)
+			liveStroke.Color = Color3.fromRGB(255, 255, 255)
+			local strokeObj = liveStroke:FindFirstChildOfClass("UIGradient")
 			local gradient = Instance.new("UIGradient")
-			gradient.Parent = button
-			local strokeObj = Instance.new("UIStroke")
-			strokeObj.Thickness = 1.2
-			strokeObj.Transparency = 0.1
-			strokeObj.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			strokeObj.Parent = button
 			local lbl = Instance.new("TextLabel")
 			lbl.Name = "Label"
 			lbl.BackgroundTransparency = 1
 			lbl.Size = UDim2.fromScale(1, 1)
-			lbl.Font = Enum.Font.SciFi
-			lbl.TextSize = 11
-			lbl.TextColor3 = Color3.fromRGB(225, 250, 255)
+			lbl.Font = Enum.Font.GothamBold
+			lbl.TextSize = 10
+			lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 			lbl.Text = text or ""
 			lbl.ZIndex = 4
 			lbl.Parent = button
-			-- HUD-style corner ticks
-			for _, tickDef in ipairs({ { UDim2.new(0, 0, 0, 0), Vector2.new(0, 0) }, { UDim2.new(1, 0, 1, 0), Vector2.new(1, 1) } }) do
-				local tickH = Instance.new("Frame")
-				tickH.BackgroundColor3 = Color3.fromRGB(190, 250, 255)
-				tickH.BorderSizePixel = 0
-				tickH.AnchorPoint = tickDef[2]
-				tickH.Position = tickDef[1]
-				tickH.Size = UDim2.fromOffset(6, 1)
-				tickH.ZIndex = 5
-				tickH.Parent = button
-				local tickV = tickH:Clone()
-				tickV.Size = UDim2.fromOffset(1, 6)
-				tickV.Parent = button
-			end
+			gradient.Parent = lbl
 			local scale = Instance.new("UIScale")
 			scale.Parent = button
 			button.Parent = parent
@@ -24028,16 +23957,11 @@ do
 			local U = MoonLib.UI
 			local row = Instance.new("Frame")
 			row.Size = UDim2.new(1, 0, 0, 52)
-			row.BackgroundColor3 = Color3.fromRGB(4, 12, 20)
-			row.BackgroundTransparency = 0.2
+			row.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			row.BackgroundTransparency = 0.35
 			row.BorderSizePixel = 0
-			U.corner(row, 4)
-			local rowStroke = Instance.new("UIStroke")
-			rowStroke.Color = Color3.fromRGB(34, 110, 140)
-			rowStroke.Thickness = 1
-			rowStroke.Transparency = 0.2
-			rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			rowStroke.Parent = row
+			U.corner(row, 10)
+			U.addLivingStroke(row, 1)
 
 			local rowScale = Instance.new("UIScale")
 			rowScale.Scale = 0.9
@@ -24061,7 +23985,7 @@ do
 			iconHolder.Position = UDim2.new(0, 11, 0.5, -18)
 			iconHolder.Size = UDim2.fromOffset(36, 36)
 			iconHolder.ZIndex = 2
-			U.corner(iconHolder, 3)
+			U.corner(iconHolder, 9)
 			iconHolder.Parent = row
 
 			local icon = Instance.new("ImageLabel")
@@ -24124,7 +24048,7 @@ do
 			badge.Text = "#1"
 			badge.Visible = false
 			badge.ZIndex = 6
-			U.corner(badge, 2)
+			U.corner(badge, 6)
 			local badgeGradient = Instance.new("UIGradient")
 			badgeGradient.Parent = badge
 			badge.Parent = row
@@ -24423,16 +24347,9 @@ do
 				tabName = "StealPanel",
 				frameName = "MoonEggSteal",
 				title = "Steal Panel",
-				w = 236,
+				w = 232,
 				h = 350,
-				dock = "left",
-				onHandle = function()
-					local st = MoonLib.states["Steal Panel Open"]
-
-					if st then
-						st:Set(not st.Get())
-					end
-				end,
+				pos = UDim2.new(0, 12, 0, 56),
 			})
 			local tab = win.tab
 
@@ -24493,11 +24410,70 @@ do
 				modeButton.Label.Text = "Mode: " .. name
 			end
 
+			-- Mode opens a small tree: one branch per delivery method
+			local branch = nil
+			local branchButtons = {}
+
+			local function refreshBranch()
+				local current = tbl4.Method.Current()
+
+				for name, optionButton in pairs(branchButtons) do
+					slicedfn31(optionButton, name == current and tbl14.Steal or tbl14.Queued)
+				end
+			end
+
 			modeButton.Button.Activated:Connect(function()
-				local names = tbl4.Method.Names
-				local nextName = names[(table.find(names, tbl4.Method.Current()) or 0) % #names + 1]
-				tbl4.Method.Apply(nextName)
-				tbl4.UiDefer(slicedfn40)
+				if not branch then
+					branch = Instance.new("Frame")
+					branch.Name = "ModeBranch"
+					branch.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+					branch.BackgroundTransparency = 0.2
+					branch.BorderSizePixel = 0
+					branch.Position = UDim2.new(0, 8, 0, 60)
+					branch.Size = UDim2.new(1, -16, 0, #tbl4.Method.Names * 28 + 8)
+					branch.ZIndex = 60
+					branch.Visible = false
+					U.corner(branch, 8)
+					U.addLivingStroke(branch, 1)
+					branch.Parent = win.content
+
+					local trunk = Instance.new("Frame")
+					trunk.BackgroundColor3 = U.C.DEEP4
+					trunk.BorderSizePixel = 0
+					trunk.Position = UDim2.new(0, 12, 0, 8)
+					trunk.Size = UDim2.new(0, 1, 0, (#tbl4.Method.Names - 1) * 28 + 11)
+					trunk.Parent = branch
+
+					for i, name in ipairs(tbl4.Method.Names) do
+						local y = 4 + (i - 1) * 28
+						local stub = Instance.new("Frame")
+						stub.BackgroundColor3 = U.C.DEEP4
+						stub.BorderSizePixel = 0
+						stub.Position = UDim2.new(0, 12, 0, y + 11)
+						stub.Size = UDim2.fromOffset(12, 1)
+						stub.Parent = branch
+
+						local node = Instance.new("Frame")
+						node.BackgroundColor3 = U.C.MOON2
+						node.BorderSizePixel = 0
+						node.Position = UDim2.new(0, 22, 0, y + 9)
+						node.Size = UDim2.fromOffset(5, 5)
+						U.corner(node, 3)
+						node.Parent = branch
+
+						local optionButton = mkBtn(branch, name, UDim2.new(1, -40, 0, 22), UDim2.new(0, 32, 0, y), nil, tbl14.Queued)
+						optionButton.Label.TextSize = 10
+						branchButtons[name] = optionButton
+						optionButton.Button.Activated:Connect(function()
+							tbl4.Method.Apply(name)
+							branch.Visible = false
+							tbl4.UiDefer(slicedfn40)
+						end)
+					end
+				end
+
+				branch.Visible = not branch.Visible
+				refreshBranch()
 			end)
 
 			local slicedn29 = 0
