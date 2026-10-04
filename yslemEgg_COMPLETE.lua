@@ -1,13 +1,3 @@
--- ============================================================
--- MoonEgg — Steal An Egg
--- Chilli Hub logic (complete, from A to Z) + Moon Hub interface.
--- Not included on purpose: remote code loading, WebSocket / webhook / RPC,
--- token, auto-reload on teleport, connection-disabling.
--- ============================================================
-
--- ===================================================================
--- ANTI-DETECTION ENGINE  (Moon Hub helpers, loaded first)
--- ===================================================================
 local MoonAD = {}
 do
 	local _h  = string.format("%x", math.random(0x100000, 0xFFFFFF))
