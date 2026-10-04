@@ -2031,7 +2031,7 @@ do
 				LineGap = 12,
 				LineWait = 15,
 				DirectBudget = 450,
-				DirectMargin = 0.3,
+				DirectMargin = 1.2,
 				CrossNow = false,
 				CrossSpeed = 231,
 				PickupSpeed = 154,
@@ -8279,7 +8279,7 @@ do
 					reason = rejected and "server rejected or relocated the player" or "ended without delivery"
 
 					if sc.LastFailed >= attemptAt then
-						sc.DirectMargin = math.min((tonumber(sc.DirectMargin) or 0.3) + 0.2, 3)
+						sc.DirectMargin = math.min((tonumber(sc.DirectMargin) or 1.2) + 0.3, 3)
 						A.Event("margin", sc.DirectMargin)
 					end
 
@@ -8293,7 +8293,7 @@ do
 				ag.Enabled = saved.Guard
 
 				if result then
-					sc.DirectMargin = math.max(0.3, (tonumber(sc.DirectMargin) or 0.3) - 0.05)
+					sc.DirectMargin = math.max(1.0, (tonumber(sc.DirectMargin) or 1.2) - 0.05)
 				end
 
 				pcall(A.Finish, result, reason)
