@@ -3965,8 +3965,22 @@ do
 
 		-- FPS dip while the delivery is running (restores the FPS Cap slider value afterwards)
 		tbl4.SafeCarry.CarryFps = 20
+		tbl4.SafeCarry.DipFps = 3
 		tbl4.CarryCap = {
 			Active = false,
+			-- very short dip (Instant Steal): lowest FPS for a moment, then back to normal
+			Dip = function(fps, seconds)
+				local cap = tbl4.CarryCap
+				if cap.Active or type(setfpscap) ~= "function" then
+					return
+				end
+				cap.Active = true
+				cap.At = os.clock()
+				pcall(setfpscap, math.clamp(math.floor(tonumber(fps) or 3), 1, 60))
+				task.delay(tonumber(seconds) or 0.3, function()
+					cap.Off()
+				end)
+			end,
 			On = function()
 				local cap = tbl4.CarryCap
 				if cap.Active or type(setfpscap) ~= "function" then
@@ -4000,6 +4014,19 @@ do
 				end
 			end,
 		}
+
+		tbl4.SafeCarry.DipHandle = sliced8:CreateSlider({
+			Name = "Instant FPS Dip",
+			Note = "Instant Steal: lowest FPS for a very short moment (0 = off)",
+			Min = 0,
+			Max = 30,
+			Default = 3,
+			Increment = 1,
+			Unit = " FPS",
+			Callback = function(arg)
+				tbl4.SafeCarry.DipFps = math.clamp(math.floor(tonumber(arg) or 3), 0, 30)
+			end,
+		})
 
 		tbl4.SafeCarry.CarryFpsHandle = sliced8:CreateSlider({
 			Name = "Carry FPS Cap",
@@ -6860,6 +6887,12 @@ do
 							-- a clone stays where the egg was taken, the lag starts here
 							pcall(tbl4.PostClone)
 							pcall(tbl4.CarryCap.On)
+						else
+							local dipFps = tonumber(safeCarry.DipFps) or 0
+
+							if dipFps > 0 then
+								pcall(tbl4.CarryCap.Dip, dipFps, 0.3)
+							end
 						end
 
 						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
