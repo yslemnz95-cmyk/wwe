@@ -121,6 +121,43 @@ local C = {
 -- Alias for compatibility with the rest of the file (names already used everywhere)
 C.ACCENT, C.ACCENT2 = C.MOON, C.MOON2
 C.TRACKOFF = C.OFF_BG
+
+-- ---------- themes: one table so the lib block keeps few locals ----------
+local TH = {names = {"Moon", "Neon", "Toxic", "Gold"}, list = {}}
+do
+	local function c3(r, g, b) return Color3.fromRGB(r, g, b) end
+	TH.sets = {
+		Moon  = {DEEP1 = c3(4,7,16),  DEEP2 = c3(14,28,58), DEEP3 = c3(40,80,165),  DEEP4 = c3(90,150,255),  MOON = c3(90,160,255),  MOON2 = c3(160,200,255), ON_BG = c3(20,45,80)},
+		Neon  = {DEEP1 = c3(18,4,14), DEEP2 = c3(58,14,40), DEEP3 = c3(165,40,110), DEEP4 = c3(255,90,180),  MOON = c3(255,100,190), MOON2 = c3(255,170,220), ON_BG = c3(80,20,55)},
+		Toxic = {DEEP1 = c3(4,16,6),  DEEP2 = c3(14,58,24), DEEP3 = c3(40,165,70),  DEEP4 = c3(110,255,140), MOON = c3(90,240,130),  MOON2 = c3(170,255,190), ON_BG = c3(20,80,35)},
+		Gold  = {DEEP1 = c3(18,12,2), DEEP2 = c3(58,40,10), DEEP3 = c3(165,120,30), DEEP4 = c3(255,200,90),  MOON = c3(255,195,80),  MOON2 = c3(255,225,150), ON_BG = c3(80,58,15)},
+	}
+	TH.current = TH.sets[store["Theme"]] and store["Theme"] or "Moon"
+	TH.apply = function(name)
+		for k, v in pairs(TH.sets[name]) do C[k] = v end
+		C.ACCENT, C.ACCENT2, C.TABIDLE = C.MOON, C.MOON2, C.MOON2
+	end
+	TH.apply(TH.current)
+	TH.seq = function(a, b)
+		return ColorSequence.new({
+			ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(0.25, b), ColorSequenceKeypoint.new(0.5, a),
+			ColorSequenceKeypoint.new(0.75, b), ColorSequenceKeypoint.new(1, a)})
+	end
+	TH.refresh = function()
+		local list = TH.list
+		for i = #list, 1, -1 do
+			local e = list[i]
+			if not e.inst.Parent then
+				table.remove(list, i)
+			elseif e.kind == "grad" then e.inst.Color = TH.seq(C.DEEP4, C.DEEP3)
+			elseif e.kind == "strokegrad" then e.inst.Color = TH.seq(C.DEEP1, C.DEEP2)
+			elseif e.kind == "stroke" then e.inst.Color = C.DEEP3
+			elseif e.kind == "glow" then e.inst.Color = C.MOON
+			end
+		end
+	end
+	TH.reg = function(inst, kind) TH.list[#TH.list + 1] = {inst = inst, kind = kind} end
+end
 local function corner(inst, r) local c = Instance.new("UICorner", inst); c.CornerRadius = UDim.new(0, r or 8); return c end
 local function stroke(inst, col, th, tr)
 	local s = Instance.new("UIStroke", inst)
@@ -185,6 +222,7 @@ local function liveGrad(inst, animated)
 		ColorSequenceKeypoint.new(1,    C.DEEP4),
 	})
 	if animated then registerLive(g, inst) end
+	TH.reg(g, "grad")
 	return g
 end
 local function addLivingStroke(parent, thickness, animated)
@@ -199,6 +237,7 @@ local function addLivingStroke(parent, thickness, animated)
 		ColorSequenceKeypoint.new(1,    C.DEEP1),
 	})
 	if animated then registerLive(g, parent) end
+	TH.reg(s, "stroke"); TH.reg(g, "strokegrad")
 	return s
 end
 -- press feedback shared by every button of the hub
@@ -244,6 +283,21 @@ local function makeSwitch(parent, initial)
 	glow.Thickness = 2.5; glow.Color = C.MOON; glow.Transparency = 1
 	glow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	local _glowTween = nil
+	TH.reg(glow, "glow")
+	local function burst()
+		if not lib.ParticlesOn then return end
+		for i = 1, 6 do
+			local p = Instance.new("Frame", pill)
+			p.Size = UDim2.fromOffset(3, 3); p.AnchorPoint = Vector2.new(0.5, 0.5)
+			p.Position = UDim2.new(1, -10, 0.5, 0)
+			p.BackgroundColor3 = i % 2 == 0 and C.MOON2 or C.WHITE; p.BorderSizePixel = 0; p.ZIndex = 50
+			corner(p, 2)
+			TweenService:Create(p, TweenInfo.new(0.5 + math.random() * 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = UDim2.new(1, -10 + math.random(-16, 6), 0.5, -math.random(10, 20)),
+				BackgroundTransparency = 1, Size = UDim2.fromOffset(1, 1)}):Play()
+			game:GetService("Debris"):AddItem(p, 0.9)
+		end
+	end
 	local function stopGlow()
 		if _glowTween then _glowTween:Cancel(); _glowTween = nil end
 		glow.Transparency = 1
@@ -268,7 +322,7 @@ local function makeSwitch(parent, initial)
 		TweenService:Create(knob, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 			{Position = on and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7),
 			 BackgroundColor3 = on and C.WHITE or C.SILVER2}):Play()
-		if on then startGlow() else stopGlow() end
+		if on then startGlow(); burst() else stopGlow() end
 	end
 	if initial then startGlow() end
 	return pill, btn, setState
@@ -336,7 +390,32 @@ end
 	lib.Gui = gui
 
 	local zTop = 20
+	local snapFrames = {}
+	local function snapTo(target)
+		local scr = gui.AbsoluteSize
+		local pos, size = target.AbsolutePosition, target.AbsoluteSize
+		local T = 14
+		local bestX, bestY
+		local function tryX(d) if math.abs(d) <= T and (not bestX or math.abs(d) < math.abs(bestX)) then bestX = d end end
+		local function tryY(d) if math.abs(d) <= T and (not bestY or math.abs(d) < math.abs(bestY)) then bestY = d end end
+		tryX(-pos.X); tryX(scr.X - (pos.X + size.X)); tryY(-pos.Y); tryY(scr.Y - (pos.Y + size.Y))
+		for _, o in ipairs(snapFrames) do
+			if o ~= target and o.Parent and o.Visible then
+				local op, osz = o.AbsolutePosition, o.AbsoluteSize
+				local vOverlap = pos.Y < op.Y + osz.Y and pos.Y + size.Y > op.Y
+				local hOverlap = pos.X < op.X + osz.X and pos.X + size.X > op.X
+				if vOverlap then tryX(op.X + osz.X - pos.X); tryX(op.X - (pos.X + size.X)) end
+				if hOverlap then tryY(op.Y + osz.Y - pos.Y); tryY(op.Y - (pos.Y + size.Y)) end
+			end
+		end
+		if bestX or bestY then
+			local p = target.Position
+			TweenService:Create(target, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = UDim2.new(p.X.Scale, p.X.Offset + (bestX or 0), p.Y.Scale, p.Y.Offset + (bestY or 0))}):Play()
+		end
+	end
 	local function drag(handle, target)
+		if not table.find(snapFrames, target) then table.insert(snapFrames, target) end
 		local dragging, dragStart, startPos = false, nil, nil
 		handle.InputBegan:Connect(function(inp)
 			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
@@ -352,7 +431,9 @@ end
 			end
 		end)
 		UIS.InputEnded:Connect(function(inp)
-			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then dragging = false end
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+				if dragging then dragging = false; pcall(snapTo, target) end
+			end
 		end)
 	end
 
@@ -406,6 +487,102 @@ end
 				end
 			end)
 		end)
+	end
+
+	lib.ThemeNames = TH.names
+	lib.ThemeName = TH.current
+	lib.SetTheme = function(name)
+		if not TH.sets[name] then return end
+		TH.current = name; lib.ThemeName = name
+		TH.apply(name); TH.refresh()
+		setStored("Theme", name)
+	end
+
+	-- ---------- intro: an orb grows, shows the name, then flies up to the top bar ----------
+	lib.Intro = function()
+		task.spawn(function()
+			pcall(function()
+				local orb = Instance.new("Frame", gui)
+				orb.Name = "MoonEggIntro"
+				orb.AnchorPoint = Vector2.new(0.5, 0.5); orb.Position = UDim2.new(0.5, 0, 0.5, 0)
+				orb.Size = UDim2.fromOffset(0, 0); orb.BackgroundColor3 = C.WHITE
+				orb.BorderSizePixel = 0; orb.ZIndex = 980
+				corner(orb, 100); addLivingStroke(orb, 2.5, true)
+				local og = Instance.new("UIGradient", orb)
+				og.Rotation = 45; og.Color = ColorSequence.new(C.WHITE, C.MOON)
+				local name = label(gui, "MoonEgg", UDim2.fromOffset(200, 26), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+				name.AnchorPoint = Vector2.new(0.5, 0); name.Position = UDim2.new(0.5, 0, 0.5, 62)
+				name.TextSize = 20; name.TextTransparency = 1; name.ZIndex = 981
+				liveGrad(name, true)
+				TweenService:Create(orb, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(96, 96)}):Play()
+				task.wait(0.25)
+				TweenService:Create(name, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+				task.wait(1)
+				TweenService:Create(name, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+				TweenService:Create(orb, TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+					Size = UDim2.fromOffset(10, 10), Position = UDim2.new(0.5, 0, 0, 18), BackgroundTransparency = 1}):Play()
+				task.wait(0.6)
+				orb:Destroy(); name:Destroy()
+			end)
+		end)
+	end
+
+	-- ---------- compact mode: the whole hub folds into one thin bar ----------
+	local barGui
+	lib.Compact = function(on)
+		if on then
+			if not barGui then
+				barGui = Instance.new("ScreenGui")
+				barGui.Name = "MoonEggCompact"; barGui.ResetOnSpawn = false
+				barGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; barGui.IgnoreGuiInset = true
+				barGui.Parent = gui.Parent
+				local bar = Instance.new("Frame", barGui)
+				bar.AnchorPoint = Vector2.new(0.5, 0); bar.Position = UDim2.new(0.5, 0, 0, 8)
+				bar.Size = UDim2.new(0, 0, 0, 36); bar.AutomaticSize = Enum.AutomaticSize.X
+				bar.BackgroundColor3 = C.BG; bar.BackgroundTransparency = 0.3; bar.BorderSizePixel = 0
+				corner(bar, 18); addLivingStroke(bar, 1.5, true)
+				local lay = Instance.new("UIListLayout", bar)
+				lay.FillDirection = Enum.FillDirection.Horizontal; lay.Padding = UDim.new(0, 6)
+				lay.VerticalAlignment = Enum.VerticalAlignment.Center
+				local pad = Instance.new("UIPadding", bar)
+				pad.PaddingLeft = UDim.new(0, 8); pad.PaddingRight = UDim.new(0, 8)
+				local function mk(text, color, order)
+					local b = Instance.new("TextButton", bar)
+					b.Size = UDim2.new(0, 0, 0, 26); b.AutomaticSize = Enum.AutomaticSize.X
+					b.BackgroundColor3 = C.ROW; b.BackgroundTransparency = 0.35; b.BorderSizePixel = 0
+					b.AutoButtonColor = false; b.Text = text; b.Font = Enum.Font.GothamBold; b.TextSize = 10
+					b.TextColor3 = color or C.WHITE; b.LayoutOrder = order
+					local bp = Instance.new("UIPadding", b)
+					bp.PaddingLeft = UDim.new(0, 10); bp.PaddingRight = UDim.new(0, 10)
+					corner(b, 13); addLivingStroke(b, 1); pressFx(b)
+					return b
+				end
+				local steal = mk("Steal: OFF", C.WHITE, 1)
+				local mode = mk("Mode: Normal", C.WHITE, 2)
+				local stop = mk("STOP", C.RED, 3)
+				local open = mk("OPEN", C.MOON2, 4)
+				steal.MouseButton1Click:Connect(function()
+					if lib.SetAutoSteal and lib.GetAutoSteal then pcall(lib.SetAutoSteal, not lib.GetAutoSteal()) end
+				end)
+				mode.MouseButton1Click:Connect(function() if lib.CycleMode then pcall(lib.CycleMode) end end)
+				stop.MouseButton1Click:Connect(function() if lib.PanicStop then pcall(lib.PanicStop) end end)
+				open.MouseButton1Click:Connect(function() lib.Compact(false) end)
+				task.spawn(function()
+					while barGui and barGui.Parent do
+						local sOn = lib.GetAutoSteal and lib.GetAutoSteal() or false
+						steal.Text = "Steal: " .. (sOn and "ON" or "OFF")
+						steal.TextColor3 = sOn and C.GREEN or C.WHITE
+						mode.Text = "Mode: " .. tostring(lib.CurrentMode and lib.CurrentMode() or "Normal")
+						task.wait(0.4)
+					end
+				end)
+			end
+			barGui.Enabled = true
+			gui.Enabled = false
+		else
+			if barGui then barGui.Enabled = false end
+			gui.Enabled = true
+		end
 	end
 
 	-- ---------- startup splash: what loaded and what did not ----------
@@ -785,7 +962,14 @@ end
 			w.current = name
 			for n, t in pairs(w.tabs) do
 				local on = n == name
-				t.page.Visible = on
+				if on and not t.page.Visible then
+					t.basePos = t.basePos or t.page.Position
+					t.page.Position = t.basePos + UDim2.fromOffset(18, 0)
+					t.page.Visible = true
+					TweenService:Create(t.page, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = t.basePos}):Play()
+				else
+					t.page.Visible = on
+				end
 				if t.btn then
 					TweenService:Create(t.btn, TweenInfo.new(0.15), {
 						BackgroundColor3 = on and C.MOON or Color3.fromRGB(18, 22, 30),
@@ -1333,6 +1517,7 @@ end
 			{id = "speed", label = "Speed"}, {id = "lock", label = "Lock"},
 			{id = "steal", label = "Steal\nPanel"}, {id = "events", label = "Events"},
 			{id = "mode", label = "Mode"}, {id = "panic", label = "STOP"},
+			{id = "compact", label = "Compact"},
 		}
 		for i, def in ipairs(defs) do
 			local col, rw = (i - 1) % 2, math.floor((i - 1) / 2)
@@ -1391,6 +1576,8 @@ end
 					if lib.CycleMode then pcall(lib.CycleMode) end
 				elseif def.id == "panic" then
 					if lib.PanicStop then pcall(lib.PanicStop) end
+				elseif def.id == "compact" then
+					lib.Compact(true)
 				end
 			end)
 			if def.id == "speed" then
@@ -1435,6 +1622,8 @@ end
 		main.Select((cfg and cfg.MainTab and cfg.MainTab.name) or main.order[1])
 		main.frame.Visible = true
 		buildDock()
+		if lib.Intro then lib.Intro() end
+		task.delay(3, function() lib.ParticlesOn = true end)
 		UIS.InputBegan:Connect(function(inp, gp)
 			if gp then return end
 			if inp.KeyCode == Enum.KeyCode.RightShift then main.SetOpen(not main.IsOpen()) end
@@ -4073,6 +4262,16 @@ do
 
 			if MoonLib.Banner then
 				MoonLib.Banner("Mode: " .. nextName, 3)
+			end
+		end
+
+		MoonLib.GetAutoSteal = function()
+			return sliced5 ~= nil and tbl4.Toggle(sliced5, false) == true
+		end
+
+		MoonLib.SetAutoSteal = function(v)
+			if sliced5 and type(sliced5.Set) == "function" then
+				pcall(sliced5.Set, sliced5, v == true)
 			end
 		end
 
@@ -27916,6 +28115,18 @@ do
 	local sliced13 = sliced2:CreateTab({ Name = "Misc", SectionsExpanded = true })
 	local sliced14 = sliced13:CreateSection({ Name = "Performance", Expanded = true })
 	local flag4 = false
+
+	sliced14:CreateDropdown({
+		Name = "Theme",
+		Note = "Colour of every stroke and gradient of the hub",
+		Options = MoonLib.ThemeNames,
+		Default = MoonLib.ThemeName,
+		Callback = function(arg)
+			if MoonLib.SetTheme then
+				MoonLib.SetTheme(arg)
+			end
+		end,
+	})
 
 	tbl4.FpsCapHandle = sliced14:CreateSlider({
 		Name = "FPS Cap",
