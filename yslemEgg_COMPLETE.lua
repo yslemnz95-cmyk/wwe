@@ -4402,25 +4402,16 @@ do
 				end
 
 				tbl4.MethodApplying = true
-				local hops = name == "Delivery Stop"
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name ~= "Normal"
 				sc.HopStop = name == "Instant TP" and 14 or 48
 				sc.SnapPickup = false
+
 				if name == "Instant TP" and tbl4.GoMethod.Current() == "Fly" then
 					tbl4.GoMethod.Apply("Run")
 				end
 				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
-
-				if hops then
-					local handle = ag.Handle
-
-					if handle and type(handle.Set) == "function" then
-						pcall(handle.Set, handle, false)
-					end
-					ag.Enabled = false
-				end
 
 				if name == "Instant TP" then
 					local handle = ag.Handle
@@ -5121,13 +5112,7 @@ do
 
 				tbl4.AntiGuard.Enabled = arg == true
 
-				if tbl4.MethodReady and not tbl4.MethodApplying then
-					local mode = tbl4.Method.Current()
-
-					if tbl4.AntiGuard.Enabled and mode == "Delivery Stop" then
-						tbl4.Method.Apply("Normal")
-					end
-				end
+				
 
 				if tbl4.StealPanelSync then
 					pcall(tbl4.StealPanelSync)
@@ -8682,7 +8667,7 @@ do
 			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
-				if antiGuard.Enabled and (not tbl4.SafeCarry.LineDrop or tbl4.SafeCarry.Teleport) then
+				if antiGuard.Enabled then
 					local slicedn17 = 0
 
 					while not antiGuard.Busy and slicedn17 < 1 and not slicedfn13(arg) do
@@ -8732,8 +8717,8 @@ do
 
 						local safeCarry = tbl4.SafeCarry
 						local sliced19 = stealHome()
-						local slicedn21 = not safeCarry.Teleport and sliced19 and safeCarry.Enabled and safeCarry.CarryStyle ~= "Walk" and safeCarry.Height > 0.5 and sliced19.Y + safeCarry.Height or nil
-						local slicedn22 = safeCarry.Teleport and 0.7 or 0
+						local slicedn21 = not (safeCarry.Teleport or safeCarry.StopMode) and sliced19 and safeCarry.Enabled and safeCarry.CarryStyle ~= "Walk" and safeCarry.Height > 0.5 and sliced19.Y + safeCarry.Height or nil
+						local slicedn22 = (safeCarry.Teleport or safeCarry.StopMode) and 0.7 or 0
 
 						while slicedn22 < 0.8 and tbl4.Steal.Carrying and not slicedfn13(arg) do
 							str2 = slicedn22 < 0.6 and "Anti Guard done, rising up" or "Anti Guard done, getting ready"
@@ -30563,7 +30548,7 @@ do
 		local flag5
 
 		if enabled then
-			flag5 = not (tbl4.SafeCarry.LineDrop and not tbl4.SafeCarry.Teleport and tbl4.Steal.Active)
+			flag5 = true
 		else
 			flag5 = enabled
 		end
