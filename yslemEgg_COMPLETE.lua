@@ -230,7 +230,7 @@ local _liveAny = {}
 local _liveTick = 0
 RunService.RenderStepped:Connect(function()
 	_liveTick = _liveTick + 1
-	if _liveTick % 6 ~= 0 then return end
+	if _liveTick % 6 ~= 0 or lib.AnimUser == false or lib.AnimAuto == false then return end
 	for root, list in pairs(_live) do
 		if root.Parent then
 			if root.Visible then
@@ -765,7 +765,10 @@ end
 			local acc, frames = 0, 0
 			RunService.RenderStepped:Connect(function(dt)
 				acc = acc + dt; frames = frames + 1
-				if acc >= 0.5 then hudFps = math.floor(frames / acc + 0.5); acc = 0; frames = 0 end
+				if acc >= 0.5 then
+						hudFps = math.floor(frames / acc + 0.5); acc = 0; frames = 0
+						if hudFps < 30 then lib.AnimAuto = false elseif hudFps >= 45 then lib.AnimAuto = true end
+					end
 			end)
 			hudLabel = label(header, "", UDim2.new(1, -44, 0, 20), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
 			hudLabel.Position = UDim2.new(0, 38, 0, 4); hudLabel.TextSize = 13; hudLabel.Visible = false
@@ -778,7 +781,7 @@ end
 			local tripGrad = Instance.new("UIGradient", tripStroke)
 			task.spawn(function()
 				while frame.Parent do
-					task.wait(0.1)
+					task.wait(0.2)
 					local prog, kind = nil, nil
 					if minimized and lib.TripStatus then
 						local ok, a, b = pcall(lib.TripStatus)
@@ -24458,7 +24461,7 @@ do
 			flag8 = true
 			local sliced20 = slicedn13
 
-			task.delay(flag6 and 0.15 or 1, function()
+			task.delay(flag6 and 0.3 or 1, function()
 				flag8 = false
 
 				if flag4 and sliced20 == slicedn13 then
@@ -24843,7 +24846,7 @@ do
 			local stripWin = win
 			task.spawn(function()
 				while flag4 and win == stripWin and stripWin.frame.Parent do
-					task.wait(0.1)
+					task.wait(0.2)
 
 					if flag6 then
 						pcall(updateStrip)
@@ -28201,6 +28204,19 @@ do
 			if MoonLib.SetTheme then
 				MoonLib.SetTheme(arg)
 			end
+		end,
+	})
+
+	local animToggle
+	animToggle = sliced14:CreateToggle({
+		Name = "Smooth Animations",
+		Note = "Animated strokes and gradients (they also pause by themselves under 30 FPS)",
+		Default = true,
+		Callback = function(arg)
+			if type(arg) ~= "boolean" then
+				arg = tbl4.Toggle(animToggle, true)
+			end
+			MoonLib.AnimUser = arg == true
 		end,
 	})
 
