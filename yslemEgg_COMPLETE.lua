@@ -8045,11 +8045,33 @@ do
 				tune.Jumped = { Longest = 0 }
 				local height = math.max(root.Position.Y, home.Y) + 42
 
+				-- real ground under a landing point (never lands inside the terrain or over the void)
+				local function groundAt(x, z)
+					local params = RaycastParams.new()
+					params.FilterType = Enum.RaycastFilterType.Exclude
+					params.FilterDescendantsInstances = { character, tbl4.StealClone }
+					params.IgnoreWater = true
+					local hit = workspace:Raycast(Vector3.new(x, height + 150, z), Vector3.new(0, -700, 0), params)
+
+					if hit and hit.Material ~= Enum.Material.Water then
+						return hit.Position.Y
+					end
+					return nil
+				end
+
 				while flat.Magnitude > stop + 8 and not slicedfn13(arg) do
 					local step = math.min(flat.Magnitude - stop, tune.JumpCap)
 					local last = step >= flat.Magnitude - stop - 1
 					local ahead = home + flat.Unit * (flat.Magnitude - step)
-					local landing = last and CFrame.new(ahead.X, home.Y + 3, ahead.Z) * rotation or CFrame.new(ahead.X, height, ahead.Z) * rotation
+					local ground = groundAt(ahead.X, ahead.Z)
+					local landingY = height
+
+					if ground then
+						landingY = last and ground + 4 or math.max(ground + 8, home.Y + 8)
+					elseif last then
+						landingY = home.Y + 40
+					end
+					local landing = CFrame.new(ahead.X, landingY, ahead.Z) * rotation
 					longest = math.max(longest, step)
 					tune.Jumped.Longest = longest
 					str2 = string.format("Instant TP: jumping %d studs", math.floor(step + 0.5))
