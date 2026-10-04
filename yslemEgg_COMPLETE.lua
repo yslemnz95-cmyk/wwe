@@ -22595,6 +22595,13 @@ do
 				tbl16.ToggleHandle:Set(sliced20, false)
 			end
 
+			local instantOn = tbl4.SafeCarry.LineDrop == true
+
+			if tbl16.InstantOn ~= instantOn then
+				tbl16.InstantOn = instantOn
+				tbl16.InstantHandle:Set(instantOn)
+			end
+
 			local method = tbl4.Method.Current()
 
 			if tbl16.Mode ~= method then
@@ -23232,8 +23239,21 @@ do
 				tbl4.UiDefer(slicedfn40)
 			end)
 
-			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 26), UDim2.new(0.5, 3, 0, 4), nil, tbl14.Queued)
-			modeButton.Label.TextSize = 10
+			local instantHandle = makeSwitchButton("Instant Steal", UDim2.new(0.5, 3, 0, 4), function(v)
+				local safeCarry = tbl4.SafeCarry
+				local handle = safeCarry.InstantHandle
+
+				if handle and type(handle.Set) == "function" then
+					pcall(handle.Set, handle, v == true)
+				end
+
+				safeCarry.LineDrop = v == true
+				safeCarry.SpeedJitter = v == true and 0 or 0.08
+				tbl4.UiDefer(slicedfn40)
+			end)
+
+			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
+			modeButton.Label.TextSize = 9
 			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
 			local guardHandle = { Name = "Normal" }
 
@@ -23281,8 +23301,9 @@ do
 				end)
 			end
 
-			local sortButton = mkBtn(bar, "Sort: " .. tostring(sliced4), UDim2.new(1, -16, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Hud)
-			sortButton.Label.TextSize = 10
+			local sortButton = mkBtn(bar, "Sort: " .. tostring(sliced4), UDim2.new(0.5, -11, 0, 22), UDim2.new(0.5, 3, 0, 35), nil, tbl14.Hud)
+			sortButton.Label.TextSize = 9
+			sortButton.Label.TextTruncate = Enum.TextTruncate.AtEnd
 			sortButton.Button.Activated:Connect(function()
 				sortButton.Pulse()
 				cycleSort()
@@ -23372,7 +23393,7 @@ do
 				task.defer(refreshEmpty)
 			end))
 
-			tbl16 = { ToggleHandle = toggleHandle, GuardHandle = guardHandle, SortHandle = sortHandle }
+			tbl16 = { ToggleHandle = toggleHandle, GuardHandle = guardHandle, InstantHandle = instantHandle, SortHandle = sortHandle }
 
 			tbl4.StealPanelSync = function()
 				tbl4.UiDefer(slicedfn40)
