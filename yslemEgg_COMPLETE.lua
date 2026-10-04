@@ -3969,6 +3969,20 @@ do
 
 		-- three delivery modes. The mode is the only switch for the hops: Instant TP hops home the moment the egg is
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
+		-- speed ceiling of the hop modes: Delivery Stop 115%, Instant TP 120%, Normal unlimited
+		tbl4.SafeCarry.Cap = function(ratio)
+			local sc = tbl4.SafeCarry
+
+			if sc.StopMode then
+				return math.min(ratio, 1.15)
+			end
+
+			if sc.Teleport then
+				return math.min(ratio, 1.2)
+			end
+			return ratio
+		end
+
 		tbl4.Method = {
 			Names = { "Normal", "Instant TP", "Delivery Stop" },
 			Current = function()
@@ -4014,8 +4028,8 @@ do
 				end
 				tbl4.MethodApplying = false
 
-				if name == "Delivery Stop" and MoonLib and MoonLib.Banner then
-					MoonLib.Banner("Delivery Stop: max 115%, faster = bug", 5)
+				if name ~= "Normal" and MoonLib and MoonLib.Banner then
+					MoonLib.Banner(name .. ": max " .. (name == "Delivery Stop" and "115" or "120") .. "%, faster = bug", 5)
 				end
 
 				if ag.Render and tbl4.UiDefer then
@@ -6992,7 +7006,7 @@ do
 					local unit = magnitude > 0.01 and vector.Unit or Vector3.zero
 
 					if safeCarry.RunHeight > 0.5 and str3 == "field" and not arg6 then
-						local runSpeed = safeCarry.StopMode and math.min(safeCarry.RunSpeed, 1.15) or safeCarry.RunSpeed
+						local runSpeed = safeCarry.Cap(safeCarry.RunSpeed)
 						local slicedn19 = math.max(tbl4.WalkSpeed() * runSpeed * arg5, 8)
 						local slicedn20 = math.clamp(safeCarry.ClimbShare, 0.1, 0.9)
 						local magnitude2 = Vector3.new(position.X - arg3.Position.X, 0, position.Z - arg3.Position.Z).Magnitude
@@ -7035,7 +7049,7 @@ do
 								humanoid:MoveTo(arg3.Position + unit * math.min(magnitude, 30))
 							end
 						else
-							local runSpeed = safeCarry.StopMode and math.min(safeCarry.RunSpeed, 1.15) or safeCarry.RunSpeed
+							local runSpeed = safeCarry.Cap(safeCarry.RunSpeed)
 							local slicedn19 = unit * math.min(math.max(tbl4.WalkSpeed() * runSpeed * arg5, 8), magnitude / 0.05)
 							arg3.AssemblyLinearVelocity = Vector3.new(slicedn19.X, arg3.AssemblyLinearVelocity.Y, slicedn19.Z)
 
@@ -7179,7 +7193,7 @@ do
 
 			tbl4.SafeCarry.Pace = function()
 				local slicedn17 = tonumber(tbl4.SafeCarry.RunSpeed) or 1
-				if tbl4.SafeCarry.StopMode then slicedn17 = math.min(slicedn17, 1.15) end
+				slicedn17 = tbl4.SafeCarry.Cap(slicedn17)
 				return math.max(tbl4.WalkSpeed() * slicedn17, 16)
 			end
 
@@ -7460,7 +7474,7 @@ do
 
 				local magnitude = Vector3.new(sliced20.Position.X - x, 0, sliced20.Position.Z - slicedn17).Magnitude
 				local max = math.max
-				local carryRatio = (safeCarry.StopMode and math.min(safeCarry.CarryRatio, 1.15) or safeCarry.CarryRatio)
+				local carryRatio = safeCarry.Cap(safeCarry.CarryRatio)
 				local sliced21 = max(tbl4.WalkSpeed() * carryRatio * (tonumber(safeCarry.Mult) or safeCarry.LightMult), 1)
 				local directMargin = safeCarry.DirectMargin
 				local slicedn18 = math.max(0, (magnitude - safeCarry.DirectBudget) / sliced21) + directMargin
@@ -7767,7 +7781,7 @@ do
 
 				if steal.Carrying and flag4 and slicedn19 >= slicedn18 and not slicedfn13(arg) then
 					str2 = "Line Drop: stepping over the line"
-					local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.15) or safeCarry.CrossRatio)
+					local crossRatio = safeCarry.Cap(safeCarry.CrossRatio)
 
 					slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 						return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -7863,7 +7877,7 @@ do
 
 						slicedn23 = 5
 					else
-						local pickupRatio = (safeCarry.StopMode and math.min(safeCarry.PickupRatio, 1.15) or safeCarry.PickupRatio)
+						local pickupRatio = safeCarry.Cap(safeCarry.PickupRatio)
 						slicedfn57(sliced22, tbl4.WalkSpeed() * pickupRatio, 5)
 						slicedn23 = 2.5
 					end
@@ -7906,7 +7920,7 @@ do
 				end
 
 				str2 = "Line Drop: stepping over the line"
-				local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.15) or safeCarry.CrossRatio)
+				local crossRatio = safeCarry.Cap(safeCarry.CrossRatio)
 
 				slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 					return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -8167,13 +8181,13 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
-			-- Instant TP: jump to the edge of the game's own home boost range (HomeImpulseBoostDistanceXZ) so the
-			-- server pushes the egg home itself; if nothing happens, jump straight onto the base
+			-- Instant TP (the original Anti Guard logic): jump onto the base, put the egg down, take it back, wait for the delivery
 			tbl4.SafeCarry.InstantHome = function(arg)
 				local safeCarry = tbl4.SafeCarry
-				local A = tbl4.Analyzer
+				local steal = tbl4.Steal
 				local home = stealHome()
 				local root = tbl4.Root()
+				local carryUid = steal.CarryUid
 
 				if not home or not root then
 					return false
@@ -8185,11 +8199,9 @@ do
 				if humanoid then
 					humanoid.PlatformStand = false
 				end
+				local target = CFrame.new(home + Vector3.new(0, 3, 0)) * root.CFrame.Rotation
 
-				local entry = type(tbl.Guards) == "table" and type(tbl.Guards.Directory) == "table" and tbl.Guards.Directory[tostring(tbl4.Steal.CarryAreaId)] or nil
-				local reach = type(entry) == "table" and tonumber(entry.HomeImpulseBoostDistanceXZ) or 0
-
-				-- returns true (delivered), false (server sent the egg back) or nil (keep going)
+				-- true (delivered), false (server sent the egg back) or nil (keep going)
 				local function verdict()
 					if safeCarry.LastDelivered >= now then
 						return true
@@ -8199,46 +8211,27 @@ do
 						str2 = "Instant TP: the server sent the egg back"
 						return false
 					end
-
-					if not tbl4.Steal.Carrying then
-						return false
-					end
 					return nil
 				end
 
-				local function hold(target, seconds, untilImpulse)
+				-- stay on the base spot for a while; returns the verdict as soon as there is one
+				local function holdOn(seconds, stopWhen)
 					local held = 0
-					local started = os.clock()
 
 					while held < seconds and not slicedfn13(arg) do
-						local result = verdict()
-
-						if result ~= nil then
-							return result
-						end
-
-						if untilImpulse and A.ImpulseAt >= started then
-							return nil, true
-						end
-
-						if A.RelocateAt >= started then
-							-- server pulled us back: stop fighting it, let the character settle
-							local settle = 0
-							while settle < 0.35 and not slicedfn13(arg) do
-								local here = tbl4.Root()
-								if here then
-									pcall(function()
-										here.AssemblyLinearVelocity = Vector3.zero
-									end)
-								end
-								settle += RunService.Heartbeat:Wait()
-							end
-							return nil, false, true
-						end
 						local current = tbl4.Root()
 
 						if not current then
 							return false
+						end
+						local v = verdict()
+
+						if v ~= nil then
+							return v
+						end
+
+						if stopWhen and stopWhen() then
+							break
 						end
 
 						pcall(function()
@@ -8254,237 +8247,53 @@ do
 					return nil
 				end
 
-				local rotation = root.CFrame.Rotation
-				local flat = Vector3.new(root.Position.X - home.X, 0, root.Position.Z - home.Z)
+				str2 = "Instant TP: jumping onto the base"
+				local v = holdOn(0.35, function()
+					return not steal.Carrying
+				end)
 
-				-- stage 1: jump toward the base, as far as the server has accepted so far in one go (everything at first,
-				-- shorter jumps after a rejection); the last jump lands at the edge of the home boost range
-				local tune = tbl4.Tune
-				local stop = reach > 0 and reach * 0.85 or 0
-				local longest = 0
-				local retries = 0
-				tune.Jumped = { Longest = 0 }
-				local startY = math.max(root.Position.Y, home.Y)
-				local startCFrame = root.CFrame
-
-				-- solid ground under a point (nil over water / void, so we only ever land on islands)
-				local function groundAt(x, z)
-					local params = RaycastParams.new()
-					params.FilterType = Enum.RaycastFilterType.Exclude
-					params.FilterDescendantsInstances = { character, tbl4.StealClone }
-					params.IgnoreWater = true
-					local top = startY + 90
-					local hit = workspace:Raycast(Vector3.new(x, top, z), Vector3.new(0, -260, 0), params)
-
-					while hit and (not hit.Instance.CanCollide or hit.Instance.Transparency >= 0.95) do
-						local nextTop = hit.Position.Y - 0.5
-
-						if nextTop < startY - 160 then
-							hit = nil
-							break
-						end
-						hit = workspace:Raycast(Vector3.new(x, nextTop, z), Vector3.new(0, -(nextTop - (startY - 170)), 0), params)
-					end
-
-					if hit and hit.Material ~= Enum.Material.Water and hit.Position.Y <= startY + 60 then
-						return hit.Position.Y
-					end
-					return nil
+				if v ~= nil then
+					return v
 				end
 
-				local function solidAt(x, z)
-					local y = groundAt(x, z)
-
-					if not y then
-						return nil
-					end
-
-					for _, off in ipairs({ Vector3.new(5, 0, 0), Vector3.new(-5, 0, 0), Vector3.new(0, 0, 5), Vector3.new(0, 0, -5) }) do
-						local y2 = groundAt(x + off.X, z + off.Z)
-
-						if not y2 or math.abs(y2 - y) > 12 then
-							return nil
-						end
-					end
-					return y
-				end
-
-				-- best island spot within `cap` studs that gets us closer to the base (never over water)
-				local function pickLanding(from, minDist, cap)
-					local curDist = Vector3.new(from.X - home.X, 0, from.Z - home.Z).Magnitude
-					local toward = Vector3.new(home.X - from.X, 0, home.Z - from.Z)
-
-					if toward.Magnitude < 1 then
-						return nil
-					end
-					toward = toward.Unit
-					local best, bestDist, bestAngle = nil, math.huge, 0
-
-					for _, radius in ipairs({ cap, cap * 0.8, cap * 0.6, cap * 0.45, cap * 0.3, 20 }) do
-						for _, deg in ipairs({ 0, 12, -12, 25, -25, 40, -40, 55, -55, 70, -70, 85, -85 }) do
-							local rad = math.rad(deg)
-							local dir = Vector3.new(toward.X * math.cos(rad) - toward.Z * math.sin(rad), 0, toward.X * math.sin(rad) + toward.Z * math.cos(rad))
-							local spot = from + dir * math.min(radius, curDist)
-							local dist = Vector3.new(spot.X - home.X, 0, spot.Z - home.Z).Magnitude
-
-							if dist <= curDist - 8 and dist >= minDist - 6 then
-								local y = solidAt(spot.X, spot.Z)
-
-								if y and (dist < bestDist - 2 or (dist < bestDist + 2 and math.abs(deg) < math.abs(bestAngle))) then
-									best, bestDist, bestAngle = Vector3.new(spot.X, y, spot.Z), dist, deg
-								end
-							end
-						end
-					end
-					return best
-				end
-
-				while flat.Magnitude > stop + 8 and not slicedfn13(arg) do
-					local cur = tbl4.Root()
-
-					if not cur then
-						return false
-					end
-					local cap = math.min(flat.Magnitude - stop, tune.JumpCap)
-					local pick = pickLanding(cur.Position, stop, cap)
-
-					if not pick then
-						retries += 1
-						tune.JumpCap = math.max(30, tune.JumpCap * 0.6)
-
-						if retries > 8 then
-							pcall(function()
-								character:PivotTo(startCFrame)
-							end)
-							return false
-						end
-						continue
-					end
-					local step = (Vector3.new(pick.X, 0, pick.Z) - Vector3.new(cur.Position.X, 0, cur.Position.Z)).Magnitude
-					local last = Vector3.new(pick.X - home.X, 0, pick.Z - home.Z).Magnitude <= stop + 10
-					local landing = CFrame.new(pick.X, pick.Y + 4, pick.Z) * rotation
-					longest = math.max(longest, step)
-					tune.Jumped.Longest = longest
-					str2 = string.format("Instant TP: jumping %d studs", math.floor(step + 0.5))
-					local result, boosted, pulled = hold(landing, last and 0.8 or tune.JumpGap, last)
-
-					if result ~= nil then
-						return result
-					end
-
-					if pulled then
-						retries += 1
-						tune.JumpCap = math.max(35, step * 0.5)
-						str2 = string.format("Instant TP: pulled back, hops now %d studs", math.floor(tune.JumpCap))
-						if retries > 8 then
-							return false
-						end
-						local back = tbl4.Root()
-						if not back then
-							return false
-						end
-						flat = Vector3.new(back.Position.X - home.X, 0, back.Position.Z - home.Z)
-						continue
-					end
-
-					if boosted then
-						str2 = "Instant TP: the game is carrying the egg home"
-						local waited = 0
-
-						while waited < 3 and not slicedfn13(arg) do
-							local answer = verdict()
-
-							if answer ~= nil then
-								return answer
-							end
-							waited += RunService.Heartbeat:Wait()
-						end
-						break
-					end
-
-					local here = tbl4.Root()
-
-					if not here then
-						return false
-					end
-					flat = Vector3.new(here.Position.X - home.X, 0, here.Position.Z - home.Z)
-
-					if last then
-						break
-					end
-				end
-
-				-- stage 2: approach home in safe hops (≤ 110 studs, well below Desert's ~130 which works reliably)
-				do
-					local here2 = tbl4.Root()
-					if here2 then
-						flat = Vector3.new(here2.Position.X - home.X, 0, here2.Position.Z - home.Z)
-					end
-					local safeHop = math.min(110, tune.JumpCap)
-					while flat.Magnitude > 6 and not slicedfn13(arg) do
-						local cur2 = tbl4.Root()
-
-						if not cur2 then
-							return false
-						end
-						local pick2 = pickLanding(cur2.Position, 0, math.min(flat.Magnitude, safeHop))
-						local homeGround = solidAt(home.X, home.Z)
-
-						if flat.Magnitude <= safeHop and homeGround then
-							pick2 = Vector3.new(home.X, homeGround, home.Z)
-						end
-
-						if not pick2 then
-							retries += 1
-							safeHop = math.max(30, safeHop * 0.6)
-
-							if retries > 14 then
-								pcall(function()
-									character:PivotTo(startCFrame)
-								end)
-								return false
-							end
-							continue
-						end
-						local step2 = (Vector3.new(pick2.X, 0, pick2.Z) - Vector3.new(cur2.Position.X, 0, cur2.Position.Z)).Magnitude
-						local last2 = Vector3.new(pick2.X - home.X, 0, pick2.Z - home.Z).Magnitude < 6
-						local landing2 = CFrame.new(pick2.X, pick2.Y + 3.5, pick2.Z) * rotation
-						str2 = string.format("Instant TP: final %d studs", math.floor(step2 + 0.5))
-						local result2, _, pulled2 = hold(landing2, last2 and 1.0 or 0.15, false)
-						if result2 ~= nil then
-							return result2
-						end
-						if pulled2 then
-							retries += 1
-							safeHop = math.max(30, step2 * 0.5)
-							tune.JumpCap = safeHop
-							str2 = string.format("Instant TP: pulled back, hops now %d studs", math.floor(safeHop))
-							if retries > 14 then
-								return false
-							end
-						end
-						here2 = tbl4.Root()
-						if not here2 then
-							return false
-						end
-						flat = Vector3.new(here2.Position.X - home.X, 0, here2.Position.Z - home.Z)
-					end
-				end
-
-				if tbl4.Steal.Carrying then
+				if steal.Carrying then
+					str2 = "Instant TP: putting the egg down"
 					local eggState = tbl.EggState
 
 					if type(eggState) == "table" and type(eggState.DropFieldEgg) == "function" then
 						pcall(eggState.DropFieldEgg, "PlayerRequest")
 					end
+					v = holdOn(1, function()
+						return not steal.Carrying
+					end)
+
+					if v ~= nil then
+						return v
+					end
 				end
 
-				local waited = 0
+				if not steal.Carrying and carryUid then
+					str2 = "Instant TP: taking the egg back"
 
-				while waited < 1 and safeCarry.LastDelivered < now and not slicedfn13(arg) do
-					waited += RunService.Heartbeat:Wait()
+					if not slicedfn50(arg, carryUid) or not steal.Carrying then
+						v = verdict()
+
+						if v ~= nil then
+							return v
+						end
+						str2 = "Instant TP: could not take the egg back"
+						return false
+					end
 				end
 
+				str2 = "Instant TP: waiting for the delivery"
+				v = holdOn(2.5, function()
+					return false
+				end)
+
+				if v ~= nil then
+					return v
+				end
 				return safeCarry.LastDelivered >= now
 			end
 
@@ -17918,8 +17727,10 @@ do
 				end
 				local boost = slicedn15
 
-				if tbl4.SafeCarry.StopMode then
-					boost = math.min(boost, math.max(tbl4.WalkSpeed(), 16) * 1.15)
+				local capMul = tbl4.SafeCarry.Cap(math.huge)
+
+				if capMul < math.huge then
+					boost = math.min(boost, math.max(tbl4.WalkSpeed(), 16) * capMul)
 				end
 				local slicedn16 = vector.Unit * boost
 				local assemblyLinearVelocity = sliced15.AssemblyLinearVelocity
@@ -17956,8 +17767,8 @@ do
 			Name = "Speed Boost",
 			Default = false,
 			Callback = function()
-				if tbl4.SafeCarry.StopMode and tbl4.Toggle(createToggle, false) and MoonLib and MoonLib.Banner then
-					MoonLib.Banner("Delivery Stop: max 115%, faster = bug", 5)
+				if tbl4.SafeCarry.Cap(math.huge) < math.huge and tbl4.Toggle(createToggle, false) and MoonLib and MoonLib.Banner then
+					MoonLib.Banner((tbl4.SafeCarry.StopMode and "Delivery Stop: max 115%" or "Instant TP: max 120%") .. ", faster = bug", 5)
 				end
 				if tbl4.SpeedForced and not tbl4.Toggle(createToggle, false) then
 					flag5 = true
