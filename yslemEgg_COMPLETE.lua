@@ -7424,7 +7424,7 @@ do
 
 				local magnitude = Vector3.new(sliced20.Position.X - x, 0, sliced20.Position.Z - slicedn17).Magnitude
 				local max = math.max
-				local carryRatio = safeCarry.CarryRatio
+				local carryRatio = (safeCarry.StopMode and math.min(safeCarry.CarryRatio, 1.2) or safeCarry.CarryRatio)
 				local sliced21 = max(tbl4.WalkSpeed() * carryRatio * (tonumber(safeCarry.Mult) or safeCarry.LightMult), 1)
 				local directMargin = safeCarry.DirectMargin
 				local slicedn18 = math.max(0, (magnitude - safeCarry.DirectBudget) / sliced21) + directMargin
@@ -7454,8 +7454,8 @@ do
 					if sliced22 then
 						local slicedn19 = sliced22.Position.Y + safeCarry.HopLift
 						local x2 = sliced22.Position.X
-						local hopRatio = safeCarry.HopRatio
-						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
+						local hopRatio = (safeCarry.StopMode and math.min(safeCarry.HopRatio, 1.2) or safeCarry.HopRatio)
+						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, safeCarry.StopMode and 20 or 40)
 						local hopStartX = x2
 						local hopStops = 0
 						local hopRetries = 0
@@ -7496,7 +7496,7 @@ do
 								pcall(tbl4.Analyzer.Event, "pullback", string.format("retry %d at x=%.0f", hopRetries, x2))
 
 								if hopRetries <= 6 then
-									str2 = string.format("Delivery Stop: pulled back, retry %d/6 with smaller hops", hopRetries)
+									str2 = string.format("Delivery Stop: pulled back, retry %d/6", hopRetries)
 									tbl4.Trip = { Phase = "Hopping", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops + 1, Stops = hopStopsWanted + 1, At = os.clock() }
 									local settleT = 0
 
@@ -7509,7 +7509,7 @@ do
 									if realRoot then
 										x2 = math.min(realRoot.Position.X, hopStartX)
 									end
-									slicedn20 = math.max(slicedn20 * 0.75, 25)
+									
 									continue
 								else
 									str2 = "Delivery Stop: pulled back too often, finishing from here"
@@ -7701,7 +7701,7 @@ do
 
 				if steal.Carrying and flag4 and slicedn19 >= slicedn18 and not slicedfn13(arg) then
 					str2 = "Line Drop: stepping over the line"
-					local crossRatio = safeCarry.CrossRatio
+					local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.2) or safeCarry.CrossRatio)
 
 					slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 						return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -7797,7 +7797,7 @@ do
 
 						slicedn23 = 5
 					else
-						local pickupRatio = safeCarry.PickupRatio
+						local pickupRatio = (safeCarry.StopMode and math.min(safeCarry.PickupRatio, 1.2) or safeCarry.PickupRatio)
 						slicedfn57(sliced22, tbl4.WalkSpeed() * pickupRatio, 5)
 						slicedn23 = 2.5
 					end
@@ -7840,7 +7840,7 @@ do
 				end
 
 				str2 = "Line Drop: stepping over the line"
-				local crossRatio = safeCarry.CrossRatio
+				local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.2) or safeCarry.CrossRatio)
 
 				slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 					return safeCarry.LastDelivered >= now or not steal.Carrying
