@@ -30175,6 +30175,12 @@ do
 	local function slicedfn32()
 		local sliced10 = slicedfn31()
 		local options = antiGuard.Options
+
+		-- Instant TP / Delivery Stop: Anti Guard stops in front of the line instead of going back to the base,
+		-- then the delivery takes over from there
+		if tbl4.SafeCarry.LineDrop then
+			options = { Destination = "Next To Line", Stay = true, LineOffset = 14 }
+		end
 		if type(options) ~= "table" or options.Destination == "Safe Zone" and not options.Stay then
 			return sliced10
 		end
@@ -30186,7 +30192,7 @@ do
 
 		if options.Destination == "Next To Line" then
 			tbl20.Target = "edge"
-			tbl20.LineOffset = 6
+			tbl20.LineOffset = options.LineOffset or 6
 			tbl20.Height = 0
 			tbl20.OffsetX = 0
 			tbl20.OffsetZ = 0
