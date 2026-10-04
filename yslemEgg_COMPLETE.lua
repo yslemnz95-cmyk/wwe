@@ -1292,7 +1292,6 @@ end
 local MoonLib = lib
 
 
-
 local fn, v, sliced2, defaultTab, Players, RunService, ReplicatedStorage, CoreGui, UserInputService, localPlayer
 local networking, slicedfn2, tbl, sliced3, slicedfn3, slicedfn4, tbl2, slicedfn5, slicedfn6, tbl3
 local tbl4, slicedfn7, tbl5, sliced4, sliced5, espSection, tbl6, color, sequence, palettes
@@ -4506,10 +4505,26 @@ do
 					local s = tbl4.MethodStats[island] and tbl4.MethodStats[island]["Instant TP"] or nil
 					return s ~= nil and s.Streak >= 2 and os.clock() - s.At < 300
 				end,
+				-- True when the guards on the current steal island are faster than the player's carry speed.
+				-- On those islands the LightDark Anti Guard profile does a large CFrame jump that triggers
+				-- RigSync (CorrectionBegan / Reconcile) → "Delivery failed! The egg was returned to its nest."
+				-- Skipping "Instant TP" for them avoids that failure entirely.
+				FastGuard = function()
+					local ok, result = pcall(function()
+						local island = A.Island()
+						local entry = tbl.Guards and tbl.Guards.Directory and tbl.Guards.Directory[island]
+						local guardWS = type(entry) == "table" and tonumber(entry.WalkSpeed) or 0
+						if guardWS <= 0 then return false end
+						local ws = type(tbl4.WalkSpeed) == "function" and tbl4.WalkSpeed() or 0
+						local ratio = tonumber(tbl4.SafeCarry and tbl4.SafeCarry.CarryRatio) or 0.956
+						return guardWS > ws * ratio
+					end)
+					return ok and result == true
+				end,
 				Plan = function()
 					local plan = { "Instant TP", "Delivery Stop", "Normal" }
 
-					if tbl4.Ladder.SkipInstant() then
+					if tbl4.Ladder.FastGuard() or tbl4.Ladder.SkipInstant() then
 						table.remove(plan, 1)
 					end
 					return plan
