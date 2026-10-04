@@ -8361,6 +8361,21 @@ do
 					local slicedn24 = 0
 
 					while not steal.Carrying and slicedn24 < slicedn23 and not slicedfn13(arg) do
+						-- Instant TP: if the server pulled us back while retaking the egg, go straight back to where it lies
+						if safeCarry.Teleport and flag3 then
+							flag3 = false
+							sliced22 = slicedfn48(carryUid) or sliced22
+							local backRoot = tbl4.Root()
+
+							if backRoot then
+								str2 = "Instant TP: pulled back, returning to the egg"
+								pcall(function()
+									backRoot.CFrame = CFrame.new(sliced22 + Vector3.new(0, 3, 0)) * CFrame.Angles(0, 1.5707963267948966, 0)
+									backRoot.AssemblyLinearVelocity = Vector3.zero
+								end)
+							end
+						end
+
 						task.spawn(slicedfn28, carryUid)
 
 						if safeCarry.SnapPickup then
