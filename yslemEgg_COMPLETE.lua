@@ -24577,8 +24577,29 @@ do
 				tbl4.UiDefer(slicedfn40)
 			end)
 
-			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(1, -16, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
-			modeButton.Label.TextSize = 9
+			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0, 112, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
+			modeButton.Label.TextSize = 8.5
+			modeButton.Label.TextTruncate = Enum.TextTruncate.AtEnd
+
+			-- small guide badge: shows the current mode and says it is edited with the Mode button next to it
+			local modeBadge = Instance.new("Frame")
+			modeBadge.Name = "ModeBadge"
+			modeBadge.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			modeBadge.BackgroundTransparency = 0.35
+			modeBadge.BorderSizePixel = 0
+			modeBadge.Position = UDim2.new(0, 126, 0, 35)
+			modeBadge.Size = UDim2.new(1, -134, 0, 22)
+			U.corner(modeBadge, 11)
+			U.addLivingStroke(modeBadge, 1.2)
+			modeBadge.Parent = bar
+			local modeBadgeTitle = U.label(modeBadge, "Normal", UDim2.new(1, -10, 0, 11), U.C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+			modeBadgeTitle.Position = UDim2.new(0, 5, 0, 1)
+			modeBadgeTitle.TextSize = 9
+			modeBadgeTitle.TextTruncate = Enum.TextTruncate.AtEnd
+			U.liveGrad(modeBadgeTitle)
+			local modeBadgeHint = U.label(modeBadge, "< editable with Mode", UDim2.new(1, -10, 0, 9), U.C.SILVER2, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+			modeBadgeHint.Position = UDim2.new(0, 5, 0, 11)
+			modeBadgeHint.TextSize = 7
 			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
 			local guardHandle = { Name = "Normal" }
 
@@ -24818,6 +24839,7 @@ do
 				end
 
 				phaseText.Text = text
+				modeBadgeTitle.Text = tostring(tbl4.Method.Current()) .. " | " .. tostring(tbl4.GoMethod.Current())
 				fill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
 
 
