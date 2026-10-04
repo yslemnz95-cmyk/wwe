@@ -4247,7 +4247,7 @@ do
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name ~= "Normal"
 				sc.HopStop = name == "Instant TP" and 14 or 48
-				sc.SnapPickup = name == "Instant TP"
+				sc.SnapPickup = false
 				if name == "Instant TP" and tbl4.GoMethod.Current() == "Fly" then
 					tbl4.GoMethod.Apply("Run")
 				end
@@ -8184,6 +8184,14 @@ do
 					end
 
 					str2 = "Line Drop: picking the egg up at the line"
+
+					if safeCarry.Teleport then
+						str2 = "Instant TP: taking the egg back"
+
+						if slicedfn50(arg, carryUid) and steal.Carrying then
+							break
+						end
+					end
 					local slicedn23
 
 					if safeCarry.SnapPickup then
