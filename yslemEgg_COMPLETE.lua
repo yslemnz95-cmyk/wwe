@@ -28591,7 +28591,7 @@ do
 			Unit = "%",
 			SubOf = sliced14:CreateToggle({
 				Name = "FPS and Ping",
-				Default = true,
+				Default = false,
 				Callback = function(arg)
 					flag5 = arg == true
 
