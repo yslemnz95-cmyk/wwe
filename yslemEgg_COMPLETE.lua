@@ -4315,14 +4315,14 @@ do
 
 			-- reports are sent in 4 parts: each press copies the next one and says which it is
 			-- two separate queues: the delivery report and the game scan never overwrite each other
-			A.Queues = { report = { Parts = {}, Next = 1 }, scan = { Parts = {}, Next = 1 } }
+			A.Queues = { report = { Parts = {}, Next = 1, N = 4 }, scan = { Parts = {}, Next = 1, N = 5 } }
 
 			A.SetQueue = function(text, which)
 				local q = A.Queues[which or "report"]
-				local size = math.max(1, math.ceil(#text / 4))
+				local size = math.max(1, math.ceil(#text / q.N))
 				q.Parts = {}
 
-				for k = 1, 4 do
+				for k = 1, q.N do
 					q.Parts[k] = string.sub(text, (k - 1) * size + 1, k * size)
 				end
 
@@ -4339,12 +4339,12 @@ do
 					return false
 				end
 
-				if q.Next > 4 then
+				if q.Next > q.N then
 					q.Next = 1
 				end
 
 				local k = q.Next
-				local ok = copy(string.format("[%s %d/4]\n%s", label, k, q.Parts[k]))
+				local ok = copy(string.format("[%s %d/%d]\n%s", label, k, q.N, q.Parts[k]))
 
 				if not ok then
 					pcall(tbl4.Notify, "Analyzer", "Copy is not available on this executor")
@@ -4353,10 +4353,10 @@ do
 
 				q.Next = k + 1
 
-				if k < 4 then
-					pcall(tbl4.Notify, "Analyzer", string.format("%s part %d/4 copied. Paste it, then press the same button", label, k))
+				if k < q.N then
+					pcall(tbl4.Notify, "Analyzer", string.format("%s part %d/%d copied. Paste it, then press the same button", label, k, q.N))
 				else
-					pcall(tbl4.Notify, "Analyzer", label .. " part 4/4 copied. All parts done")
+					pcall(tbl4.Notify, "Analyzer", string.format("%s part %d/%d copied. All parts done", label, q.N, q.N))
 				end
 				return true
 			end
@@ -29810,7 +29810,7 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Game scan: next part (of 4)",
+		Name = "Game scan: next part (of 5)",
 		Note = "First press builds the scan and copies part 1",
 		ButtonText = "Next",
 		Callback = function()
