@@ -592,61 +592,49 @@ end
 				end
 			end)
 		end
-		local frameCornerObj = frame:FindFirstChildOfClass("UICorner")
-		local barLabel
-		local barToken = 0
+		local arrowBtn
+		local function updateArrow()
+			if arrowBtn then arrowBtn.Visible = minimized and w.wantOpen ~= false end
+		end
 		if not cfg.isMain then
-			barLabel = label(header, string.upper(tostring(cfg.title or "")), UDim2.new(1, -8, 0, 14), C.MOONTEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-			barLabel.Position = UDim2.new(0, 4, 0, 4); barLabel.TextSize = 9; barLabel.Visible = false
-			barLabel.TextTruncate = Enum.TextTruncate.AtEnd
-			header.MouseEnter:Connect(function()
-				if minimized and not cfg.isMain then
-					barLabel.Visible = true
-					TweenService:Create(frame, TweenInfo.new(0.15, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 120, 0, 22)}):Play()
-				end
-			end)
-			header.MouseLeave:Connect(function()
-				if minimized and not cfg.isMain then
-					barLabel.Visible = false
-					TweenService:Create(frame, TweenInfo.new(0.15, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 90, 0, 7)}):Play()
-				end
-			end)
+			local tray = gui:FindFirstChild("PanelTray")
+			if not tray then
+				tray = Instance.new("Frame", gui)
+				tray.Name = "PanelTray"; tray.BackgroundTransparency = 1
+				tray.AnchorPoint = Vector2.new(0.5, 0); tray.Position = UDim2.new(0.5, 0, 0, 4)
+				tray.Size = UDim2.new(0, 0, 0, 26); tray.AutomaticSize = Enum.AutomaticSize.X
+				tray.ZIndex = 400
+				local tl = Instance.new("UIListLayout", tray)
+				tl.FillDirection = Enum.FillDirection.Horizontal; tl.Padding = UDim.new(0, 8)
+				tl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+				tl.VerticalAlignment = Enum.VerticalAlignment.Center
+			end
+			arrowBtn = Instance.new("TextButton", tray)
+			arrowBtn.Size = UDim2.new(0, 44, 0, 24); arrowBtn.AutoButtonColor = false
+			arrowBtn.BackgroundColor3 = C.ROW; arrowBtn.BackgroundTransparency = 0.25
+			arrowBtn.Text = "v"; arrowBtn.Font = Enum.Font.GothamBold; arrowBtn.TextSize = 15
+			arrowBtn.TextColor3 = C.WHITE; arrowBtn.ZIndex = 401; arrowBtn.Visible = false
+			corner(arrowBtn, 12); addLivingStroke(arrowBtn, 1.5); liveGrad(arrowBtn)
+			local tip = label(arrowBtn, string.upper(tostring(cfg.title or "")), UDim2.new(1, 0, 0, 10), C.MOONTEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+			tip.Position = UDim2.new(0, 0, 1, 2); tip.TextSize = 8; tip.Visible = false; tip.ZIndex = 401
+			arrowBtn.MouseEnter:Connect(function() tip.Visible = true end)
+			arrowBtn.MouseLeave:Connect(function() tip.Visible = false end)
+			arrowBtn.MouseButton1Click:Connect(function() w.SetMinimized(false) end)
 		end
 		local function setMinimized(on)
 			minimized = on
 			if not cfg.isMain then
-				-- secondary windows collapse into a thin pulsing neon bar; hover shows the name, tap expands
-				barToken = barToken + 1
-				local mine = barToken
 				if on then
-					content.Visible = false; sep.Visible = false; ov.Visible = false
-					if tabBar then tabBar.Visible = false end
-					title.Visible = false; mini.Visible = false; close.Visible = false; moon.Visible = false
-					header.BackgroundTransparency = 1
-					if frameCornerObj then frameCornerObj.CornerRadius = UDim.new(0, 4) end
-					frame.BackgroundColor3 = C.MOON
-					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, 90, 0, 7), BackgroundTransparency = 0.1}):Play()
-					task.spawn(function()
-						local dim = false
-						while minimized and barToken == mine and frame.Parent do
-							dim = not dim
-							TweenService:Create(frame, TweenInfo.new(0.9, Enum.EasingStyle.Sine), {BackgroundTransparency = dim and 0.55 or 0.05}):Play()
-							task.wait(0.9)
-						end
-					end)
+					ov.Visible = false
+					frame.Visible = false
 				else
-					barLabel.Visible = false
-					title.Visible = true; mini.Visible = true; close.Visible = true; moon.Visible = true
-					header.BackgroundTransparency = 0
-					if frameCornerObj then frameCornerObj.CornerRadius = UDim.new(0, 20) end
-					frame.BackgroundColor3 = C.BG
-					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
-					content.Visible = true; sep.Visible = true
-					if tabBar then tabBar.Visible = true end
+					zTop = zTop + 1; frame.ZIndex = zTop
+					winScale.Scale = 0.9
+					frame.Visible = true
+					TweenService:Create(winScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 					mini.Text = "-"
 				end
+				updateArrow()
 				return
 			end
 			if cfg.isMain then
@@ -683,6 +671,7 @@ end
 				mini.Text = "-"
 			end
 		end
+		w.SetMinimized = setMinimized
 		mini.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
 		do
 			local tapAt
@@ -704,6 +693,7 @@ end
 			on = on == true
 			closing = closing + 1
 			local mine = closing
+			if on and minimized and not cfg.isMain then minimized = false; mini.Text = "-" end
 			if on then
 				zTop = zTop + 1; frame.ZIndex = zTop
 				winScale.Scale = 0.9
@@ -716,6 +706,7 @@ end
 				end)
 			end
 			w.wantOpen = on
+			updateArrow()
 			w.OnClose.Fire(on)
 		end
 		function w.IsOpen() return frame.Visible and w.wantOpen ~= false end
