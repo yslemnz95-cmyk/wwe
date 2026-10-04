@@ -4236,6 +4236,7 @@ do
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name ~= "Normal"
+				sc.HopStop = name == "Instant TP" and 14 or 48
 				if name == "Instant TP" and tbl4.GoMethod.Current() == "Fly" then
 					tbl4.GoMethod.Apply("Run")
 				end
