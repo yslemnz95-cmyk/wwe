@@ -377,6 +377,46 @@ end
 		end)
 	end
 
+	-- ---------- startup splash: what loaded and what did not ----------
+	lib.Splash = function(lines)
+		pcall(function()
+			local rowH = 17
+			local H = 54 + #lines * rowH
+			local f = Instance.new("Frame", gui)
+			f.Name = "MoonEggSplash"
+			f.AnchorPoint = Vector2.new(0.5, 0.5)
+			f.Position = UDim2.new(0.5, 0, 0.5, 0)
+			f.Size = UDim2.new(0, 258, 0, H)
+			f.BackgroundColor3 = C.BG; f.BorderSizePixel = 0; f.ZIndex = 950
+			corner(f, 18); addLivingStroke(f, 1.5, true)
+			local sc = Instance.new("UIScale", f); sc.Scale = 0.8
+			local bad = 0
+			for _, ln in ipairs(lines) do if ln.Ok == false then bad = bad + 1 end end
+			local t = label(f, "MoonEgg", UDim2.new(1, -24, 0, 22), C.WHITE, Enum.Font.GothamBold)
+			t.Position = UDim2.new(0, 14, 0, 8); t.TextSize = 15; t.ZIndex = 951; liveGrad(t)
+			local sub = label(f, bad == 0 and "Everything loaded" or (bad .. " problem" .. (bad > 1 and "s" or "") .. " found"),
+				UDim2.new(1, -24, 0, 12), bad == 0 and C.GREEN or C.GOLD, Enum.Font.GothamMedium)
+			sub.Position = UDim2.new(0, 14, 0, 30); sub.TextSize = 9.5; sub.ZIndex = 951
+			for i, ln in ipairs(lines) do
+				local y = 50 + (i - 1) * rowH
+				local dot = Instance.new("Frame", f)
+				dot.Size = UDim2.new(0, 7, 0, 7); dot.Position = UDim2.new(0, 16, 0, y + 5)
+				dot.BackgroundColor3 = ln.Ok and C.GREEN or C.RED; dot.BorderSizePixel = 0; dot.ZIndex = 951
+				corner(dot, 4)
+				local tx = label(f, ln.Text, UDim2.new(1, -40, 0, rowH), ln.Ok and C.SILVER or C.GOLD, Enum.Font.GothamMedium)
+				tx.Position = UDim2.new(0, 30, 0, y); tx.TextSize = 9.5; tx.ZIndex = 951
+				tx.TextTruncate = Enum.TextTruncate.AtEnd
+			end
+			TweenService:Create(sc, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+			task.delay(bad == 0 and 3.5 or 7, function()
+				if f.Parent then
+					TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.85}):Play()
+					task.delay(0.26, function() pcall(function() f:Destroy() end) end)
+				end
+			end)
+		end)
+	end
+
 	-- ---------- window ----------
 	local windows = {}
 	local function newWindow(cfg)
@@ -6722,6 +6762,7 @@ do
 
 						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
 							x2 -= slicedn20
+							tbl4.Trip = { Phase = "Hopping", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted, At = os.clock() }
 							str2 = string.format("Line Drop: hopping home, X %d", math.floor(x2))
 							local slicedn21 = 0
 
@@ -6742,6 +6783,7 @@ do
 							if hopStops < hopStopsWanted and (hopStartX - x2) / math.max(hopStartX - vector.X, 1) >= (hopStops + 1) / (hopStopsWanted + 1) then
 								hopStops += 1
 								str2 = string.format("Delivery stop %d/%d", hopStops, hopStopsWanted)
+								tbl4.Trip = { Phase = "Stop", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted, At = os.clock() }
 								local held = 0
 
 								while held < (tonumber(safeCarry.StopTime) or 0.7) and steal.Carrying and not slicedfn13(arg) do
@@ -6756,6 +6798,9 @@ do
 									end
 
 									held += RunService.Heartbeat:Wait()
+									if tbl4.Trip then
+										tbl4.Trip.At = os.clock()
+									end
 								end
 							end
 						end
@@ -23188,7 +23233,7 @@ do
 				frameName = "MoonEggSteal",
 				title = "Steal Panel",
 				w = 232,
-				h = 330,
+				h = 350,
 				pos = UDim2.new(0, 12, 0, 56),
 			})
 			local tab = win.tab
@@ -23198,10 +23243,10 @@ do
 			local bar = Instance.new("Frame")
 			bar.Name = "Bar"
 			bar.BackgroundTransparency = 1
-			bar.Size = UDim2.new(1, 0, 0, 62)
+			bar.Size = UDim2.new(1, 0, 0, 82)
 			bar.Parent = win.content
-			page.Position = UDim2.new(0, 0, 0, 62)
-			page.Size = UDim2.new(1, 0, 1, -62)
+			page.Position = UDim2.new(0, 0, 0, 82)
+			page.Size = UDim2.new(1, 0, 1, -82)
 
 			local function makeSwitchButton(text, pos, onChange)
 				local btn = mkBtn(bar, text .. ": OFF", UDim2.new(0.5, -11, 0, 26), pos, nil, tbl14.Queued)
@@ -23311,6 +23356,120 @@ do
 					sortButton.Label.Text = "Sort: " .. tostring(t)
 				end,
 			}
+
+			-- trip strip: what the delivery is doing right now
+			local strip = Instance.new("Frame")
+			strip.Name = "Strip"
+			strip.BackgroundTransparency = 1
+			strip.Position = UDim2.new(0, 8, 0, 62)
+			strip.Size = UDim2.new(1, -16, 0, 16)
+			strip.Parent = bar
+
+			local guardDot = Instance.new("Frame")
+			guardDot.Position = UDim2.new(0, 0, 0.5, -3)
+			guardDot.Size = UDim2.fromOffset(7, 7)
+			guardDot.BackgroundColor3 = U.C.DIM
+			guardDot.BorderSizePixel = 0
+			U.corner(guardDot, 4)
+			guardDot.Parent = strip
+
+			local guardText = U.label(strip, "AG", UDim2.fromOffset(20, 16), U.C.DIM, Enum.Font.GothamBold)
+			guardText.Position = UDim2.new(0, 11, 0, 0)
+			guardText.TextSize = 9
+
+			local phaseText = U.label(strip, "Idle", UDim2.fromOffset(92, 16), U.C.SILVER, Enum.Font.GothamMedium)
+			phaseText.Position = UDim2.new(0, 34, 0, 0)
+			phaseText.TextSize = 9
+			phaseText.TextTruncate = Enum.TextTruncate.AtEnd
+
+			local track = Instance.new("Frame")
+			track.BackgroundColor3 = Color3.fromRGB(14, 22, 44)
+			track.BorderSizePixel = 0
+			track.Position = UDim2.new(0, 130, 0.5, -3)
+			track.Size = UDim2.new(1, -130, 0, 6)
+			U.corner(track, 3)
+			track.Parent = strip
+
+			local fill = Instance.new("Frame")
+			fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			fill.BorderSizePixel = 0
+			fill.Size = UDim2.new(0, 0, 1, 0)
+			U.corner(fill, 3)
+			local fillGradient = Instance.new("UIGradient")
+			fillGradient.Color = ColorSequence.new(U.C.DEEP3, U.C.MOON2)
+			fillGradient.Parent = fill
+			fill.Parent = track
+
+			local ticks = {}
+
+			for i = 1, 6 do
+				local tick = Instance.new("Frame")
+				tick.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+				tick.BackgroundTransparency = 0.3
+				tick.BorderSizePixel = 0
+				tick.Size = UDim2.fromOffset(2, 10)
+				tick.AnchorPoint = Vector2.new(0.5, 0.5)
+				tick.Visible = false
+				tick.ZIndex = 3
+				tick.Parent = track
+				ticks[i] = tick
+			end
+
+			local shownStops = -1
+
+			local function updateStrip()
+				local now = os.clock()
+				local trip = tbl4.Trip
+				local fresh = trip ~= nil and now - (trip.At or 0) < 1.5
+				local text = "Idle"
+				local progress = 0
+				local stops = 0
+
+				if fresh and (trip.Phase == "Hopping" or trip.Phase == "Stop") then
+					stops = trip.Stops or 0
+					progress = trip.Progress or 0
+
+					if trip.Phase == "Stop" then
+						text = string.format("Stop %d/%d", trip.Stop or 0, stops)
+					elseif stops > 0 then
+						text = string.format("Hopping, stop %d/%d", trip.Stop or 0, stops)
+					else
+						text = "Hopping"
+					end
+				elseif tbl4.Steal.Carrying then
+					text = "Carrying the egg"
+				elseif tbl4.Steal.Active then
+					text = "Going to the egg"
+				end
+
+				if stops ~= shownStops then
+					shownStops = stops
+
+					for i, tick in ipairs(ticks) do
+						tick.Visible = i <= stops
+						tick.Position = UDim2.new(i / (stops + 1), 0, 0.5, 0)
+					end
+				end
+
+				phaseText.Text = text
+				fill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
+
+				local guard = tbl4.AntiGuard
+				local running = guard.Busy == true
+				guardDot.BackgroundColor3 = running and Color3.fromRGB(255, 200, 60) or (guard.Enabled and U.C.MOON or U.C.DIM)
+				guardText.TextColor3 = running and Color3.fromRGB(255, 200, 60) or (guard.Enabled and U.C.MOON2 or U.C.DIM)
+			end
+
+			local stripWin = win
+			task.spawn(function()
+				while flag4 and win == stripWin and stripWin.frame.Parent do
+					task.wait(0.1)
+
+					if flag6 then
+						pcall(updateStrip)
+					end
+				end
+			end)
 
 			local speed = tab:CreateSection({ Name = "Speed", Expanded = false })
 
@@ -28297,6 +28456,10 @@ do
 		return "Default"
 	end
 
+	antiGuard.ProfileName = function()
+		return slicedfn30(slicedfn29())
+	end
+
 	local function slicedfn31()
 		local ok, result = pcall(function()
 			return getgenv().ChilliAntiGuard
@@ -28761,6 +28924,130 @@ do
 	end)
 end
 
+-- ===== startup checks + Status tab =====
+do
+	local Stats = game:GetService("Stats")
+	local results = {}
+
+	local function check(name, ok, okText, badText)
+		results[#results + 1] = { Name = name, Ok = ok == true, Text = ok and okText or badText }
+	end
+
+	local function remoteOk(name)
+		local ok, found = pcall(function()
+			return networking:FindFirstChild(name)
+		end)
+		return ok and found ~= nil
+	end
+
+	tbl4.Health = {
+		Results = results,
+		Run = function()
+			table.clear(results)
+			check("Egg state", type(tbl.EggState) == "table", "Egg state ready", "Egg state missing")
+			check("Field snapshot", remoteOk("RF/EggWorld/AskFieldEggSnapshot"), "Field eggs readable", "Field snapshot remote missing")
+			check("Egg delivery", remoteOk("RE/EggWorld/FieldEggRedeemVerdict"), "Delivery remote found", "Delivery remote missing")
+			check("Combat", remoteOk("RE/BatSwing/Trigger"), "Hit remote found", "Hit remote missing")
+			check("Guards data", type(tbl.Guards) == "table" and type(tbl.Guards.Directory) == "table", "Guard data loaded", "Guard data missing")
+			check("Pet data", type(tbl.Assets) == "table" and type(tbl.Assets.Directory) == "table", "Pet pictures loaded", "Pet data missing")
+
+			local line = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+			line = line and line:FindFirstChild("Areas")
+			line = line and line:FindFirstChild("SeparationLine")
+			check("Base line", line ~= nil, "Base line found", "Base line not found")
+
+			check("Prompts", typeof(fireproximityprompt) == "function", "Instant grab available", "No fireproximityprompt, grabs may be slower")
+			check("Saving", typeof(writefile) == "function" and typeof(readfile) == "function", "Settings are saved", "Settings cannot be saved")
+			return results
+		end,
+		Splash = function()
+			local lines = {}
+
+			for _, r in ipairs(tbl4.Health.Run()) do
+				lines[#lines + 1] = { Text = r.Text, Ok = r.Ok }
+			end
+
+			if MoonLib.Splash then
+				MoonLib.Splash(lines)
+			end
+		end,
+	}
+
+	local statusTab = sliced2:CreateTab({ Name = "Status" })
+	local live = statusTab:CreateSection({ Name = "Live", Expanded = true })
+	local tIsland = live:CreateText({ Name = "Island", Text = "-" })
+	local tMode = live:CreateText({ Name = "Delivery", Text = "-" })
+	local tPerf = live:CreateText({ Name = "Performance", Text = "-" })
+	local tActive = live:CreateText({ Name = "Active features", Text = "-" })
+	local checksSection = statusTab:CreateSection({ Name = "Startup checks", Expanded = true })
+	local tChecks = checksSection:CreateText({ Name = "Checks", Text = "Running..." })
+
+	local function refreshStatic()
+		local lines = {}
+
+		for _, r in ipairs(tbl4.Health.Results) do
+			lines[#lines + 1] = (r.Ok and "OK  " or "!!  ") .. r.Text
+		end
+
+		tChecks:Set(#lines > 0 and table.concat(lines, "\n") or "Not run yet")
+	end
+
+	task.spawn(function()
+		local fps = 0
+
+		while statusTab.page and statusTab.page.Parent do
+			task.wait(1)
+
+			if statusTab.page.Visible and statusTab.window.frame.Visible then
+				local total = 0
+
+				for _ = 1, 8 do
+					total += RunService.Heartbeat:Wait()
+				end
+
+				fps = 8 / math.max(total, 0.001)
+				local ping = 0
+
+				pcall(function()
+					ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+				end)
+
+				local area = localPlayer:GetAttribute("AreaId")
+
+				if type(area) ~= "string" or area == "" then
+					area = tbl4.Steal.CarryAreaId and tostring(tbl4.Steal.CarryAreaId) or "unknown"
+				end
+
+				local profile = "-"
+
+				if type(tbl4.AntiGuard.ProfileName) == "function" then
+					local ok, name = pcall(tbl4.AntiGuard.ProfileName)
+					profile = ok and tostring(name) or "-"
+				end
+
+				tIsland:Set(string.format("%s\nAnti Guard profile: %s", area, profile))
+				tMode:Set(string.format("%s (stops: %d)", tbl4.Method.Current(), tonumber(tbl4.SafeCarry.Stops) or 0))
+				tPerf:Set(string.format("%d FPS, %d ms ping", math.floor(fps + 0.5), math.floor(ping + 0.5)))
+
+				local names = {}
+
+				for path, handle in pairs(MoonLib.handles) do
+					local ok, value = pcall(handle.Get)
+
+					if ok and value == true then
+						names[#names + 1] = string.match(path, "[^>]+$") or path
+					end
+				end
+
+				table.sort(names)
+				local text = #names == 0 and "none" or (#names .. ": " .. table.concat(names, ", "))
+				tActive:Set(#text > 260 and (string.sub(text, 1, 257) .. "...") or text)
+				refreshStatic()
+			end
+		end
+	end)
+end
+
 v:Finalize({ Window = sliced2, MainTab = defaultTab, ShowMainTab = true })
 
 task.defer(function()
@@ -28771,5 +29058,8 @@ task.defer(function()
 	if type(tbl4.RestoreStealPanel) == "function" then
 		pcall(tbl4.RestoreStealPanel)
 	end
+
+	task.wait(0.5)
+	pcall(tbl4.Health.Splash)
 end)
 
