@@ -7454,7 +7454,7 @@ do
 					if sliced22 then
 						local slicedn19 = sliced22.Position.Y + safeCarry.HopLift
 						local x2 = sliced22.Position.X
-						local hopRatio = (safeCarry.StopMode and math.min(safeCarry.HopRatio, 1.45) or safeCarry.HopRatio)
+						local hopRatio = safeCarry.HopRatio
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
 						local hopStartX = x2
 						local hopStops = 0
