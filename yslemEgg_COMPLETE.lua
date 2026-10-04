@@ -3837,7 +3837,7 @@ do
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
 			Name = "Delivery Steps",
-			Note = "Delivery Stop mode: number of teleport steps (clone + FPS dip)",
+			Note = "Delivery Stop mode: steps; the egg is dropped and taken back at each one",
 			Min = 1,
 			Max = 6,
 			Default = 3,
@@ -6918,23 +6918,93 @@ do
 							if hopStops < hopStopsWanted and (hopStartX - x2) / math.max(hopStartX - vector.X, 1) >= (hopStops + 1) / (hopStopsWanted + 1) then
 								hopStops += 1
 								str2 = string.format("Delivery step %d/%d", hopStops, hopStopsWanted + 1)
-								tbl4.Trip = { Phase = "Stop", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted + 1, At = os.clock() }
-								local held = 0
 
-								while held < (tonumber(safeCarry.StopTime) or 0.5) and steal.Carrying and not slicedfn13(arg) do
-									local stopRoot = tbl4.Root()
+								local function tripStop()
+									tbl4.Trip = { Phase = "Stop", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted + 1, At = os.clock() }
+								end
 
-									if stopRoot then
-										pcall(function()
-											stopRoot.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
-											stopRoot.AssemblyLinearVelocity = Vector3.zero
-											stopRoot.AssemblyAngularVelocity = Vector3.zero
-										end)
+								tripStop()
+								local stepRoot = tbl4.Root()
+								local ground = nil
+
+								if stepRoot then
+									local params = RaycastParams.new()
+									params.FilterType = Enum.RaycastFilterType.Exclude
+									params.FilterDescendantsInstances = { localPlayer.Character, tbl4.StealClone }
+									params.IgnoreWater = true
+									local hit = workspace:Raycast(Vector3.new(x2, slicedn19 + 5, slicedn17), Vector3.new(0, -400, 0), params)
+
+									if hit and hit.Material ~= Enum.Material.Water then
+										ground = hit.Position
+									end
+								end
+
+								if ground and carryUid then
+									-- go down to the ground, drop the egg, take it back, climb back to the lane
+									pcall(function()
+										stepRoot.CFrame = CFrame.new(ground + Vector3.new(0, 3.5, 0)) * CFrame.Angles(0, 1.5707963267948966, 0)
+										stepRoot.AssemblyLinearVelocity = Vector3.zero
+										stepRoot.AssemblyAngularVelocity = Vector3.zero
+									end)
+
+									local settle = 0
+
+									while settle < 0.12 and not slicedfn13(arg) do
+										settle += RunService.Heartbeat:Wait()
+										tripStop()
 									end
 
-									held += RunService.Heartbeat:Wait()
-									if tbl4.Trip then
-										tbl4.Trip.At = os.clock()
+									str2 = string.format("Delivery step %d/%d: dropping the egg", hopStops, hopStopsWanted + 1)
+									local eggState = tbl.EggState
+
+									if type(eggState) == "table" and type(eggState.DropFieldEgg) == "function" then
+										pcall(eggState.DropFieldEgg, "PlayerRequest")
+									end
+
+									local dropWait = 0
+
+									while steal.Carrying and dropWait < 1 and not slicedfn13(arg) do
+										dropWait += RunService.Heartbeat:Wait()
+										tripStop()
+									end
+
+									if not steal.Carrying then
+										str2 = string.format("Delivery step %d/%d: taking the egg back", hopStops, hopStopsWanted + 1)
+										tripStop()
+
+										if not slicedfn50(arg, carryUid) or not steal.Carrying then
+											slicedfn56()
+											str2 = "Delivery Stop: could not take the egg back"
+											return false
+										end
+									end
+
+									local backRoot = tbl4.Root()
+
+									if backRoot then
+										pcall(function()
+											backRoot.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
+											backRoot.AssemblyLinearVelocity = Vector3.zero
+											backRoot.AssemblyAngularVelocity = Vector3.zero
+										end)
+									end
+								else
+									-- nothing solid below (water / void): only a short pause, the egg is not dropped here
+									local held = 0
+
+									while held < 0.3 and steal.Carrying and not slicedfn13(arg) do
+										local stopRoot = tbl4.Root()
+
+										if stopRoot then
+											pcall(function()
+												stopRoot.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
+												stopRoot.AssemblyLinearVelocity = Vector3.zero
+												stopRoot.AssemblyAngularVelocity = Vector3.zero
+											end)
+										end
+
+										held += RunService.Heartbeat:Wait()
+										tripStop()
 									end
 								end
 							end
