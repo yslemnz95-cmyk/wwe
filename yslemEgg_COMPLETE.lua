@@ -3859,6 +3859,16 @@ do
 				tbl4.MethodApplying = true
 				local hops = name == "Instant TP" or name == "Delivery Stop"
 				sc.SnapSteal = name == "Snap Steal"
+
+				if sc.SnapSteal then
+					pcall(function()
+						local rootPart = tbl4.Root()
+
+						if rootPart then
+							sc.SnapAnchor = rootPart.CFrame
+						end
+					end)
+				end
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name == "Delivery Stop"
@@ -3951,14 +3961,14 @@ do
 		tbl4.SafeCarry.CarryFps = 20
 		tbl4.CarryCap = {
 			Active = false,
-			On = function()
+			On = function(fps)
 				local cap = tbl4.CarryCap
 				if cap.Active or type(setfpscap) ~= "function" then
 					return
 				end
 				cap.Active = true
 				cap.At = os.clock()
-				pcall(setfpscap, math.clamp(math.floor(tonumber(tbl4.SafeCarry.CarryFps) or 20), 5, 60))
+				pcall(setfpscap, math.clamp(math.floor(tonumber(fps) or tonumber(tbl4.SafeCarry.CarryFps) or 20), 5, 60))
 				task.delay(30, function()
 					if cap.Active and os.clock() - cap.At >= 29 then
 						cap.Off()
@@ -8288,31 +8298,45 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
-			-- Snap Steal: one direct TP from the field back to base the instant the egg is in hand.
-			-- Compatible with Anti Guard (AG stays on to protect the base side).
+			-- Snap Steal: the moment the egg is in hand, one direct TP back to the spot where the mode was last activated
+			-- (falls back to the base marker). FPS is dipped to 30 for the trip. Compatible with Anti Guard.
 			tbl4.SafeCarry.SnapStealHome = function(arg)
 				local safeCarry = tbl4.SafeCarry
 				local now = os.clock()
-				local home = stealHome()
 				local root = tbl4.Root()
 				local character = localPlayer.Character
 
-				if not home or not root or not character then
+				if not root or not character then
 					return false
 				end
+				local anchor = safeCarry.SnapAnchor
+				local snapCF
 
-				str2 = "Snap Steal: snapping to base..."
-				local rotation = root.CFrame.Rotation
-				local snapCF = CFrame.new(home.X, home.Y + 3.5, home.Z) * rotation
+				if typeof(anchor) == "CFrame" then
+					snapCF = anchor + Vector3.new(0, 1.5, 0)
+				else
+					local home = stealHome()
 
-				-- Single instant TP – no ground scan needed, the delivery marker is on solid ground
+					if not home then
+						return false
+					end
+					snapCF = CFrame.new(home.X, home.Y + 3.5, home.Z) * root.CFrame.Rotation
+				end
+
+				str2 = "Snap Steal: back to the activation spot..."
+				pcall(tbl4.CarryCap.On, 30)
+
+				local function finish(result)
+					pcall(tbl4.CarryCap.Off)
+					return result
+				end
+
 				pcall(function()
 					character:PivotTo(snapCF)
 					root.AssemblyLinearVelocity = Vector3.zero
 					root.AssemblyAngularVelocity = Vector3.zero
 				end)
 
-				-- One frame so the engine registers the position before we fire DropFieldEgg
 				RunService.Heartbeat:Wait()
 
 				if tbl4.Steal.Carrying then
@@ -8326,7 +8350,7 @@ do
 				while waited < 2 and safeCarry.LastDelivered < now and not slicedfn13(arg) do
 					if safeCarry.LastFailed >= now then
 						str2 = "Snap Steal: server rejected"
-						return false
+						return finish(false)
 					end
 					if not tbl4.Steal.Carrying then
 						break
@@ -8334,7 +8358,7 @@ do
 					waited += RunService.Heartbeat:Wait()
 				end
 
-				return safeCarry.LastDelivered >= now
+				return finish(safeCarry.LastDelivered >= now)
 			end
 
 			local function deliverOnce(arg)
