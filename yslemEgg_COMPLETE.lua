@@ -4071,6 +4071,8 @@ do
 					return '"' .. (#v > (A.Detail >= 3 and 200 or 48) and (string.sub(v, 1, A.Detail >= 3 and 200 or 48) .. '~') or v) .. '"'
 				elseif t == "boolean" or t == "nil" then
 					return tostring(v)
+				elseif t == "Vector2" then
+					return string.format("(%.2f, %.2f)", v.X, v.Y)
 				elseif t == "Vector3" then
 					return string.format("(%.1f, %.1f, %.1f)", v.X, v.Y, v.Z)
 				elseif t == "CFrame" then
@@ -4524,7 +4526,29 @@ do
 					return limit and string.sub(text, 1, limit) or text
 				end
 
-				add("MoonEgg full game scan " .. os.date("%Y-%m-%d %H:%M:%S"))
+				add("MoonEgg game scan " .. os.date("%Y-%m-%d %H:%M:%S"))
+
+				-- listen to every server event during the scan
+				local traffic, trafficOrder, trafficConnections = {}, {}, {}
+				pcall(function()
+					for _, remote in ipairs(networking:GetChildren()) do
+						if remote:IsA("RemoteEvent") then
+							trafficConnections[#trafficConnections + 1] = remote.OnClientEvent:Connect(function(...)
+								local entry = traffic[remote.Name]
+								if not entry then
+									local parts = {}
+									for i, v in ipairs({ ... }) do
+										parts[i] = ser(v)
+									end
+									entry = { n = 0, sample = string.sub(table.concat(parts, ", "), 1, 160) }
+									traffic[remote.Name] = entry
+									trafficOrder[#trafficOrder + 1] = remote.Name
+								end
+								entry.n += 1
+							end)
+						end
+					end
+				end)
 
 				section("META")
 				try("meta", function()
@@ -4590,18 +4614,6 @@ do
 
 					add("backpack: " .. table.concat(tools, ", "))
 					add("guis: " .. compact(localPlayer.PlayerGui, 900))
-				end)
-
-				section("DELIVERY SETTINGS")
-				try("settings", function()
-					add("safecarry: " .. fields(tbl4.SafeCarry))
-					add("steal: " .. fields(tbl4.Steal))
-					add("antiguard: " .. fields(tbl4.AntiGuard) .. " profile " .. tostring(type(tbl4.AntiGuard.ProfileName) == "function" and select(2, pcall(tbl4.AntiGuard.ProfileName)) or "?"))
-					add("method: " .. tostring(tbl4.Method.Current()) .. " | stats " .. ser(tbl4.MethodStats or {}))
-
-					if A.Last then
-						add("last delivery: " .. string.gsub(string.sub(A.Last, 1, 140), "\n", " | "))
-					end
 				end)
 
 				section("WORLD (workspace)")
@@ -4722,39 +4734,6 @@ do
 					end
 				end)
 
-				section("GAME MODULES (client API)")
-				try("modules", function()
-					add("tbl keys: " .. keyList(tbl, 1500))
-
-					for k, v in pairs(tbl) do
-						if type(v) == "table" and k ~= "Assets" and k ~= "Guards" then
-							add(tostring(k) .. ": " .. keyList(v, 600))
-						end
-					end
-
-					-- data tables the client holds: dump the entries (areas, mutations, ...)
-					for _, name in ipairs({ "Areas", "Mutations" }) do
-						local t = tbl[name]
-
-						if type(t) == "table" then
-							local source = type(t.Directory) == "table" and t.Directory or t
-							local shown = 0
-
-							for id, entry in pairs(source) do
-								if shown < 24 then
-									if type(entry) == "table" then
-										shown += 1
-										add(name .. "/" .. tostring(id) .. ": " .. fields(entry, 420) .. " | keys " .. keyList(entry, 200))
-									elseif type(entry) == "number" or type(entry) == "boolean" or type(entry) == "string" then
-										shown += 1
-										add(name .. "/" .. tostring(id) .. " = " .. ser(entry))
-									end
-								end
-							end
-						end
-					end
-				end)
-
 				section("GUARD DATA (per area)")
 				try("guard data", function()
 					local guards = tbl.Guards
@@ -4768,31 +4747,6 @@ do
 								add(tostring(id) .. " [" .. rarity .. "]: " .. fields(data) .. " | other keys: " .. keyList(data, 300))
 							end
 						end
-					end
-				end)
-
-				section("EGGS AND PETS DATA")
-				try("assets", function()
-					local directory = tbl.Assets and tbl.Assets.Directory
-
-					if type(directory) == "table" then
-						local count, byRarity, samples = 0, {}, 0
-
-						for id, data in pairs(directory) do
-							count += 1
-
-							if type(data) == "table" then
-								local r = type(data.Rarity) == "table" and tostring(data.Rarity.DisplayName) or "?"
-								byRarity[r] = (byRarity[r] or 0) + 1
-
-								if samples < 3 and r ~= "?" then
-									samples += 1
-									add("sample " .. tostring(id) .. ": " .. fields(data, 400))
-								end
-							end
-						end
-
-						add("entries " .. count .. " | by rarity " .. ser(byRarity))
 					end
 				end)
 
@@ -4853,39 +4807,7 @@ do
 					table.sort(order)
 					add("total " .. #net:GetChildren() .. " remotes, " .. #order .. " families")
 
-					for _, key in ipairs(order) do
-						table.sort(families[key])
-						add(key .. ": " .. table.concat(families[key], ", "))
-					end
-				end)
-
-				section("STORAGE AND TUNING MODULES")
-				try("storage", function()
-					local rs = game:GetService("ReplicatedStorage")
-					add("replicated storage: " .. compact(rs, 900))
-
-					local packages = rs:FindFirstChild("Packages")
-
-					if packages then
-						add("packages: " .. compact(packages, 900))
-					end
-
-					local shown = 0
-
-					for _, d in ipairs(rs:GetDescendants()) do
-						if shown < 14 and d:IsA("ModuleScript") then
-							local lower = string.lower(d.Name)
-
-							if string.find(lower, "config", 1, true) or string.find(lower, "constant", 1, true) or string.find(lower, "setting", 1, true) or string.find(lower, "tuning", 1, true) or string.find(lower, "balance", 1, true) or string.find(lower, "guard", 1, true) or string.find(lower, "carry", 1, true) or string.find(lower, "speed", 1, true) then
-								local ok, value = pcall(require, d)
-
-								if ok and type(value) == "table" then
-									shown += 1
-									add("module " .. d:GetFullName() .. ": " .. fields(value, 700))
-								end
-							end
-						end
-					end
+					add(table.concat(order, ", "))
 				end)
 
 				section("EVENTS (objects in the world and event remotes)")
@@ -4976,35 +4898,50 @@ do
 					end
 				end)
 
-				A.Detail = previousDetail
+				for _, c in ipairs(trafficConnections) do
+					pcall(function() c:Disconnect() end)
+				end
 
-				if mode == "missing" then
-					-- only what is still unknown: key zones, guards, guard motion, events
-					local keep = {
-						["## KEY ZONES (children, positions, sizes)"] = true,
-						["## GUARDS (live objects)"] = true,
-						["## GUARD MOTION (6 s sample)"] = true,
-						["## EVENTS (objects in the world and event remotes)"] = true,
-					}
-					local filtered = {}
-					local active = true
+				section("SERVER EVENTS RECEIVED DURING THE SCAN (6 s)")
+				try("traffic", function()
+					table.sort(trafficOrder, function(x, y) return traffic[x].n > traffic[y].n end)
+					for i, name in ipairs(trafficOrder) do
+						if i > 30 then break end
+						add(name .. " x" .. traffic[name].n .. " e.g. (" .. traffic[name].sample .. ")")
+					end
+					if #trafficOrder == 0 then add("none") end
+				end)
 
-					for _, line in ipairs(out) do
-						if string.sub(line, 1, 3) == "## " then
-							active = keep[line] == true
-						end
-
-						if active then
-							filtered[#filtered + 1] = #line > 230 and (string.sub(line, 1, 230) .. "~") or line
+				section("PROMPTS IN THE WORLD (distinct action / object, up to 40)")
+				try("prompts", function()
+					local seen, n = {}, 0
+					for _, obj in ipairs(workspace:GetDescendants()) do
+						if obj:IsA("ProximityPrompt") then
+							local key = obj.ActionText .. "|" .. obj.ObjectText .. "|" .. (obj.Parent and obj.Parent.Name or "")
+							if not seen[key] and n < 40 then
+								seen[key] = true
+								n += 1
+								local parent = obj.Parent
+								local pos = parent and parent:IsA("BasePart") and (" at " .. ser(parent.Position)) or ""
+								add(string.format("%q / %q hold %s dist %s | %s%s", obj.ActionText, obj.ObjectText, tostring(obj.HoldDuration), tostring(obj.MaxActivationDistance), string.gsub(obj:GetFullName(), "^Workspace%.", ""), pos))
+							end
 						end
 					end
+					if n == 0 then add("none") end
+				end)
 
-					out = filtered
-					out[#out + 1] = "player area: " .. tostring(localPlayer:GetAttribute("AreaId")) .. " carrying: " .. tostring(tbl4.Steal.Carrying)
+				A.Detail = previousDetail
+				out[#out + 1] = ""
+				out[#out + 1] = "player area: " .. tostring(localPlayer:GetAttribute("AreaId")) .. " carrying: " .. tostring(tbl4.Steal.Carrying)
+
+				for i, line in ipairs(out) do
+					if #line > 230 then
+						out[i] = string.sub(line, 1, 230) .. "~"
+					end
 				end
 
 				local text = table.concat(out, "\n")
-				local limit = mode == "missing" and 6500 or 60000
+				local limit = 16000
 
 				if #text > limit then
 					text = string.sub(text, 1, limit) .. "\n...cut..."
@@ -5012,187 +4949,6 @@ do
 
 				A.LastScan = text
 				return text
-			end
-
-			-- ===== Beanstalk recorder: watch the event while the player does it by hand (read-only) =====
-			A.Beanstalk = function(seconds)
-				seconds = seconds or 60
-
-				if A.BeanBusy then
-					pcall(tbl4.Notify, "Analyzer", "Beanstalk recording already running")
-					return
-				end
-
-				A.BeanBusy = true
-				local out, log, connections = {}, {}, {}
-				local started = os.clock()
-				local match = { "bean", "stalk", "firefl", "cloud", "vine", "seed", "pour", "giant", "castle", "harp", "slide", "escape", "flight", "launch" }
-
-				local function stamp()
-					return string.format("%5.1f", os.clock() - started)
-				end
-
-				local function note(line)
-					if #log < 220 then
-						log[#log + 1] = stamp() .. "s " .. string.sub(line, 1, 200)
-					end
-				end
-
-				local function path(obj)
-					local ok, name = pcall(function()
-						return obj:GetFullName()
-					end)
-					return ok and string.gsub(name, "^Workspace%.", "") or tostring(obj)
-				end
-
-				local function promptLine(prompt)
-					local parent = prompt.Parent
-					local pos = ""
-
-					if parent and parent:IsA("BasePart") then
-						pos = " at " .. ser(parent.Position)
-					elseif parent and parent:IsA("Attachment") then
-						pos = " at " .. ser(parent.WorldPosition)
-					end
-
-					return string.format("prompt %s action=%q object=%q hold=%s dist=%s enabled=%s%s", path(prompt), prompt.ActionText, prompt.ObjectText, tostring(prompt.HoldDuration), tostring(prompt.MaxActivationDistance), tostring(prompt.Enabled), pos)
-				end
-
-				pcall(tbl4.Notify, "Analyzer", "Beanstalk: recording " .. seconds .. " s - do the event by hand now")
-
-				-- every server event of the Beanstalk family
-				local family = false
-				local names = {}
-
-				for _, remote in ipairs(networking:GetChildren()) do
-					if string.find(remote.Name, "BeanstalkEvent", 1, true) then
-						family = true
-						names[#names + 1] = remote.Name
-						if remote:IsA("RemoteEvent") then
-							pcall(function()
-								connections[#connections + 1] = remote.OnClientEvent:Connect(function(...)
-									local parts = {}
-									for i, v in ipairs({ ... }) do
-										parts[i] = ser(v)
-									end
-									note("server->me " .. remote.Name .. "(" .. table.concat(parts, ", ") .. ")")
-								end)
-							end)
-						end
-					end
-				end
-
-				-- prompts the player triggers by hand
-				pcall(function()
-					connections[#connections + 1] = game:GetService("ProximityPromptService").PromptTriggered:Connect(function(prompt)
-						note("TRIGGERED " .. promptLine(prompt))
-					end)
-				end)
-
-				-- new things appearing in the workspace
-				connections[#connections + 1] = workspace.DescendantAdded:Connect(function(obj)
-					local name = string.lower(obj.Name)
-					for _, key in ipairs(match) do
-						if string.find(name, key, 1, true) then
-							note("new " .. obj.ClassName .. " " .. path(obj))
-							return
-						end
-					end
-					if obj:IsA("ProximityPrompt") then
-						note("new " .. promptLine(obj))
-					end
-				end)
-
-				-- player attributes and tools
-				local function watch(owner, label)
-					connections[#connections + 1] = owner.AttributeChanged:Connect(function(attribute)
-						note(label .. " attr " .. attribute .. "=" .. ser(owner:GetAttribute(attribute)))
-					end)
-				end
-
-				pcall(watch, localPlayer, "player")
-				pcall(function()
-					connections[#connections + 1] = localPlayer.Backpack.ChildAdded:Connect(function(c) note("backpack +" .. c.Name) end)
-					connections[#connections + 1] = localPlayer.Backpack.ChildRemoved:Connect(function(c) note("backpack -" .. c.Name) end)
-				end)
-
-				task.spawn(function()
-					local lastArea, positions = nil, {}
-
-					while os.clock() - started < seconds do
-						local character = localPlayer.Character
-						local root = character and character:FindFirstChild("HumanoidRootPart")
-
-						if root and #positions < 70 then
-							positions[#positions + 1] = stamp() .. "s " .. ser(root.Position)
-						end
-
-						local area = localPlayer:GetAttribute("AreaId")
-						if area ~= lastArea then
-							lastArea = area
-							note("area " .. tostring(area))
-						end
-
-						task.wait(1)
-					end
-
-					for _, c in ipairs(connections) do
-						pcall(function() c:Disconnect() end)
-					end
-
-					out[#out + 1] = "MoonEgg Beanstalk recording " .. os.date("%Y-%m-%d %H:%M:%S") .. " (" .. seconds .. " s)"
-					out[#out + 1] = ""
-					out[#out + 1] = "## REMOTES (BeanstalkEvent)"
-					out[#out + 1] = family and table.concat(names, ", ") or "family not found"
-					out[#out + 1] = ""
-					out[#out + 1] = "## EVENT LOG (what the server sent and what I triggered)"
-					for _, l in ipairs(log) do out[#out + 1] = l end
-					if #log == 0 then out[#out + 1] = "nothing happened" end
-
-					out[#out + 1] = ""
-					out[#out + 1] = "## OBJECTS NOW (names matching the event)"
-					local n = 0
-					for _, obj in ipairs(workspace:GetDescendants()) do
-						local name = string.lower(obj.Name)
-						for _, key in ipairs(match) do
-							if string.find(name, key, 1, true) and n < 45 then
-								n += 1
-								local extra = ""
-								if obj:IsA("BasePart") then
-									extra = " " .. ser(obj.Position) .. " size " .. ser(obj.Size)
-								elseif obj:IsA("Model") and obj.PrimaryPart then
-									extra = " " .. ser(obj.PrimaryPart.Position)
-								end
-								out[#out + 1] = obj.ClassName .. " " .. path(obj) .. extra
-								break
-							end
-						end
-					end
-					if n == 0 then out[#out + 1] = "none (the event is probably not running)" end
-
-					out[#out + 1] = ""
-					out[#out + 1] = "## PROMPTS NOW (up to 40)"
-					n = 0
-					for _, obj in ipairs(workspace:GetDescendants()) do
-						if obj:IsA("ProximityPrompt") and n < 40 then
-							n += 1
-							out[#out + 1] = promptLine(obj)
-						end
-					end
-
-					out[#out + 1] = ""
-					out[#out + 1] = "## MY PATH (1 sample per second)"
-					for _, p in ipairs(positions) do out[#out + 1] = p end
-
-					local text = string.gsub(table.concat(out, "\n"), "[^\n\32-\126]", "?")
-					if #text > 9000 then
-						text = string.sub(text, 1, 9000) .. "\n...cut..."
-					end
-
-					A.SetQueue(text, "scan", 1)
-					A.CopyNext("scan")
-					A.BeanBusy = false
-				end)
 			end
 
 			-- server signals: everything that can explain a cancelled delivery
@@ -30567,49 +30323,13 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Scan: missing data only (1 part)",
-		Note = "Zones, guards, guard motion, events. Press it while carrying an egg near a guard",
+		Name = "Game scan (1 part)",
+		Note = "Zones, guards, events, prompts, server traffic. Takes about 8 s; best while carrying an egg or during an event",
 		ButtonText = "Scan",
 		Callback = function()
 			local A = tbl4.Analyzer
-			pcall(tbl4.Notify, "Analyzer", "Scanning, about 8 seconds...")
-			A.SetQueue(A.Scan("missing"), "scan", 1)
-			A.CopyNext("scan")
-		end,
-	})
-
-	analyzerSection:CreateButton({
-		Name = "Beanstalk: record 60 s (1 part)",
-		Note = "Start it, then do the Beanstalk event by hand: it learns the steps for the auto farm",
-		ButtonText = "Record",
-		Callback = function()
-			tbl4.Analyzer.Beanstalk(60)
-		end,
-	})
-
-	analyzerSection:CreateButton({
-		Name = "Full game scan (5 parts): next part",
-		Note = "First press builds it (about 8 s)",
-		ButtonText = "Next",
-		Callback = function()
-			local A = tbl4.Analyzer
-
-			if #A.Queues.scan.Parts == 0 or A.Queues.scan.N == 1 then
-				pcall(tbl4.Notify, "Analyzer", "Scanning the game, about 8 seconds...")
-				A.SetQueue(A.Scan("full"), "scan")
-			end
-
-			A.CopyNext("scan")
-		end,
-	})
-
-	analyzerSection:CreateButton({
-		Name = "Full game scan: rebuild",
-		ButtonText = "Rescan",
-		Callback = function()
-			local A = tbl4.Analyzer
 			pcall(tbl4.Notify, "Analyzer", "Scanning the game, about 8 seconds...")
-			A.SetQueue(A.Scan("full"), "scan")
+			A.SetQueue(A.Scan(), "scan", 1)
 			A.CopyNext("scan")
 		end,
 	})
