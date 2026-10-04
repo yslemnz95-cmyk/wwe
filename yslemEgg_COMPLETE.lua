@@ -4449,53 +4449,290 @@ do
 				end)
 			end
 
-			-- ladder memory: which method works on which island
+			-- ===== Smart: reads the island, orders the delivery methods, raises the carry speed when the guards
+			-- ===== are faster than you, and remembers what worked on each island =====
 			tbl4.MethodStats = {}
-			tbl4.Ladder = {
-				SkipInstant = function()
-					local island = A.Island()
-					local s = tbl4.MethodStats[island] and tbl4.MethodStats[island]["Instant TP"] or nil
-					return s ~= nil and s.Streak >= 2 and os.clock() - s.At < 300
-				end,
-				-- True when the guards of this island are faster than the carry speed AND the island uses the
-				-- Light Dark Anti Guard profile (big jump -> RigSync -> "Delivery failed"). Instant TP is skipped there.
-				FastGuard = function()
-					local ok, result = pcall(function()
-						if tbl4.AntiGuard.ProfileName() ~= "LightDark" then
-							return false
-						end
+			tbl4.LastOk = {}
+			tbl4.SpeedCap = {}
 
-						local island = A.Island()
-						local entry = tbl.Guards and tbl.Guards.Directory and tbl.Guards.Directory[island]
-						local guardWS = type(entry) == "table" and tonumber(entry.WalkSpeed) or 0
+			local S = { DefaultCap = 1.5, BaseRatio = tbl4.SafeCarry.SpeedRatio, Level = nil, Cache = nil, Saved = nil, Escapes = {} }
+			tbl4.Smart = S
+			local SMART_FILE = "MoonEgg_Smart.json"
+			local KNOWN = { Walk = true, ["Instant TP"] = true, ["Delivery Stop"] = true }
 
-						if guardWS <= 0 then
-							return false
-						end
-						local ws = type(tbl4.WalkSpeed) == "function" and tbl4.WalkSpeed() or 0
-						return guardWS > ws * (tonumber(tbl4.SafeCarry.CarryRatio) or 0.9)
-					end)
-					return ok and result == true
-				end,
-				Plan = function()
-					local plan = { "Instant TP", "Delivery Stop", "Normal" }
-
-					if tbl4.Ladder.FastGuard() or tbl4.Ladder.SkipInstant() then
-						table.remove(plan, 1)
-					end
-
-					-- start with what worked last time on this island
-					local last = tbl4.LastOk and tbl4.LastOk[A.Island()]
-					local at = last and table.find(plan, last)
-
-					if at and at > 1 then
-						table.remove(plan, at)
-						table.insert(plan, 1, last)
-					end
-					return plan
-				end,
+			-- walk speed needed to get away from the guards of each island (the game's own GuardEscapeSpeeds), used
+			-- when the live value can not be read
+			local ESCAPE = {
+				forest = 11.56, lake = 24.33, desert = 48.44, jungle = 65.59, snow = 83.82, volcano = 102,
+				abyssocean = 117.43, prehistoric = 143.15, cosmic = 187.94, cherryblossom = 205.73,
+				titantemple = 217.8, lightdark = 231.88, enchantedforest = 242.45,
 			}
+
+			local function letters(text)
+				return string.lower((string.gsub(tostring(text), "[^%a]", "")))
+			end
+
+			pcall(function()
+				if isfile and isfile(SMART_FILE) then
+					local data = game:GetService("HttpService"):JSONDecode(readfile(SMART_FILE))
+
+					if type(data) == "table" then
+						for island, level in pairs(type(data.LastOk) == "table" and data.LastOk or {}) do
+							if type(island) == "string" and KNOWN[level] then
+								tbl4.LastOk[island] = level
+							end
+						end
+
+						for island, cap in pairs(type(data.SpeedCap) == "table" and data.SpeedCap or {}) do
+							if type(island) == "string" and type(cap) == "number" then
+								tbl4.SpeedCap[island] = math.clamp(cap, 1, 1.5)
+							end
+						end
+					end
+				end
+			end)
+
+			S.Save = function()
+				pcall(function()
+					if writefile then
+						writefile(SMART_FILE, game:GetService("HttpService"):JSONEncode({ LastOk = tbl4.LastOk, SpeedCap = tbl4.SpeedCap }))
+					end
+				end)
+			end
+
+			S.EscapeSpeed = function(island)
+				local key = letters(island)
+				local known = S.Escapes[key]
+
+				if known then
+					return known
+				end
+				local world = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+				local areas = world and world:FindFirstChild("Areas")
+				local folder = areas and areas:FindFirstChild("GuardAreas")
+
+				if folder then
+					for _, model in ipairs(folder:GetChildren()) do
+						if letters(model.Name) == key then
+							local value = model:GetAttribute("GuardEscapeSpeeds")
+
+							if typeof(value) == "Vector2" and value.Y > 0 then
+								S.Escapes[key] = value.Y
+								return value.Y
+							end
+						end
+					end
+				end
+				return ESCAPE[key]
+			end
+
+			-- everything Smart knows about the trip that is about to start
+			S.Intel = function()
+				local sc = tbl4.SafeCarry
+				local info = { Island = A.Island(), Guard = 0, Escape = 0, Need = 0, Base = 1, Default = 1, Max = 1, Cap = 1, Situation = "unknown" }
+
+				pcall(function()
+					local entry = tbl.Guards and tbl.Guards.Directory and tbl.Guards.Directory[info.Island]
+					info.Guard = type(entry) == "table" and tonumber(entry.WalkSpeed) or 0
+					info.Escape = S.EscapeSpeed(info.Island) or 0
+
+					if info.Guard > 0 and info.Escape > 0 then
+						info.Need = math.max(info.Escape * 1.06, info.Guard)
+					elseif info.Escape > 0 then
+						info.Need = info.Escape * 1.08
+					elseif info.Guard > 0 then
+						info.Need = info.Guard * 1.02
+					end
+
+					info.Base = math.max(tbl4.WalkSpeed() * sc.CarryRatio * (tonumber(sc.Mult) or sc.LightMult), 1)
+					info.Cap = math.clamp(math.min(tbl4.SpeedCap[info.Island] or S.DefaultCap, S.DefaultCap), 1, 1.5)
+
+					local root = tbl4.Root()
+					local okHome, home = pcall(tbl4.StealHome)
+					local distance = 0
+
+					if root and okHome and home then
+						distance = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(home.X, 0, home.Z)).Magnitude + math.max(0, sc.Height) * 2
+					end
+
+					local excess = sc.ExcessSeconds * info.Base
+
+					local function budget(ratio)
+						local cap = info.Base * ratio
+
+						if distance > excess then
+							return math.min(cap, info.Base * distance / (distance - excess))
+						end
+						return cap
+					end
+
+					info.Max = budget(info.Cap)
+					info.Default = math.max(math.min(info.Base * sc.EasyRatio, budget(S.BaseRatio)), info.Base)
+
+					if info.Need <= 0 then
+						info.Situation = "unknown"
+					elseif info.Default * 0.94 >= info.Need then
+						info.Situation = "outrun"
+					elseif info.Max * 0.97 >= info.Need then
+						info.Situation = "boost"
+					else
+						info.Situation = "hopeless"
+					end
+				end)
+
+				return info
+			end
+
+			-- methods in the order they will be tried: what the situation calls for, what worked last time first,
+			-- what keeps failing last
+			S.Plan = function()
+				local info = S.Intel()
+				local profile = "?"
+
+				pcall(function()
+					profile = tbl4.AntiGuard.ProfileName()
+				end)
+
+				local jumpy = profile == "LightDark"
+				local order
+				local situation = info.Situation
+
+				if situation == "outrun" then
+					order = { "Walk", "Delivery Stop", "Instant TP" }
+				elseif situation == "boost" then
+					order = jumpy and { "Walk", "Delivery Stop", "Instant TP" } or { "Walk", "Instant TP", "Delivery Stop" }
+				elseif situation == "hopeless" then
+					order = { "Delivery Stop", "Instant TP", "Walk" }
+				else
+					order = jumpy and { "Delivery Stop", "Walk", "Instant TP" } or { "Instant TP", "Delivery Stop", "Walk" }
+				end
+
+				local stats = tbl4.MethodStats[info.Island] or {}
+
+				local function failing(level)
+					local st = stats[level]
+					return st ~= nil and st.Streak >= 2 and os.clock() - st.At < 300
+				end
+
+				local last = tbl4.LastOk[info.Island]
+				local plan = {}
+
+				if last and table.find(order, last) and not failing(last) then
+					plan[1] = last
+				end
+
+				for _, level in ipairs(order) do
+					if level ~= plan[1] and not failing(level) then
+						plan[#plan + 1] = level
+					end
+				end
+
+				for _, level in ipairs(order) do
+					if level ~= plan[1] and failing(level) then
+						plan[#plan + 1] = level
+					end
+				end
+
+				return plan, info
+			end
+
+			-- the plan is made once per trip: Anti Guard asks for it at the pick-up, the delivery reuses it
+			S.Get = function()
+				local cache = S.Cache
+				local island = A.Island()
+
+				if cache and cache.Island == island and os.clock() - cache.At < 25 then
+					return cache.Plan, cache.Info
+				end
+				local ok, plan, info = pcall(S.Plan)
+
+				if not ok then
+					plan = { "Instant TP", "Delivery Stop", "Walk" }
+					info = { Island = island, Guard = 0, Escape = 0, Need = 0, Base = 1, Default = 1, Max = 1, Cap = 1, Situation = "unknown" }
+				end
+
+				S.Cache = { Island = island, At = os.clock(), Plan = plan, Info = info }
+				return plan, info
+			end
+
+			-- Anti Guard may only start at the pick-up when Instant TP is the method that is about to be used
+			S.GuardAllowed = function()
+				if S.Level then
+					return S.Level == "Instant TP"
+				end
+				local ok, plan = pcall(S.Get)
+				return ok and type(plan) == "table" and plan[1] == "Instant TP"
+			end
+
+			-- raises the carry speed just enough to beat the guards, never past the learned safe cap
+			S.Unboost = function()
+				local saved = S.Saved
+
+				if not saved then
+					return
+				end
+				S.Saved = nil
+				local sc = tbl4.SafeCarry
+				sc.BeatGuard = saved.BeatGuard
+				sc.SpeedRatio = saved.SpeedRatio
+				sc.GuardMargin = saved.GuardMargin
+				sc.GuardRatio = saved.GuardRatio
+				sc.MinRatio = saved.MinRatio
+				sc.NeedSpeed = saved.NeedSpeed
+			end
+
+			S.Boost = function(info, level)
+				S.Unboost()
+
+				if level ~= "Delivery Stop" and (info.Situation == "boost" or info.Situation == "hopeless") and info.Need > 0 and info.Cap > 1.001 then
+					local sc = tbl4.SafeCarry
+					S.Saved = { BeatGuard = sc.BeatGuard, SpeedRatio = sc.SpeedRatio, GuardMargin = sc.GuardMargin, GuardRatio = sc.GuardRatio, MinRatio = sc.MinRatio, NeedSpeed = sc.NeedSpeed }
+					sc.BeatGuard = true
+					sc.SpeedRatio = info.Cap
+					sc.GuardMargin = 1
+					sc.GuardRatio = 1
+					sc.MinRatio = 1
+					sc.NeedSpeed = info.Need
+					return true
+				end
+				return false
+			end
+
+			S.Describe = function(level, info, boosted)
+				if info.Need <= 0 or level == "Delivery Stop" then
+					return level
+				end
+				local speed = boosted and math.min(math.max(info.Need, info.Base), info.Max) or info.Default
+				return string.format("%s %d/%d", level, math.floor(speed + 0.5), math.floor(info.Need + 0.5))
+			end
+
+			S.Learn = function(info, level, ok, rejected, boosted)
+				local island = info.Island
+
+				if ok then
+					tbl4.LastOk[island] = level
+
+					if boosted then
+						tbl4.SpeedCap[island] = math.min(S.DefaultCap, (tbl4.SpeedCap[island] or info.Cap) + 0.02)
+					end
+				elseif rejected and boosted then
+					tbl4.SpeedCap[island] = math.max(1.05, (tbl4.SpeedCap[island] or info.Cap) - 0.1)
+				end
+			end
 		end
+
+		tbl4.SafeCarry.BoostHandle = sliced8:CreateSlider({
+			Name = "Smart Boost",
+			Note = "Smart: how far over your carry speed it may go when the guards are faster (100 = never)",
+			Min = 100,
+			Max = 150,
+			Default = 150,
+			Increment = 1,
+			Unit = "%",
+			Callback = function(arg)
+				tbl4.Smart.DefaultCap = math.clamp(tonumber(arg) or 150, 100, 150) / 100
+			end,
+		})
 
 		tbl4.AntiGuard.Handle = sliced2:CreateState({ Name = "Anti Guard Enabled", Default = false })
 
@@ -7066,6 +7303,11 @@ do
 				local guards = tbl.Guards
 				local flag3 = type(guards) == "table" and type(guards.Directory) == "table" and guards.Directory[tostring(arg)] or nil
 				local slicedn21 = type(flag3) == "table" and tonumber(flag3.WalkSpeed) or 0
+
+				if safeCarry.NeedSpeed then
+					slicedn21 = math.max(safeCarry.NeedSpeed - math.max(safeCarry.GuardMargin, 1), 0)
+				end
+
 				if not safeCarry.BeatGuard then
 					return math.max(math.min(slicedn17 * safeCarry.EasyRatio, slicedn20), slicedn17), true, slicedn17, slicedn20, slicedn21
 				end
@@ -8181,86 +8423,145 @@ do
 				return false
 			end
 
-			-- delivery with analyzer, automatic fallbacks (Smart) and an adaptive wait before the line
+			-- delivery with analyzer. Smart reads the island, raises the carry speed when the guards are faster,
+			-- tries the methods in the best order and falls back to the next one when the egg is lost
 			local function slicedfn54(arg)
 				local sc = tbl4.SafeCarry
 				local ag = tbl4.AntiGuard
 				local A = tbl4.Analyzer
+				local S = tbl4.Smart
 				local smart = sc.Smart == true
 				local island = A.Island()
-				local ladder = smart and tbl4.Ladder.Plan() or { tbl4.Method.Current() }
+				local ladder, info
+
+				if smart then
+					ladder, info = S.Get()
+				else
+					ladder = { tbl4.Method.Current() }
+				end
+
+				local uid = tbl4.Steal.CarryUid
 				local saved = { LineDrop = sc.LineDrop, StopMode = sc.StopMode, Guard = ag.Enabled }
 				local result = false
 				local reason = "not delivered"
 				pcall(A.Begin, smart and "Smart" or ladder[1], ladder)
 
-				for i, level in ipairs(ladder) do
-					if smart then
-						if i > 1 or ladder[1] ~= "Instant TP" then
-							A.Event("fallback", level)
+				if smart then
+					A.Event("intel", string.format("%s: %s | guard %d escape %d need %d | carry %d default %d boosted %d (cap x%.2f)", tostring(info.Island), info.Situation, info.Guard, info.Escape, info.Need, info.Base, info.Default, info.Max, info.Cap))
+				end
 
-							if not tbl4.Steal.Carrying then
-								str2 = "Smart: taking the egg back, switching to " .. level
-								A.Event("retake", level)
+				local function tryLevels()
+					for i, level in ipairs(ladder) do
+						local boosted = false
 
-								if not slicedfn50(arg) or not tbl4.Steal.Carrying then
-									reason = "could not take the egg back"
-									break
+						if smart then
+							S.Level = level
+
+							-- flags first: a pick-up made while changing method has to behave like the new method
+							if level == "Instant TP" then
+								sc.LineDrop = false
+								sc.StopMode = false
+								ag.Enabled = true
+							elseif level == "Delivery Stop" then
+								sc.LineDrop = true
+								sc.StopMode = true
+								ag.Enabled = false
+							else
+								sc.LineDrop = false
+								sc.StopMode = false
+								ag.Enabled = false
+							end
+
+							boosted = S.Boost(info, level)
+							tbl4.SmartInfo = S.Describe(level, info, boosted)
+							str2 = "Smart: " .. tbl4.SmartInfo
+
+							if i > 1 then
+								A.Event("fallback", level)
+
+								if not tbl4.Steal.Carrying then
+									str2 = "Smart: taking the egg back, switching to " .. level
+									A.Event("retake", level)
+
+									if not slicedfn50(arg) or not tbl4.Steal.Carrying then
+										reason = "could not take the egg back"
+										return
+									end
+								end
+
+								if level == "Instant TP" and tbl4.Steal.Carrying and type(ag.Fire) == "function" then
+									pcall(ag.Fire)
 								end
 							end
 						end
 
-						if level == "Instant TP" then
-							sc.LineDrop = false
-							sc.StopMode = false
-							ag.Enabled = true
-						elseif level == "Delivery Stop" then
-							sc.LineDrop = true
-							sc.StopMode = true
-							ag.Enabled = false
+						local attemptAt = os.clock()
+						A.Event("attempt", level)
+						local okCall, callResult = pcall(deliverOnce, arg)
+						local ok = okCall and callResult == true
+
+						if not okCall then
+							A.Event("error", tostring(callResult))
+						end
+
+						local rejected = sc.LastFailed >= attemptAt
+						local relocated = A.RelocateAt >= attemptAt
+						local cancelled = slicedfn13(arg)
+
+						if ok or rejected or relocated or not cancelled then
+							A.Record(island, smart and level or tbl4.Method.Current(), ok)
+						end
+
+						if smart then
+							S.Learn(info, level, ok, rejected or relocated, boosted and level == "Walk")
+						end
+
+						if ok then
+							result = true
+							reason = "delivered with " .. level
+							return
+						end
+
+						if rejected then
+							reason = "server rejected the delivery"
+							sc.DirectMargin = math.min((tonumber(sc.DirectMargin) or 1.2) + 0.3, 3)
+							A.Event("margin", sc.DirectMargin)
+						elseif relocated then
+							reason = "server moved the player back"
+						elseif cancelled then
+							reason = "cancelled"
 						else
-							sc.LineDrop = false
-							sc.StopMode = false
-							ag.Enabled = false
+							reason = "the egg was lost on the way"
+						end
+
+						if not smart or cancelled then
+							return
 						end
 					end
+				end
 
-					local attemptAt = os.clock()
-					A.Event("attempt", level)
-					local okCall, callResult = pcall(deliverOnce, arg)
-					local ok = okCall and callResult == true
+				local okLevels, levelError = pcall(tryLevels)
 
-					if not okCall then
-						A.Event("error", tostring(callResult))
-					end
-
-					local rejected = sc.LastFailed >= attemptAt or A.RelocateAt >= attemptAt
-
-					if ok or rejected or not slicedfn13(arg) then
-						A.Record(island, smart and level or tbl4.Method.Current(), ok)
-					end
-
-					if ok then
-						result = true
-						reason = "delivered with " .. level
-						break
-					end
-
-					reason = rejected and "server rejected or relocated the player" or "ended without delivery"
-
-					if sc.LastFailed >= attemptAt then
-						sc.DirectMargin = math.min((tonumber(sc.DirectMargin) or 1.2) + 0.3, 3)
-						A.Event("margin", sc.DirectMargin)
-					end
-
-					if not smart or slicedfn13(arg) then
-						break
-					end
+				if not okLevels then
+					A.Event("error", tostring(levelError))
+					reason = "error: " .. tostring(levelError)
 				end
 
 				sc.LineDrop = saved.LineDrop
 				sc.StopMode = saved.StopMode
 				ag.Enabled = saved.Guard
+
+				if smart then
+					S.Level = nil
+					S.Cache = nil
+					tbl4.SmartInfo = nil
+					S.Unboost()
+
+					if result and uid then
+						sc.Blocked[uid] = nil
+					end
+					S.Save()
+				end
 
 				if result then
 					sc.DirectMargin = math.max(1.0, (tonumber(sc.DirectMargin) or 1.2) - 0.05)
@@ -24189,6 +24490,14 @@ do
 				phaseText.Text = text
 				fill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
 
+				if tbl4.SafeCarry.Smart then
+					local modeText = "Mode: Smart" .. (tbl4.SmartInfo and (" · " .. tbl4.SmartInfo) or "")
+
+					if modeButton.Label.Text ~= modeText then
+						modeButton.Label.Text = modeText
+					end
+				end
+
 				local guard = tbl4.AntiGuard
 				local running = guard.Busy == true
 				guardDot.BackgroundColor3 = running and Color3.fromRGB(255, 200, 60) or (guard.Enabled and U.C.MOON or U.C.DIM)
@@ -24249,6 +24558,7 @@ do
 			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
 			linkSlider("Delivery Steps", 1, 6, tbl4.SafeCarry.StopsHandle, "", 3)
 			linkSlider("Carry FPS Cap", 5, 60, tbl4.SafeCarry.CarryFpsHandle, " FPS", 20)
+			linkSlider("Smart Boost", 100, 150, tbl4.SafeCarry.BoostHandle, "%", 150)
 
 			local eggs = tab:CreateSection({ Name = "Field Eggs", Expanded = true })
 			local list = Instance.new("Frame")
@@ -29547,7 +29857,7 @@ do
 		local flag5
 
 		if enabled then
-			flag5 = not (tbl4.SafeCarry.LineDrop and tbl4.Steal.Active) and not (tbl4.SafeCarry.Smart and tbl4.Ladder.SkipInstant())
+			flag5 = not (tbl4.SafeCarry.LineDrop and tbl4.Steal.Active) and not (tbl4.SafeCarry.Smart and not tbl4.Smart.GuardAllowed())
 		else
 			flag5 = enabled
 		end
