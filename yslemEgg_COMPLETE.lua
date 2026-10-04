@@ -4247,6 +4247,7 @@ do
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name ~= "Normal"
 				sc.HopStop = name == "Instant TP" and 14 or 48
+				sc.SnapPickup = name == "Instant TP"
 				if name == "Instant TP" and tbl4.GoMethod.Current() == "Fly" then
 					tbl4.GoMethod.Apply("Run")
 				end
@@ -4421,21 +4422,7 @@ do
 			end,
 		}
 
-		tbl4.SafeCarry.CarryFpsHandle = sliced8:CreateSlider({
-			Name = "Carry FPS Cap",
-			Note = "FPS dip while the egg is carried (35 on a 60 FPS screen, scaled automatically on faster ones)",
-			Min = 5,
-			Max = 240,
-			Default = 35,
-			Increment = 1,
-			Unit = " FPS",
-			Callback = function(arg)
-				local v = math.clamp(math.floor(tonumber(arg) or 35), 5, 240)
-				tbl4.SafeCarry.CarryFps = v
-				tbl4.SafeCarry.CarryFpsUser = v ~= 35
-			end,
-		})
-
+		
 		-- screen-aware default: 35 FPS on a 60 FPS screen, 70 on 120, and so on (only while the slider is untouched)
 		MoonLib.OnRefFps = function(ref)
 			local sc = tbl4.SafeCarry
@@ -24662,7 +24649,7 @@ do
 			modeBadge.BackgroundTransparency = 0.35
 			modeBadge.BorderSizePixel = 0
 			modeBadge.Position = UDim2.new(0, 126, 0, 35)
-			modeBadge.Size = UDim2.new(1, -134, 0, 22)
+			modeBadge.Size = UDim2.new(1, -162, 0, 22)
 			U.corner(modeBadge, 11)
 			U.addLivingStroke(modeBadge, 1.2)
 			modeBadge.Parent = bar
@@ -24675,20 +24662,92 @@ do
 			modeBadgeHint.Position = UDim2.new(0, 5, 0, 11)
 			modeBadgeHint.TextSize = 7
 
-			local function hideGuide()
+			local function layoutMode()
 				if modeBadge.Visible then
-					modeBadge.Visible = false
-					modeButton.Button.Size = UDim2.new(1, -16, 0, 22)
+					modeButton.Button.Size = UDim2.new(0, 112, 0, 22)
+				else
+					modeButton.Button.Size = UDim2.new(1, -46, 0, 22)
 				end
+			end
+
+			local function hideGuide()
+				modeBadge.Visible = false
+				layoutMode()
 				MoonLib.MarkGuideSeen()
 			end
 
+			-- "?" stays available for everyone and opens a short explanation of the delivery system
+			local helpButton = mkBtn(bar, "?", UDim2.fromOffset(24, 22), UDim2.new(1, -32, 0, 35), nil, tbl14.Hud)
+			helpButton.Label.TextSize = 11
+			local guideCard = Instance.new("Frame")
+			guideCard.Name = "DeliveryGuide"
+			guideCard.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			guideCard.BackgroundTransparency = 0.12
+			guideCard.BorderSizePixel = 0
+			guideCard.Position = UDim2.new(0, 8, 0, 4)
+			guideCard.Size = UDim2.new(1, -16, 1, -8)
+			guideCard.ZIndex = 90
+			guideCard.Visible = false
+			U.corner(guideCard, 12)
+			U.addLivingStroke(guideCard, 1.5)
+			guideCard.Parent = win.content
+			local guideScroll = Instance.new("ScrollingFrame")
+			guideScroll.BackgroundTransparency = 1
+			guideScroll.BorderSizePixel = 0
+			guideScroll.Position = UDim2.new(0, 6, 0, 6)
+			guideScroll.Size = UDim2.new(1, -12, 1, -44)
+			guideScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+			guideScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+			guideScroll.ScrollBarThickness = 3
+			guideScroll.ScrollBarImageColor3 = U.C.MOON
+			guideScroll.ZIndex = 91
+			guideScroll.Parent = guideCard
+			local guideText = U.label(guideScroll, "", UDim2.new(1, -8, 0, 0), U.C.SILVER, Enum.Font.GothamMedium)
+			guideText.AutomaticSize = Enum.AutomaticSize.Y
+			guideText.TextWrapped = true
+			guideText.RichText = true
+			guideText.TextSize = 10
+			guideText.TextYAlignment = Enum.TextYAlignment.Top
+			guideText.ZIndex = 92
+			guideText.Text = "<b>HOW DELIVERY WORKS</b>\n"
+				.. "<b>Normal</b>: you carry the egg home on foot. Slowest, but the least risky.\n"
+				.. "<b>Instant TP</b>: you hop to the line, put the egg down, take it back, then cross. Fast.\n"
+				.. "<b>Delivery Stop</b>: the same trip with pauses (Delivery Steps). Slower, safer.\n\n"
+				.. "<b>RISKS</b>\n"
+				.. "- Above 115% speed the server rejects the delivery or pulls you back.\n"
+				.. "- A guard hit can send the egg back to its nest.\n"
+				.. "- Fewer Delivery Steps is faster but works less often.\n"
+				.. "- Keep Anti Guard on to slip past the guard when you grab the egg."
+			local guideClose = mkBtn(guideCard, "Got it", UDim2.new(1, -16, 0, 24), UDim2.new(0, 8, 1, -30), nil, tbl14.Steal)
+			guideClose.Label.TextSize = 10
+
+			local function openGuide()
+				guideCard.Visible = true
+				page.ScrollingEnabled = false
+			end
+
+			local function closeGuide()
+				guideCard.Visible = false
+				page.ScrollingEnabled = true
+				hideGuide()
+			end
+
+			helpButton.Button.Activated:Connect(openGuide)
+			guideClose.Button.Activated:Connect(closeGuide)
+			local badgeTap = Instance.new("TextButton")
+			badgeTap.BackgroundTransparency = 1
+			badgeTap.Text = ""
+			badgeTap.Size = UDim2.new(1, 0, 1, 0)
+			badgeTap.ZIndex = 5
+			badgeTap.Parent = modeBadge
+			badgeTap.Activated:Connect(openGuide)
+
 			if MoonLib.GuideSeen() then
 				modeBadge.Visible = false
-				modeButton.Button.Size = UDim2.new(1, -16, 0, 22)
 			else
-				task.delay(25, hideGuide)
+				task.delay(40, hideGuide)
 			end
+			layoutMode()
 			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
 			local guardHandle = { Name = "Normal" }
 
@@ -24992,7 +25051,7 @@ do
 			linkSlider("Go Speed", 50, 115, tbl4.SafeCarry.RunHandle)
 			linkSlider("Carry Speed", 80, 115, tbl4.SafeCarry.CarryHandle)
 			linkSlider("Delivery Steps", 1, 6, tbl4.SafeCarry.StopsHandle, "", 3)
-			linkSlider("Carry FPS Cap", 5, 240, tbl4.SafeCarry.CarryFpsHandle, " FPS", 35)
+			
 
 			local eggs = tab:CreateSection({ Name = "Field Eggs", Expanded = true })
 			local list = Instance.new("Frame")
@@ -28333,28 +28392,7 @@ do
 
 	
 
-	tbl4.FpsCapHandle = sliced14:CreateSlider({
-		Name = "FPS Cap",
-		Min = 5,
-		Max = 1000,
-		Default = 240,
-		AllowDecimals = false,
-		Increment = 1,
-		Unit = " FPS",
-		Callback = function(arg)
-			local slicedn14 = math.clamp(math.floor(tonumber(arg) or 240), 5, 1000)
-			if type(setfpscap) == "function" and pcall(setfpscap, slicedn14) then
-				flag4 = false
-				return
-			end
-
-			if not flag4 then
-				flag4 = true
-				slicedfn18("FPS Cap Unavailable", "This environment does not support setfpscap.")
-			end
-		end,
-	})
-
+	
 	do
 		local Lighting = game:GetService("Lighting")
 		local slicedn14 = 0.003
