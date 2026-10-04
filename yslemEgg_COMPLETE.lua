@@ -4050,6 +4050,7 @@ do
 		do
 			local A = {
 				Enabled = true,
+				Detail = 2,
 				Active = false,
 				Events = {},
 				Meta = {},
@@ -4067,7 +4068,7 @@ do
 				if t == "number" then
 					return tostring(math.floor(v * 1000 + 0.5) / 1000)
 				elseif t == "string" then
-					return '"' .. (#v > 48 and (string.sub(v, 1, 48) .. '~') or v) .. '"'
+					return '"' .. (#v > (A.Detail >= 3 and 200 or 48) and (string.sub(v, 1, A.Detail >= 3 and 200 or 48) .. '~') or v) .. '"'
 				elseif t == "boolean" or t == "nil" then
 					return tostring(v)
 				elseif t == "Vector3" then
@@ -4078,7 +4079,7 @@ do
 				elseif t == "Instance" then
 					return v.ClassName .. ":" .. v.Name
 				elseif t == "table" then
-					if depth >= 1 then
+					if depth >= (A.Detail >= 2 and 2 or 1) then
 						return "{...}"
 					end
 					local parts, n = {}, 0
@@ -4086,7 +4087,7 @@ do
 					for k, val in pairs(v) do
 						n += 1
 
-						if n > 8 then
+						if n > (A.Detail == 1 and 8 or (A.Detail == 2 and 16 or 30)) then
 							parts[#parts + 1] = "..."
 							break
 						end
@@ -4110,7 +4111,7 @@ do
 			end
 
 			A.Event = function(name, data)
-				if not A.Active or #A.Events >= 120 then
+				if not A.Active or #A.Events >= (A.Detail == 1 and 120 or (A.Detail == 2 and 300 or 600)) then
 					return
 				end
 				A.Events[#A.Events + 1] = string.format("[%6.2f] %s %s", os.clock() - A.T0, name, data ~= nil and ser(data) or "")
@@ -4141,7 +4142,7 @@ do
 
 				local sc = tbl4.SafeCarry
 				local meta = {}
-				meta[#meta + 1] = os.date("%H:%M:%S") .. " place " .. tostring(game.PlaceId)
+				meta[#meta + 1] = os.date("%H:%M:%S") .. " place " .. tostring(game.PlaceId) .. (A.Detail >= 2 and (" job " .. tostring(game.JobId)) or "")
 				local exName = "?"
 
 				if typeof(identifyexecutor) == "function" then
@@ -4166,13 +4167,31 @@ do
 				meta[#meta + 1] = "AG: " .. tostring(tbl4.AntiGuard.Enabled) .. " " .. tostring(type(tbl4.AntiGuard.ProfileName) == "function" and select(2, pcall(tbl4.AntiGuard.ProfileName)) or "?")
 				local guards = tbl.Guards
 				local entry = type(guards) == "table" and type(guards.Directory) == "table" and guards.Directory[tostring(tbl4.Steal.CarryAreaId)] or nil
-				meta[#meta + 1] = "guard ws: " .. tostring(type(entry) == "table" and entry.WalkSpeed or "?")
+				meta[#meta + 1] = A.Detail >= 2 and ("guard: " .. ser(entry)) or ("guard ws: " .. tostring(type(entry) == "table" and entry.WalkSpeed or "?"))
 
 				local keys = { "LineDrop", "StopMode", "Smart", "Stops", "Hops", "HopRatio", "HopGap", "HopLift", "DirectBudget", "DirectMargin", "LineWait", "CarryRatio", "Height" }
 				local cfg = {}
 
-				for _, k in ipairs(keys) do
-					cfg[#cfg + 1] = k .. "=" .. ser(sc[k])
+				if A.Detail >= 3 then
+					for k, v in pairs(sc) do
+						local t = type(v)
+
+						if t == "number" or t == "boolean" or t == "string" then
+							cfg[#cfg + 1] = tostring(k) .. "=" .. ser(v)
+						end
+					end
+
+					table.sort(cfg)
+				else
+					if A.Detail == 2 then
+						for _, k in ipairs({ "StopTime", "FarFromLine", "CrossRatio", "CrossSpeed", "PickupSpeed", "HopStep", "HopStop", "DropDelay", "LineApproach", "ReJump", "RunSpeed", "CarryScale", "CarryFps", "DipFps" }) do
+							keys[#keys + 1] = k
+						end
+					end
+
+					for _, k in ipairs(keys) do
+						cfg[#cfg + 1] = k .. "=" .. ser(sc[k])
+					end
 				end
 
 				meta[#meta + 1] = "cfg: " .. table.concat(cfg, " ")
@@ -4183,7 +4202,7 @@ do
 					local last = 0
 
 					while A.Active and A.Run == run do
-						task.wait(1)
+						task.wait(A.Detail == 1 and 1 or (A.Detail == 2 and 0.5 or 0.25))
 						local r = tbl4.Root()
 						local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
 
@@ -4195,26 +4214,29 @@ do
 							A.Event("pos", string.format("%s v%.0f %s c=%s ag=%s %dms", ser(r.Position), r.AssemblyLinearVelocity.Magnitude, humanoid and string.gsub(tostring(humanoid:GetState()), "Enum.HumanoidStateType.", "") or "?", tostring(tbl4.Steal.Carrying), tostring(tbl4.AntiGuard.Busy), ping))
 						end
 
-						if os.clock() - last >= 2 and r then
+						if os.clock() - last >= (A.Detail == 1 and 2 or 1) and r then
 							last = os.clock()
-							local bestName, bestState, bestDist = nil, nil, math.huge
+							local found = {}
 
 							for _, child in ipairs(workspace:GetChildren()) do
 								if child:IsA("Model") then
 									local state = child:GetAttribute("GuardState")
 
 									if state ~= nil then
-										local d = (child:GetPivot().Position - r.Position).Magnitude
-
-										if d < bestDist then
-											bestName, bestState, bestDist = child.Name, state, d
-										end
+										found[#found + 1] = { Name = child.Name, State = state, Dist = (child:GetPivot().Position - r.Position).Magnitude }
 									end
 								end
 							end
 
-							if bestName then
-								A.Event("guard", string.format("%s %s %.0f", bestName, tostring(bestState), bestDist))
+							table.sort(found, function(x, y)
+								return x.Dist < y.Dist
+							end)
+
+							local limit = A.Detail == 1 and 1 or (A.Detail == 2 and 3 or 8)
+
+							for gi = 1, math.min(limit, #found) do
+								local g = found[gi]
+								A.Event("guard", string.format("%s %s %.0f", g.Name, tostring(g.State), g.Dist))
 							end
 						end
 					end
@@ -4276,8 +4298,10 @@ do
 				out[#out + 1] = "stats: " .. (#parts > 0 and table.concat(parts, ", ") or "-")
 				local text = table.concat(out, "\n")
 
-				if #text > 3200 then
-					text = string.sub(text, 1, 1100) .. "\n...\n" .. string.sub(text, -2000)
+				local cap = A.Detail == 1 and 3200 or (A.Detail == 2 and 8000 or 24000)
+
+				if #text > cap then
+					text = string.sub(text, 1, math.floor(cap * 0.35)) .. "\n...\n" .. string.sub(text, -math.floor(cap * 0.62))
 				end
 
 				A.Last = text
@@ -4285,6 +4309,22 @@ do
 				if A.Enabled and copy(text) then
 					pcall(tbl4.Notify, "Analyzer", "Delivery report copied (" .. #text .. " characters)")
 				end
+			end
+
+			-- the last report in slices of 3000 characters, to send it in several messages
+			A.CopyPart = function(n)
+				local text = A.Last
+
+				if not text then
+					return false
+				end
+				local size = 3000
+				local part = string.sub(text, (n - 1) * size + 1, n * size)
+
+				if part == "" then
+					return false
+				end
+				return copy(string.format("[%d/%d]\n%s", n, math.ceil(#text / size), part))
 			end
 
 			A.Scan = function()
@@ -4339,7 +4379,7 @@ do
 
 				if type(guards) == "table" and type(guards.Directory) == "table" then
 					for id, data in pairs(guards.Directory) do
-						out[#out + 1] = "guard " .. tostring(id) .. " ws " .. tostring(type(data) == "table" and data.WalkSpeed or "?")
+						out[#out + 1] = "guard " .. tostring(id) .. " " .. (A.Detail >= 2 and ser(data) or ("ws " .. tostring(type(data) == "table" and data.WalkSpeed or "?")))
 					end
 				end
 
@@ -4350,7 +4390,7 @@ do
 				end
 
 				table.sort(top)
-				out[#out + 1] = "workspace children: " .. #top
+				out[#out + 1] = "workspace children: " .. #top .. (A.Detail >= 2 and (" | " .. string.sub(table.concat(top, ", "), 1, A.Detail >= 3 and 3500 or 1200)) or "")
 
 				pcall(function()
 					local net = game:GetService("ReplicatedStorage").Packages.Networking
@@ -4361,7 +4401,7 @@ do
 					end
 
 					table.sort(remotes)
-					out[#out + 1] = "remotes: " .. #remotes
+					out[#out + 1] = "remotes: " .. #remotes .. (A.Detail >= 2 and (" | " .. string.sub(table.concat(remotes, ", "), 1, A.Detail >= 3 and 6000 or 1800)) or "")
 				end)
 
 				local scanKeys = { "LineDrop", "StopMode", "Smart", "Stops", "Hops", "HopRatio", "HopLift", "DirectBudget", "DirectMargin", "LineWait", "CarryRatio", "Height", "RunSpeed", "CarryScale" }
@@ -4374,8 +4414,10 @@ do
 				out[#out + 1] = "cfg: " .. table.concat(cfg, " ")
 								local text = table.concat(out, "\n")
 
-				if #text > 3200 then
-					text = string.sub(text, 1, 3200) .. "\n..."
+				local scanCap = A.Detail == 1 and 3200 or (A.Detail == 2 and 8000 or 24000)
+
+				if #text > scanCap then
+					text = string.sub(text, 1, scanCap) .. "\n..."
 				end
 
 				A.LastScan = text
@@ -29697,8 +29739,33 @@ do
 		end,
 	})
 
+	local detailNames = { "Short", "Medium", "Full" }
+
+	analyzerSection:CreateDropdown({
+		Name = "Report detail",
+		Note = "Short ~3 000 characters, Medium ~8 000, Full ~24 000",
+		Options = detailNames,
+		Default = "Medium",
+		Callback = function(v)
+			tbl4.Analyzer.Detail = table.find(detailNames, v) or 2
+		end,
+	})
+
+	for part = 1, 3 do
+		analyzerSection:CreateButton({
+			Name = "Report part " .. part .. " (3 000 characters)",
+			ButtonText = "Copy",
+			ConfirmText = "Copied",
+			Callback = function()
+				if not tbl4.Analyzer.CopyPart(part) then
+					pcall(tbl4.Notify, "Analyzer", "Nothing in part " .. part)
+				end
+			end,
+		})
+	end
+
 	analyzerSection:CreateButton({
-		Name = "Last delivery report",
+		Name = "Last delivery report (all)",
 		ButtonText = "Copy",
 		ConfirmText = "Copied",
 		Callback = function()
