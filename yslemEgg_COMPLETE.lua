@@ -4178,6 +4178,28 @@ do
 
 		-- three delivery modes. The mode is the only switch for the hops: Instant TP hops home the moment the egg is
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
+		-- Go Method: how the character reaches the egg (Fly = Chilli's tween above the ground, Run = on the ground, TP = jump in front of it)
+		tbl4.GoMethod = {
+			Names = { "Run", "Fly", "TP" },
+			Current = function()
+				return tbl4.SafeCarry.GoMethod or "Fly"
+			end,
+			Apply = function(name)
+				local sc = tbl4.SafeCarry
+
+				if not table.find(tbl4.GoMethod.Names, name) then
+					name = "Fly"
+				end
+				sc.GoMethod = name
+				sc.RunHeight = name == "Fly" and 50 or 0
+				local handle = sc.GoHandle
+
+				if handle and type(handle.Set) == "function" then
+					pcall(handle.Set, handle, name, false)
+				end
+			end,
+		}
+
 		-- speed ceiling of the hop modes: Delivery Stop 115%, Instant TP 120%, Normal unlimited
 		tbl4.SafeCarry.Cap = function(ratio)
 			local sc = tbl4.SafeCarry
@@ -4219,7 +4241,9 @@ do
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name ~= "Normal"
-				sc.RunHeight = name == "Instant TP" and 0 or 50
+				if name == "Instant TP" and tbl4.GoMethod.Current() == "Fly" then
+					tbl4.GoMethod.Apply("Run")
+				end
 				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
 
 				if hops then
@@ -4229,6 +4253,15 @@ do
 						pcall(handle.Set, handle, false)
 					end
 					ag.Enabled = false
+				end
+
+				if name == "Instant TP" then
+					local handle = ag.Handle
+
+					if handle and type(handle.Set) == "function" then
+						pcall(handle.Set, handle, true)
+					end
+					ag.Enabled = true
 				end
 
 				local methodHandle = sc.MethodHandle
@@ -4276,6 +4309,18 @@ do
 			end
 			return nil
 		end
+
+		tbl4.SafeCarry.GoHandle = sliced8:CreateDropdown({
+			Name = "Go Method",
+			Note = "How you reach the egg: Run (ground), Fly (above the ground), TP (jump in front of the egg)",
+			Options = tbl4.GoMethod.Names,
+			Default = "Fly",
+			Callback = function(arg)
+				if table.find(tbl4.GoMethod.Names, arg) and tbl4.GoMethod.Current() ~= arg then
+					tbl4.GoMethod.Apply(arg)
+				end
+			end,
+		})
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
@@ -7291,6 +7336,22 @@ do
 							end
 						end
 					end)
+				end
+
+				if safeCarry.GoMethod == "TP" then
+					local tpRoot = tbl4.Root()
+					local tpChar = localPlayer.Character
+
+					if tpRoot and tpChar then
+						str2 = "Go Method: jumping in front of the egg"
+						pcall(function()
+							tpChar:PivotTo(CFrame.new(position.X, slicedn18, position.Z) * tpRoot.CFrame.Rotation)
+							tpRoot.AssemblyLinearVelocity = Vector3.zero
+							tpRoot.AssemblyAngularVelocity = Vector3.zero
+						end)
+						str3 = "field"
+						RunService.Heartbeat:Wait()
+					end
 				end
 
 				while os.clock() - now < 240 do
@@ -24553,65 +24614,83 @@ do
 				modeButton.Label.Text = "Mode: " .. name
 			end
 
-			-- Mode opens a small tree: one branch per delivery method
+			-- Mode opens a small tree: a "Deliver" branch (how the egg gets home) and a "Go" branch (how you reach it)
 			local branch = nil
 			local branchButtons = {}
 
 			local function refreshBranch()
-				local current = tbl4.Method.Current()
-
-				for name, optionButton in pairs(branchButtons) do
-					slicedfn31(optionButton, name == current and tbl14.Steal or tbl14.Queued)
+				for _, entry in ipairs(branchButtons) do
+					slicedfn31(entry.Button, entry.Name == entry.Group.Current() and tbl14.Steal or tbl14.Queued)
 				end
 			end
 
 			modeButton.Button.Activated:Connect(function()
 				if not branch then
+					local groups = {
+						{ Title = "DELIVER", Names = tbl4.Method.Names, Current = tbl4.Method.Current, Apply = tbl4.Method.Apply },
+						{ Title = "GO METHOD", Names = tbl4.GoMethod.Names, Current = tbl4.GoMethod.Current, Apply = tbl4.GoMethod.Apply },
+					}
+					local total = 8
+
+					for _, group in ipairs(groups) do
+						total += 16 + #group.Names * 28
+					end
+
 					branch = Instance.new("Frame")
 					branch.Name = "ModeBranch"
 					branch.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 					branch.BackgroundTransparency = 0.2
 					branch.BorderSizePixel = 0
 					branch.Position = UDim2.new(0, 8, 0, 126)
-					branch.Size = UDim2.new(1, -16, 0, #tbl4.Method.Names * 28 + 8)
+					branch.Size = UDim2.new(1, -16, 0, total)
 					branch.ZIndex = 60
 					branch.Visible = false
 					U.corner(branch, 8)
 					U.addLivingStroke(branch, 1)
 					branch.Parent = win.content
 
-					local trunk = Instance.new("Frame")
-					trunk.BackgroundColor3 = U.C.DEEP4
-					trunk.BorderSizePixel = 0
-					trunk.Position = UDim2.new(0, 12, 0, 8)
-					trunk.Size = UDim2.new(0, 1, 0, (#tbl4.Method.Names - 1) * 28 + 11)
-					trunk.Parent = branch
+					local cursor = 4
 
-					for i, name in ipairs(tbl4.Method.Names) do
-						local y = 4 + (i - 1) * 28
-						local stub = Instance.new("Frame")
-						stub.BackgroundColor3 = U.C.DEEP4
-						stub.BorderSizePixel = 0
-						stub.Position = UDim2.new(0, 12, 0, y + 11)
-						stub.Size = UDim2.fromOffset(12, 1)
-						stub.Parent = branch
+					for _, group in ipairs(groups) do
+						local title = U.label(branch, group.Title, UDim2.new(1, -16, 0, 14), U.C.SILVER2, Enum.Font.GothamBold)
+						title.Position = UDim2.new(0, 10, 0, cursor)
+						title.TextSize = 8.5
+						cursor += 16
 
-						local node = Instance.new("Frame")
-						node.BackgroundColor3 = U.C.MOON2
-						node.BorderSizePixel = 0
-						node.Position = UDim2.new(0, 22, 0, y + 9)
-						node.Size = UDim2.fromOffset(5, 5)
-						U.corner(node, 3)
-						node.Parent = branch
+						local trunk = Instance.new("Frame")
+						trunk.BackgroundColor3 = U.C.DEEP4
+						trunk.BorderSizePixel = 0
+						trunk.Position = UDim2.new(0, 12, 0, cursor + 4)
+						trunk.Size = UDim2.new(0, 1, 0, (#group.Names - 1) * 28 + 11)
+						trunk.Parent = branch
 
-						local optionButton = mkBtn(branch, name, UDim2.new(1, -40, 0, 22), UDim2.new(0, 32, 0, y), nil, tbl14.Queued)
-						optionButton.Label.TextSize = 10
-						branchButtons[name] = optionButton
-						optionButton.Button.Activated:Connect(function()
-							tbl4.Method.Apply(name)
-							branch.Visible = false
-							tbl4.UiDefer(slicedfn40)
-						end)
+						for i, name in ipairs(group.Names) do
+							local y = cursor + (i - 1) * 28
+							local stub = Instance.new("Frame")
+							stub.BackgroundColor3 = U.C.DEEP4
+							stub.BorderSizePixel = 0
+							stub.Position = UDim2.new(0, 12, 0, y + 11)
+							stub.Size = UDim2.fromOffset(12, 1)
+							stub.Parent = branch
+
+							local node = Instance.new("Frame")
+							node.BackgroundColor3 = U.C.MOON2
+							node.BorderSizePixel = 0
+							node.Position = UDim2.new(0, 22, 0, y + 9)
+							node.Size = UDim2.fromOffset(5, 5)
+							U.corner(node, 3)
+							node.Parent = branch
+
+							local optionButton = mkBtn(branch, name, UDim2.new(1, -40, 0, 22), UDim2.new(0, 32, 0, y), nil, tbl14.Queued)
+							optionButton.Label.TextSize = 10
+							branchButtons[#branchButtons + 1] = { Button = optionButton, Name = name, Group = group }
+							optionButton.Button.Activated:Connect(function()
+								group.Apply(name)
+								refreshBranch()
+								tbl4.UiDefer(slicedfn40)
+							end)
+						end
+						cursor += #group.Names * 28
 					end
 				end
 
