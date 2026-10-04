@@ -3849,8 +3849,12 @@ do
 
 		-- three delivery methods, always derived from the real switches (no hidden state)
 		tbl4.Method = {
-			Names = { "Normal", "Instant TP", "Delivery Stop" },
+			Names = { "Normal", "Instant TP", "Delivery Stop", "Smart" },
 			Current = function()
+				if tbl4.SafeCarry.Smart then
+					return "Smart"
+				end
+
 				if tbl4.SafeCarry.LineDrop then
 					return tbl4.SafeCarry.StopMode and "Delivery Stop" or "Instant Steal"
 				end
@@ -3890,11 +3894,12 @@ do
 				end
 
 				sc.StopMode = name == "Delivery Stop"
+				sc.Smart = name == "Smart"
 
 				if name == "Delivery Stop" then
 					setGuard(false)
 					setInstant(true)
-				elseif name == "Instant TP" then
+				elseif name == "Instant TP" or name == "Smart" then
 					setInstant(false)
 					setGuard(true)
 				else
@@ -3910,7 +3915,7 @@ do
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
-			Note = "Normal / Instant TP (Anti Guard) / Delivery Stop",
+			Note = "Normal / Instant TP / Delivery Stop / Smart (Instant TP, then fallbacks)",
 			Options = tbl4.Method.Names,
 			Default = "Normal",
 			Callback = function(arg)
@@ -4040,6 +4045,417 @@ do
 				tbl4.SafeCarry.CarryFps = math.clamp(math.floor(tonumber(arg) or 20), 5, 60)
 			end,
 		})
+
+		-- ===== analyzer: records every delivery and copies a report to the clipboard =====
+		do
+			local A = {
+				Enabled = true,
+				Active = false,
+				Events = {},
+				Meta = {},
+				T0 = 0,
+				RelocateAt = 0,
+				Last = nil,
+				Run = 0,
+			}
+			tbl4.Analyzer = A
+
+			local function ser(v, depth)
+				depth = depth or 0
+				local t = typeof(v)
+
+				if t == "number" then
+					return tostring(math.floor(v * 1000 + 0.5) / 1000)
+				elseif t == "string" then
+					return '"' .. v .. '"'
+				elseif t == "boolean" or t == "nil" then
+					return tostring(v)
+				elseif t == "Vector3" then
+					return string.format("(%.1f, %.1f, %.1f)", v.X, v.Y, v.Z)
+				elseif t == "CFrame" then
+					local p = v.Position
+					return string.format("CF(%.1f, %.1f, %.1f)", p.X, p.Y, p.Z)
+				elseif t == "Instance" then
+					return v.ClassName .. ":" .. v.Name
+				elseif t == "table" then
+					if depth >= 2 then
+						return "{...}"
+					end
+					local parts, n = {}, 0
+
+					for k, val in pairs(v) do
+						n += 1
+
+						if n > 24 then
+							parts[#parts + 1] = "..."
+							break
+						end
+						parts[#parts + 1] = tostring(k) .. "=" .. ser(val, depth + 1)
+					end
+
+					table.sort(parts)
+					return "{" .. table.concat(parts, ", ") .. "}"
+				end
+				return t
+			end
+			A.Ser = ser
+
+			A.Island = function()
+				local area = tbl4.Steal.CarryAreaId
+
+				if type(area) ~= "string" or area == "" then
+					area = localPlayer:GetAttribute("AreaId")
+				end
+				return type(area) == "string" and area ~= "" and area or "unknown"
+			end
+
+			A.Event = function(name, data)
+				if not A.Active or #A.Events >= 450 then
+					return
+				end
+				A.Events[#A.Events + 1] = string.format("[%6.2f] %s %s", os.clock() - A.T0, name, data ~= nil and ser(data) or "")
+			end
+
+			local function copy(text)
+				local fn = setclipboard or toclipboard
+				if type(fn) == "function" then
+					return pcall(fn, text)
+				end
+				return false
+			end
+			A.Copy = copy
+
+			A.Begin = function(method, ladder)
+				A.Run += 1
+				local run = A.Run
+				A.Active = true
+				A.T0 = os.clock()
+				A.Events = {}
+				local root = tbl4.Root()
+				local home = nil
+
+				if type(tbl4.StealHome) == "function" then
+					local ok, value = pcall(tbl4.StealHome)
+					home = ok and value or nil
+				end
+
+				local sc = tbl4.SafeCarry
+				local meta = {}
+				meta[#meta + 1] = "time: " .. os.date("%Y-%m-%d %H:%M:%S")
+				meta[#meta + 1] = "place: " .. tostring(game.PlaceId) .. "  job: " .. tostring(game.JobId)
+				local exName = "?"
+
+				if typeof(identifyexecutor) == "function" then
+					local okExec, nameExec = pcall(identifyexecutor)
+					exName = okExec and tostring(nameExec) or "?"
+				end
+
+				meta[#meta + 1] = "executor: " .. exName
+				meta[#meta + 1] = "island (egg): " .. A.Island() .. "   player AreaId attr: " .. tostring(localPlayer:GetAttribute("AreaId"))
+				meta[#meta + 1] = "egg: category=" .. tostring(sc.Category) .. " mult=" .. tostring(sc.Mult)
+				meta[#meta + 1] = "method: " .. tostring(method) .. "   ladder: " .. ser(ladder or {})
+				meta[#meta + 1] = string.format("walkspeed: %s   root: %s   home: %s", tostring(tbl4.WalkSpeed()), root and ser(root.Position) or "?", home and ser(home) or "?")
+
+				if root and home then
+					meta[#meta + 1] = string.format("distance to home: %.0f", (root.Position - home).Magnitude)
+				end
+
+				local line = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+				line = line and line:FindFirstChild("Areas")
+				line = line and line:FindFirstChild("SeparationLine")
+				meta[#meta + 1] = "separation line: " .. (line and line:IsA("BasePart") and ser(line.Position) or "not found")
+				meta[#meta + 1] = "antiguard: enabled=" .. tostring(tbl4.AntiGuard.Enabled) .. " profile=" .. tostring(type(tbl4.AntiGuard.ProfileName) == "function" and select(2, pcall(tbl4.AntiGuard.ProfileName)) or "?")
+				local guards = tbl.Guards
+				local entry = type(guards) == "table" and type(guards.Directory) == "table" and guards.Directory[tostring(tbl4.Steal.CarryAreaId)] or nil
+				meta[#meta + 1] = "guard data: " .. ser(entry)
+
+				local cfg = {}
+
+				for k, v in pairs(sc) do
+					local t = type(v)
+					if t == "number" or t == "boolean" or t == "string" then
+						cfg[#cfg + 1] = tostring(k) .. "=" .. ser(v)
+					end
+				end
+
+				table.sort(cfg)
+				meta[#meta + 1] = "safecarry: " .. table.concat(cfg, " ")
+				A.Meta = meta
+				A.Event("begin", method)
+
+				task.spawn(function()
+					local last = 0
+
+					while A.Active and A.Run == run do
+						task.wait(0.25)
+						local r = tbl4.Root()
+						local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
+
+						if r then
+							local ping = 0
+							pcall(function()
+								ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
+							end)
+							A.Event("pos", string.format("%s v=%.0f st=%s carry=%s ag=%s ping=%d", ser(r.Position), r.AssemblyLinearVelocity.Magnitude, humanoid and tostring(humanoid:GetState()) or "?", tostring(tbl4.Steal.Carrying), tostring(tbl4.AntiGuard.Busy), ping))
+						end
+
+						if os.clock() - last >= 1 then
+							last = os.clock()
+
+							for _, child in ipairs(workspace:GetChildren()) do
+								if child:IsA("Model") then
+									local state = child:GetAttribute("GuardState")
+
+									if state ~= nil then
+										local pivot = child:GetPivot().Position
+										A.Event("guard", string.format("%s state=%s at %s dist=%.0f", child.Name, tostring(state), ser(pivot), r and (pivot - r.Position).Magnitude or -1))
+									end
+								end
+							end
+						end
+					end
+				end)
+			end
+
+			A.Record = function(island, level, ok)
+				tbl4.MethodStats = tbl4.MethodStats or {}
+				local byIsland = tbl4.MethodStats[island]
+
+				if not byIsland then
+					byIsland = {}
+					tbl4.MethodStats[island] = byIsland
+				end
+
+				local s = byIsland[level]
+
+				if not s then
+					s = { Ok = 0, Fail = 0, Streak = 0, At = 0 }
+					byIsland[level] = s
+				end
+
+				if ok then
+					s.Ok += 1
+					s.Streak = 0
+				else
+					s.Fail += 1
+					s.Streak += 1
+					s.At = os.clock()
+				end
+			end
+
+			A.Finish = function(ok, reason)
+				if not A.Active then
+					return
+				end
+				A.Event("end", { ok = ok, reason = reason })
+				A.Active = false
+				local out = { "=== MoonEgg delivery report ===", "result: " .. (ok and "DELIVERED" or "FAILED") .. "  (" .. tostring(reason) .. ")", string.format("duration: %.2fs", os.clock() - A.T0) }
+
+				for _, line in ipairs(A.Meta) do
+					out[#out + 1] = line
+				end
+
+				out[#out + 1] = "--- timeline ---"
+
+				for _, line in ipairs(A.Events) do
+					out[#out + 1] = line
+				end
+
+				out[#out + 1] = "--- method stats (ok/fail per island) ---"
+
+				for island, levels in pairs(tbl4.MethodStats or {}) do
+					local parts = {}
+
+					for level, s in pairs(levels) do
+						parts[#parts + 1] = string.format("%s %d/%d", level, s.Ok, s.Fail)
+					end
+
+					out[#out + 1] = island .. ": " .. table.concat(parts, ", ")
+				end
+
+				local text = table.concat(out, "\n")
+
+				if #text > 24000 then
+					text = string.sub(text, 1, 6000) .. "\n...cut...\n" .. string.sub(text, -17000)
+				end
+
+				A.Last = text
+
+				if A.Enabled and copy(text) then
+					pcall(tbl4.Notify, "Analyzer", "Delivery report copied (" .. #text .. " characters)")
+				end
+			end
+
+			A.Scan = function()
+				local out = { "=== MoonEgg game scan ===", "time: " .. os.date("%Y-%m-%d %H:%M:%S"), "place: " .. tostring(game.PlaceId) }
+				local env = getfenv and getfenv() or _G
+				local names = { "setclipboard", "toclipboard", "fireproximityprompt", "setfpscap", "writefile", "readfile", "isfile", "identifyexecutor", "request", "firesignal", "hookfunction", "setthreadidentity", "queue_on_teleport" }
+				local caps = {}
+
+				for _, n in ipairs(names) do
+					local ok, f = pcall(function()
+						return env[n]
+					end)
+					caps[#caps + 1] = n .. "=" .. tostring(ok and type(f) == "function")
+				end
+
+				out[#out + 1] = "executor: " .. table.concat(caps, " ")
+				out[#out + 1] = "player attributes: " .. ser((function()
+					local t = {}
+					for k, v in pairs(localPlayer:GetAttributes()) do
+						t[k] = v
+					end
+					return t
+				end)())
+				local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
+
+				if humanoid then
+					out[#out + 1] = string.format("humanoid: walkspeed=%s hipheight=%s state=%s", tostring(humanoid.WalkSpeed), tostring(humanoid.HipHeight), tostring(humanoid:GetState()))
+				end
+
+				local line = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+				line = line and line:FindFirstChild("Areas")
+				local sep = line and line:FindFirstChild("SeparationLine")
+				out[#out + 1] = "separation line: " .. (sep and sep:IsA("BasePart") and (ser(sep.Position) .. " size " .. ser(sep.Size)) or "not found")
+
+				if line then
+					local areas = {}
+
+					for _, child in ipairs(line:GetChildren()) do
+						local pos = child:IsA("BasePart") and child.Position or (child:IsA("Model") and child:GetPivot().Position or nil)
+						areas[#areas + 1] = child.Name .. (pos and (" @ " .. ser(pos)) or "")
+					end
+
+					out[#out + 1] = "areas folder: " .. table.concat(areas, " | ")
+				end
+
+				if type(tbl4.StealHome) == "function" then
+					local ok, value = pcall(tbl4.StealHome)
+					out[#out + 1] = "steal home: " .. (ok and ser(value) or "error")
+				end
+
+				local guards = tbl.Guards
+
+				if type(guards) == "table" and type(guards.Directory) == "table" then
+					for id, data in pairs(guards.Directory) do
+						out[#out + 1] = "guard " .. tostring(id) .. ": " .. ser(data)
+					end
+				end
+
+				local top = {}
+
+				for _, child in ipairs(workspace:GetChildren()) do
+					top[#top + 1] = child.ClassName .. ":" .. child.Name
+				end
+
+				table.sort(top)
+				out[#out + 1] = "workspace children (" .. #top .. "): " .. string.sub(table.concat(top, ", "), 1, 3500)
+
+				pcall(function()
+					local net = game:GetService("ReplicatedStorage").Packages.Networking
+					local remotes = {}
+
+					for _, child in ipairs(net:GetChildren()) do
+						remotes[#remotes + 1] = child.Name
+					end
+
+					table.sort(remotes)
+					out[#out + 1] = "remotes (" .. #remotes .. "): " .. string.sub(table.concat(remotes, ", "), 1, 6000)
+				end)
+
+				local cfg = {}
+
+				for k, v in pairs(tbl4.SafeCarry) do
+					local t = type(v)
+					if t == "number" or t == "boolean" or t == "string" then
+						cfg[#cfg + 1] = tostring(k) .. "=" .. ser(v)
+					end
+				end
+
+				table.sort(cfg)
+				out[#out + 1] = "safecarry: " .. table.concat(cfg, " ")
+				out[#out + 1] = "method stats: " .. ser(tbl4.MethodStats or {})
+				local text = table.concat(out, "\n")
+
+				if #text > 24000 then
+					text = string.sub(text, 1, 24000) .. "\n...cut..."
+				end
+
+				A.LastScan = text
+				return text
+			end
+
+			-- server signals: everything that can explain a cancelled delivery
+			local function hook(name, fn)
+				local remote = networking:FindFirstChild(name)
+
+				if remote and remote:IsA("RemoteEvent") then
+					local ok, connection = pcall(function()
+						return remote.OnClientEvent:Connect(fn)
+					end)
+
+					if ok and connection then
+						slicedfn4(function()
+							connection:Disconnect()
+						end)
+					end
+				end
+			end
+
+			hook("RE/Alerts/Raise", function(...)
+				A.Event("alert", { ... })
+			end)
+
+			hook("RE/RigSync/Refresh", function(...)
+				local args = { ... }
+				local first = args[1]
+
+				if type(first) == "table" and first.Action == "Relocate" then
+					A.RelocateAt = os.clock()
+				end
+
+				A.Event("rigsync", args)
+			end)
+
+			hook("RE/EggWorld/FieldEggRedeemVerdict", function(...)
+				A.Event("verdict", { ... })
+			end)
+
+			local eggState = tbl.EggState
+			local carryChanged = type(eggState) == "table" and eggState.CarryChanged or nil
+
+			if type(carryChanged) == "table" and type(carryChanged.Connect) == "function" then
+				pcall(function()
+					local connection = carryChanged:Connect(function(...)
+						A.Event("carry", { ... })
+					end)
+
+					slicedfn4(function()
+						pcall(function()
+							connection:Disconnect()
+						end)
+					end)
+				end)
+			end
+
+			-- ladder memory: which method works on which island
+			tbl4.MethodStats = {}
+			tbl4.Ladder = {
+				SkipInstant = function()
+					local island = A.Island()
+					local s = tbl4.MethodStats[island] and tbl4.MethodStats[island]["Instant TP"] or nil
+					return s ~= nil and s.Streak >= 2 and os.clock() - s.At < 300
+				end,
+				Plan = function()
+					local plan = { "Instant TP", "Delivery Stop", "Normal" }
+
+					if tbl4.Ladder.SkipInstant() then
+						table.remove(plan, 1)
+					end
+					return plan
+				end,
+			}
+		end
 
 		tbl4.AntiGuard.Handle = sliced2:CreateState({ Name = "Anti Guard Enabled", Default = false })
 
@@ -7497,7 +7913,7 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
-			local function slicedfn54(arg)
+			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
 				if antiGuard.Enabled and not tbl4.SafeCarry.LineDrop then
@@ -7717,6 +8133,92 @@ do
 				end
 
 				return false
+			end
+
+			-- delivery with analyzer, automatic fallbacks (Smart) and an adaptive wait before the line
+			local function slicedfn54(arg)
+				local sc = tbl4.SafeCarry
+				local ag = tbl4.AntiGuard
+				local A = tbl4.Analyzer
+				local smart = sc.Smart == true
+				local island = A.Island()
+				local ladder = smart and tbl4.Ladder.Plan() or { tbl4.Method.Current() }
+				local saved = { LineDrop = sc.LineDrop, StopMode = sc.StopMode, Guard = ag.Enabled }
+				local result = false
+				local reason = "not delivered"
+				pcall(A.Begin, smart and "Smart" or ladder[1], ladder)
+
+				for i, level in ipairs(ladder) do
+					if smart then
+						if i > 1 or ladder[1] ~= "Instant TP" then
+							A.Event("fallback", level)
+
+							if not tbl4.Steal.Carrying then
+								str2 = "Smart: taking the egg back, switching to " .. level
+								A.Event("retake", level)
+
+								if not slicedfn50(arg) or not tbl4.Steal.Carrying then
+									reason = "could not take the egg back"
+									break
+								end
+							end
+						end
+
+						if level == "Instant TP" then
+							sc.LineDrop = false
+							sc.StopMode = false
+							ag.Enabled = true
+						elseif level == "Delivery Stop" then
+							sc.LineDrop = true
+							sc.StopMode = true
+							ag.Enabled = false
+						else
+							sc.LineDrop = false
+							sc.StopMode = false
+							ag.Enabled = false
+						end
+					end
+
+					local attemptAt = os.clock()
+					A.Event("attempt", level)
+					local okCall, callResult = pcall(deliverOnce, arg)
+					local ok = okCall and callResult == true
+
+					if not okCall then
+						A.Event("error", tostring(callResult))
+					end
+
+					local rejected = sc.LastFailed >= attemptAt or A.RelocateAt >= attemptAt
+					A.Record(island, smart and level or tbl4.Method.Current(), ok)
+
+					if ok then
+						result = true
+						reason = "delivered with " .. level
+						break
+					end
+
+					reason = rejected and "server rejected or relocated the player" or "ended without delivery"
+
+					if sc.LastFailed >= attemptAt then
+						sc.DirectMargin = math.min((tonumber(sc.DirectMargin) or 0.3) + 0.2, 3)
+						A.Event("margin", sc.DirectMargin)
+					end
+
+					if not smart or slicedfn13(arg) then
+						break
+					end
+				end
+
+				sc.LineDrop = saved.LineDrop
+				sc.StopMode = saved.StopMode
+				ag.Enabled = saved.Guard
+
+				if result then
+					sc.DirectMargin = math.max(0.3, (tonumber(sc.DirectMargin) or 0.3) - 0.05)
+				end
+
+				pcall(A.Finish, result, reason)
+				return result
 			end
 
 			local function slicedfn55(arg)
@@ -23497,12 +23999,13 @@ do
 				safeCarry.LineDrop = v == true
 				safeCarry.SpeedJitter = v == true and 0 or 0.08
 				safeCarry.StopMode = false
+				safeCarry.Smart = false
 				tbl4.UiDefer(slicedfn40)
 			end)
 
 			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
 			modeButton.Label.TextSize = 9
-			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn, ["Instant Steal"] = tbl14.Hud }
+			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn, ["Instant Steal"] = tbl14.Hud, Smart = tbl14.Hud }
 			local guardHandle = { Name = "Normal" }
 
 			function guardHandle:Set(name)
@@ -29013,7 +29516,7 @@ do
 		local flag5
 
 		if enabled then
-			flag5 = not (tbl4.SafeCarry.LineDrop and tbl4.Steal.Active)
+			flag5 = not (tbl4.SafeCarry.LineDrop and tbl4.Steal.Active) and not (tbl4.SafeCarry.Smart and tbl4.Ladder.SkipInstant())
 		else
 			flag5 = enabled
 		end
@@ -29185,6 +29688,43 @@ do
 	local tMode = live:CreateText({ Name = "Delivery", Text = "-" })
 	local tPerf = live:CreateText({ Name = "Performance", Text = "-" })
 	local tActive = live:CreateText({ Name = "Active features", Text = "-" })
+	local tStats = live:CreateText({ Name = "Method results", Text = "-" })
+	local analyzerSection = statusTab:CreateSection({ Name = "Analyzer", Expanded = true })
+
+	analyzerSection:CreateToggle({
+		Name = "Copy a report after each delivery",
+		Note = "Timeline, server signals, positions, guards: pasted in the clipboard",
+		Default = true,
+		Callback = function(v)
+			tbl4.Analyzer.Enabled = v == true
+		end,
+	})
+
+	analyzerSection:CreateButton({
+		Name = "Last delivery report",
+		ButtonText = "Copy",
+		ConfirmText = "Copied",
+		Callback = function()
+			local text = tbl4.Analyzer.Last
+
+			if text then
+				tbl4.Analyzer.Copy(text)
+			else
+				pcall(tbl4.Notify, "Analyzer", "No delivery recorded yet")
+			end
+		end,
+	})
+
+	analyzerSection:CreateButton({
+		Name = "Game scan",
+		ButtonText = "Copy",
+		ConfirmText = "Copied",
+		Callback = function()
+			local text = tbl4.Analyzer.Scan()
+			tbl4.Analyzer.Copy(text)
+		end,
+	})
+
 	local checksSection = statusTab:CreateSection({ Name = "Startup checks", Expanded = true })
 	local tChecks = checksSection:CreateText({ Name = "Checks", Text = "Running..." })
 
@@ -29248,6 +29788,21 @@ do
 				table.sort(names)
 				local text = #names == 0 and "none" or (#names .. ": " .. table.concat(names, ", "))
 				tActive:Set(#text > 260 and (string.sub(text, 1, 257) .. "...") or text)
+
+				local lines = {}
+
+				for island, levels in pairs(tbl4.MethodStats or {}) do
+					local parts = {}
+
+					for level, s in pairs(levels) do
+						parts[#parts + 1] = string.format("%s %d/%d", level, s.Ok, s.Fail)
+					end
+
+					lines[#lines + 1] = island .. ": " .. table.concat(parts, ", ")
+				end
+
+				table.sort(lines)
+				tStats:Set(#lines > 0 and table.concat(lines, "\n") or "no delivery yet (ok/fail)")
 				refreshStatic()
 			end
 		end
