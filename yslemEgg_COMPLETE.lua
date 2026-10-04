@@ -8471,8 +8471,8 @@ do
 
 						local safeCarry = tbl4.SafeCarry
 						local sliced19 = stealHome()
-						local slicedn21 = sliced19 and safeCarry.Enabled and safeCarry.CarryStyle ~= "Walk" and safeCarry.Height > 0.5 and sliced19.Y + safeCarry.Height or nil
-						local slicedn22 = 0
+						local slicedn21 = not safeCarry.Teleport and sliced19 and safeCarry.Enabled and safeCarry.CarryStyle ~= "Walk" and safeCarry.Height > 0.5 and sliced19.Y + safeCarry.Height or nil
+						local slicedn22 = safeCarry.Teleport and 0.7 or 0
 
 						while slicedn22 < 0.8 and tbl4.Steal.Carrying and not slicedfn13(arg) do
 							str2 = slicedn22 < 0.6 and "Anti Guard done, rising up" or "Anti Guard done, getting ready"
