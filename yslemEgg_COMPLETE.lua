@@ -4306,6 +4306,13 @@ do
 
 				A.Last = text
 
+				local tl = table.concat(A.Events, "\n")
+
+				if #tl > 3400 then
+					tl = "...\n" .. string.sub(tl, -3400)
+				end
+
+				A.LastTimeline = string.format("[timeline] %s (%s)\n%s", ok and "DELIVERED" or "FAILED", tostring(reason), tl)
 				A.SetQueue(text, "report")
 
 				if A.Enabled then
@@ -29791,6 +29798,22 @@ do
 		ButtonText = "Next",
 		Callback = function()
 			tbl4.Analyzer.CopyNext("report")
+		end,
+	})
+
+	analyzerSection:CreateButton({
+		Name = "Delivery timeline only",
+		Note = "One message: just the events (server signals, positions, guards)",
+		ButtonText = "Copy",
+		ConfirmText = "Copied",
+		Callback = function()
+			local text = tbl4.Analyzer.LastTimeline
+
+			if text and tbl4.Analyzer.Copy(text) then
+				pcall(tbl4.Notify, "Analyzer", "Timeline copied (" .. #text .. " characters)")
+			else
+				pcall(tbl4.Notify, "Analyzer", "No delivery recorded yet")
+			end
 		end,
 	})
 
