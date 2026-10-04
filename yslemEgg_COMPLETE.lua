@@ -4845,7 +4845,7 @@ do
 				if tbl4.MethodReady and not tbl4.MethodApplying then
 					local mode = tbl4.Method.Current()
 
-					if tbl4.AntiGuard.Enabled and mode ~= "Normal" then
+					if tbl4.AntiGuard.Enabled and mode == "Delivery Stop" then
 						tbl4.Method.Apply("Normal")
 					end
 				end
