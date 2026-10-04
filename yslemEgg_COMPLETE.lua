@@ -3142,7 +3142,6 @@ do
 				"Cherry Blossom",
 				"Light Dark",
 				"Titan Temple",
-				"Enchanted Forest",
 			}
 
 			local tbl19 = {}
@@ -6716,16 +6715,11 @@ do
 					if sliced22 then
 						local slicedn19 = sliced22.Position.Y + safeCarry.HopLift
 						local x2 = sliced22.Position.X
-						local x0 = x2
-						local z0 = sliced22.Position.Z
 						local hopRatio = safeCarry.HopRatio
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
-						local hopDir = x0 > vector.X and -1 or 1
 
-						while math.abs(vector.X - x2) > slicedn20 and steal.Carrying and not slicedfn13(arg) do
-							x2 += hopDir * slicedn20
-							local hopT = math.clamp((x2 - x0) / (vector.X - x0), 0, 1)
-							local z2 = z0 + (slicedn17 - z0) * hopT
+						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
+							x2 -= slicedn20
 							str2 = string.format("Line Drop: hopping home, X %d", math.floor(x2))
 							local slicedn21 = 0
 
@@ -6734,7 +6728,7 @@ do
 
 								if sliced23 then
 									pcall(function()
-										sliced23.CFrame = CFrame.new(x2, slicedn19, z2) * CFrame.Angles(0, 1.5707963267948966, 0)
+										sliced23.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
 										sliced23.AssemblyLinearVelocity = Vector3.zero
 										sliced23.AssemblyAngularVelocity = Vector3.zero
 									end)
