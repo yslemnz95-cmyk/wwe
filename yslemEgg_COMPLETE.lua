@@ -4454,6 +4454,8 @@ do
 					end
 				end
 
+				out[#out + 1] = "events: " .. string.gsub(tbl4.LiveEvents.Text(), "\n", " | ")
+
 				local top = {}
 
 				for _, child in ipairs(workspace:GetChildren()) do
@@ -4546,6 +4548,87 @@ do
 						end)
 					end)
 				end)
+			end
+
+			-- live game events: what the server announces, plus event objects present in the world
+			local LE = { Active = {}, Log = {} }
+			tbl4.LiveEvents = LE
+
+			local function eventKey(args)
+				local first = args[1]
+
+				if type(first) == "string" then
+					return first
+				elseif type(first) == "table" then
+					return tostring(first.Id or first.Name or first.EventId or first.Type or first.Event or ser(first))
+				end
+				return ser(args)
+			end
+
+			hook("RE/LiveEvents/Began", function(...)
+				local args = { ... }
+				local key = eventKey(args)
+				LE.Active[key] = { At = os.time(), Text = ser(args) }
+				LE.Log[#LE.Log + 1] = os.date("%H:%M:%S") .. " began " .. key
+				A.Event("liveevent began", args)
+			end)
+
+			hook("RE/LiveEvents/Ended", function(...)
+				local args = { ... }
+				local key = eventKey(args)
+				LE.Active[key] = nil
+				LE.Log[#LE.Log + 1] = os.date("%H:%M:%S") .. " ended " .. key
+				A.Event("liveevent ended", args)
+			end)
+
+			local patterns = { "event", "arena", "boss", "portal", "chest", "rift", "machine", "butterfl", "beanstalk", "monster", "scramble", "bloom", "tree" }
+
+			LE.World = function()
+				local found = {}
+
+				local function visit(container, where)
+					for _, child in ipairs(container:GetChildren()) do
+						local lower = string.lower(child.Name)
+
+						for _, p in ipairs(patterns) do
+							if string.find(lower, p, 1, true) then
+								local attrs = {}
+
+								for k, v in pairs(child:GetAttributes()) do
+									attrs[#attrs + 1] = k .. "=" .. ser(v)
+								end
+
+								table.sort(attrs)
+								found[#found + 1] = where .. "/" .. child.Name .. (#attrs > 0 and (" [" .. string.sub(table.concat(attrs, ", "), 1, 160) .. "]") or "")
+								break
+							end
+						end
+					end
+				end
+
+				visit(workspace, "workspace")
+				pcall(visit, game:GetService("ReplicatedStorage"), "storage")
+				return found
+			end
+
+			LE.Text = function()
+				local lines = {}
+
+				for key, info in pairs(LE.Active) do
+					lines[#lines + 1] = "ACTIVE " .. key .. " (since " .. os.date("%H:%M:%S", info.At) .. ")"
+				end
+
+				table.sort(lines)
+
+				for _, w in ipairs(LE.World()) do
+					lines[#lines + 1] = w
+				end
+
+				for i = math.max(1, #LE.Log - 3), #LE.Log do
+					lines[#lines + 1] = "log " .. LE.Log[i]
+				end
+
+				return #lines > 0 and table.concat(lines, "\n") or "none seen yet"
 			end
 
 			-- ladder memory: which method works on which island
@@ -29803,6 +29886,7 @@ do
 	local tPerf = live:CreateText({ Name = "Performance", Text = "-" })
 	local tActive = live:CreateText({ Name = "Active features", Text = "-" })
 	local tStats = live:CreateText({ Name = "Method results", Text = "-" })
+	local tEvents = live:CreateText({ Name = "Live events", Text = "-" })
 	local analyzerSection = statusTab:CreateSection({ Name = "Analyzer", Expanded = true })
 
 	analyzerSection:CreateToggle({
@@ -29966,6 +30050,8 @@ do
 
 					lines[#lines + 1] = island .. ": " .. table.concat(parts, ", ")
 				end
+
+				tEvents:Set(string.sub(tbl4.LiveEvents.Text(), 1, 700))
 
 				table.sort(lines)
 				tStats:Set(#lines > 0 and table.concat(lines, "\n") or "no delivery yet (ok/fail)")
