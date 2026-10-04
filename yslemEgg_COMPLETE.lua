@@ -7249,8 +7249,8 @@ do
 
 				local slicedn17 = math.clamp(z + sliced19.Lane, -425, -300)
 				local slicedn18 = position.Y + 3
-				-- coming back from the base side: always on the ground, in run
-				local runHeight = str3 == "safe" and 0 or safeCarry.RunHeight
+				-- Instant TP only: the way back from the base side is always on the ground, in run
+				local runHeight = (str3 == "safe" and safeCarry.Teleport) and 0 or safeCarry.RunHeight
 
 				local function slicedfn54(arg3)
 					local sliced22 = tbl4.Root()
@@ -29847,7 +29847,8 @@ do
 
 	local function slicedfn26(arg, arg2)
 		local currentCamera = workspace.CurrentCamera
-		if not arg or not currentCamera or tbl18.Disguise then
+		-- the camera lock of Anti Guard only exists in Instant TP
+		if not arg or not currentCamera or tbl18.Disguise or not tbl4.SafeCarry.Teleport then
 			return
 		end
 		arg2 = arg2 or Vector3.zero
