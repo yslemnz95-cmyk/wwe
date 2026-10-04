@@ -578,7 +578,7 @@ end
 			hudLabel = label(header, "", UDim2.new(1, -44, 0, 20), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
 			hudLabel.Position = UDim2.new(0, 38, 0, 4); hudLabel.TextSize = 13; hudLabel.Visible = false
 			liveGrad(hudLabel, true)
-			hudHint = label(header, "tap to open", UDim2.new(1, -44, 0, 12), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
+			hudHint = label(header, "tap to open", UDim2.new(1, -44, 0, 12), C.SILVER, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
 			hudHint.Position = UDim2.new(0, 38, 0, 24); hudHint.TextSize = 8.5; hudHint.Visible = false
 			task.spawn(function()
 				while frame.Parent do
@@ -592,8 +592,43 @@ end
 				end
 			end)
 		end
+		local frameCornerObj = frame:FindFirstChildOfClass("UICorner")
+		local orbLabel
+		if not cfg.isMain then
+			local initials = ""
+			for word in string.gmatch(tostring(cfg.title or ""), "%a+") do
+				if #initials < 2 then initials = initials .. string.upper(string.sub(word, 1, 1)) end
+			end
+			orbLabel = label(header, initials, UDim2.new(1, 0, 1, 0), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+			orbLabel.TextSize = 14; orbLabel.Visible = false
+			liveGrad(orbLabel, true)
+		end
 		local function setMinimized(on)
 			minimized = on
+			if not cfg.isMain then
+				-- secondary windows collapse into a small round orb (initials + living ring); tap to expand
+				if on then
+					content.Visible = false; sep.Visible = false; ov.Visible = false
+					if tabBar then tabBar.Visible = false end
+					title.Visible = false; mini.Visible = false; close.Visible = false; moon.Visible = false
+					orbLabel.Visible = true
+					header.BackgroundTransparency = 1
+					if frameCornerObj then frameCornerObj.CornerRadius = UDim.new(0, 21) end
+					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
+						Size = UDim2.new(0, 42, 0, 42), BackgroundTransparency = 0.1}):Play()
+				else
+					orbLabel.Visible = false
+					title.Visible = true; mini.Visible = true; close.Visible = true; moon.Visible = true
+					header.BackgroundTransparency = 0
+					if frameCornerObj then frameCornerObj.CornerRadius = UDim.new(0, 20) end
+					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
+						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
+					content.Visible = true; sep.Visible = true
+					if tabBar then tabBar.Visible = true end
+					mini.Text = "-"
+				end
+				return
+			end
 			if cfg.isMain then
 				if on then
 					content.Visible = false; sep.Visible = false; ov.Visible = false
@@ -603,7 +638,7 @@ end
 					hudLabel.Visible = true; hudHint.Visible = true
 					header.BackgroundTransparency = 1
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, 168, 0, 42), BackgroundTransparency = 0.55}):Play()
+						Size = UDim2.new(0, 168, 0, 42), BackgroundTransparency = 0.12}):Play()
 				else
 					hudLabel.Visible = false; hudHint.Visible = false
 					title.Visible = true; mini.Visible = true; close.Visible = true
@@ -629,7 +664,7 @@ end
 			end
 		end
 		mini.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
-		if cfg.isMain then
+		do
 			local tapAt
 			header.InputBegan:Connect(function(inp)
 				if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
