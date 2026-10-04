@@ -377,32 +377,31 @@ end
 		end)
 	end
 
-	-- ---------- banner: a semi-transparent notice pinned under the top bar ----------
+	-- ---------- badge: a small semi-transparent pill pinned under the top bar ----------
 	local bannerToken = 0
-	lib.Banner = function(title, text, dur)
+	lib.Banner = function(text, dur)
 		pcall(function()
 			bannerToken = bannerToken + 1
 			local mine = bannerToken
 			local old = gui:FindFirstChild("MoonEggBanner")
 			if old then old:Destroy() end
-			local f = Instance.new("Frame", gui)
+			local f = Instance.new("TextLabel", gui)
 			f.Name = "MoonEggBanner"
 			f.AnchorPoint = Vector2.new(0.5, 0)
-			f.Position = UDim2.new(0.5, 0, 0, 40)
-			f.Size = UDim2.new(0, 300, 0, 58)
+			f.Position = UDim2.new(0.5, 0, 0, 42)
+			f.Size = UDim2.new(0, 0, 0, 24); f.AutomaticSize = Enum.AutomaticSize.X
 			f.BackgroundColor3 = C.BG; f.BackgroundTransparency = 0.35
 			f.BorderSizePixel = 0; f.ZIndex = 920
-			corner(f, 14); addLivingStroke(f, 1.5)
-			local t = label(f, tostring(title or ""), UDim2.new(1, -20, 0, 16), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-			t.Position = UDim2.new(0, 10, 0, 6); t.TextSize = 11.5; t.ZIndex = 921; liveGrad(t, true)
-			local d = label(f, tostring(text or ""), UDim2.new(1, -20, 0, 30), C.SILVER, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
-			d.Position = UDim2.new(0, 10, 0, 23); d.TextSize = 9.5; d.TextWrapped = true
-			d.TextYAlignment = Enum.TextYAlignment.Top; d.ZIndex = 921
+			f.Text = tostring(text or ""); f.Font = Enum.Font.GothamBold; f.TextSize = 10
+			f.TextColor3 = C.WHITE
+			local pad = Instance.new("UIPadding", f)
+			pad.PaddingLeft = UDim.new(0, 12); pad.PaddingRight = UDim.new(0, 12)
+			corner(f, 12); addLivingStroke(f, 1.2); liveGrad(f)
 			local sc = Instance.new("UIScale", f); sc.Scale = 0.85
 			TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
-			task.delay(tonumber(dur) or 6, function()
+			task.delay(tonumber(dur) or 5, function()
 				if bannerToken == mine and f.Parent then
-					TweenService:Create(f, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+					TweenService:Create(f, TweenInfo.new(0.3), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
 					task.delay(0.3, function() pcall(function() f:Destroy() end) end)
 				end
 			end)
@@ -4016,7 +4015,7 @@ do
 				tbl4.MethodApplying = false
 
 				if name == "Delivery Stop" and MoonLib and MoonLib.Banner then
-					MoonLib.Banner("DELIVERY STOP", "Everything is capped at 115% in this mode, Speed included. Going faster will bug the delivery.", 7)
+					MoonLib.Banner("Delivery Stop: max 115%, faster = bug", 5)
 				end
 
 				if ag.Render and tbl4.UiDefer then
@@ -17958,7 +17957,7 @@ do
 			Default = false,
 			Callback = function()
 				if tbl4.SafeCarry.StopMode and tbl4.Toggle(createToggle, false) and MoonLib and MoonLib.Banner then
-					MoonLib.Banner("DELIVERY STOP ACTIVE", "Speed is capped at 115% while this mode is on. Going faster than that will bug the delivery.", 7)
+					MoonLib.Banner("Delivery Stop: max 115%, faster = bug", 5)
 				end
 				if tbl4.SpeedForced and not tbl4.Toggle(createToggle, false) then
 					flag5 = true
