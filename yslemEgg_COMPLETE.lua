@@ -377,6 +377,38 @@ end
 		end)
 	end
 
+	-- ---------- banner: a semi-transparent notice pinned under the top bar ----------
+	local bannerToken = 0
+	lib.Banner = function(title, text, dur)
+		pcall(function()
+			bannerToken = bannerToken + 1
+			local mine = bannerToken
+			local old = gui:FindFirstChild("MoonEggBanner")
+			if old then old:Destroy() end
+			local f = Instance.new("Frame", gui)
+			f.Name = "MoonEggBanner"
+			f.AnchorPoint = Vector2.new(0.5, 0)
+			f.Position = UDim2.new(0.5, 0, 0, 40)
+			f.Size = UDim2.new(0, 300, 0, 58)
+			f.BackgroundColor3 = C.BG; f.BackgroundTransparency = 0.35
+			f.BorderSizePixel = 0; f.ZIndex = 920
+			corner(f, 14); addLivingStroke(f, 1.5)
+			local t = label(f, tostring(title or ""), UDim2.new(1, -20, 0, 16), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+			t.Position = UDim2.new(0, 10, 0, 6); t.TextSize = 11.5; t.ZIndex = 921; liveGrad(t, true)
+			local d = label(f, tostring(text or ""), UDim2.new(1, -20, 0, 30), C.SILVER, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+			d.Position = UDim2.new(0, 10, 0, 23); d.TextSize = 9.5; d.TextWrapped = true
+			d.TextYAlignment = Enum.TextYAlignment.Top; d.ZIndex = 921
+			local sc = Instance.new("UIScale", f); sc.Scale = 0.85
+			TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+			task.delay(tonumber(dur) or 6, function()
+				if bannerToken == mine and f.Parent then
+					TweenService:Create(f, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+					task.delay(0.3, function() pcall(function() f:Destroy() end) end)
+				end
+			end)
+		end)
+	end
+
 	-- ---------- startup splash: what loaded and what did not ----------
 	lib.Splash = function(lines)
 		pcall(function()
@@ -3901,14 +3933,14 @@ do
 
 		tbl4.SafeCarry.RunHandle = sliced8:CreateSlider({
 			Name = "Tween Speed",
-			Note = "Over 120% runs with the FPS dip of Delivery Stop",
+			Note = "Over 100% may glitch",
 			Min = 50,
-			Max = 325,
+			Max = 120,
 			Default = 100,
 			Increment = 1,
 			Unit = "%",
 			Callback = function(arg)
-				tbl4.SafeCarry.RunSpeed = math.clamp(tonumber(arg) or 100, 50, 325) / 100
+				tbl4.SafeCarry.RunSpeed = math.clamp(tonumber(arg) or 100, 50, 120) / 100
 			end,
 		})
 
@@ -3982,6 +4014,10 @@ do
 					pcall(methodHandle.Set, methodHandle, name, false)
 				end
 				tbl4.MethodApplying = false
+
+				if name == "Delivery Stop" and MoonLib and MoonLib.Banner then
+					MoonLib.Banner("DELIVERY STOP", "Everything is capped at 115% in this mode, Speed included. Going faster will bug the delivery.", 7)
+				end
 
 				if ag.Render and tbl4.UiDefer then
 					tbl4.UiDefer(function()
@@ -6957,7 +6993,7 @@ do
 					local unit = magnitude > 0.01 and vector.Unit or Vector3.zero
 
 					if safeCarry.RunHeight > 0.5 and str3 == "field" and not arg6 then
-						local runSpeed = safeCarry.RunSpeed
+						local runSpeed = safeCarry.StopMode and math.min(safeCarry.RunSpeed, 1.15) or safeCarry.RunSpeed
 						local slicedn19 = math.max(tbl4.WalkSpeed() * runSpeed * arg5, 8)
 						local slicedn20 = math.clamp(safeCarry.ClimbShare, 0.1, 0.9)
 						local magnitude2 = Vector3.new(position.X - arg3.Position.X, 0, position.Z - arg3.Position.Z).Magnitude
@@ -7000,7 +7036,7 @@ do
 								humanoid:MoveTo(arg3.Position + unit * math.min(magnitude, 30))
 							end
 						else
-							local runSpeed = safeCarry.RunSpeed
+							local runSpeed = safeCarry.StopMode and math.min(safeCarry.RunSpeed, 1.15) or safeCarry.RunSpeed
 							local slicedn19 = unit * math.min(math.max(tbl4.WalkSpeed() * runSpeed * arg5, 8), magnitude / 0.05)
 							arg3.AssemblyLinearVelocity = Vector3.new(slicedn19.X, arg3.AssemblyLinearVelocity.Y, slicedn19.Z)
 
@@ -7011,19 +7047,13 @@ do
 					end)
 				end
 
-				local fpsDip = safeCarry.RunSpeed > 1.2
 				while os.clock() - now < 240 do
 					if slicedfn13(arg2) then
-						pcall(tbl4.CarryCap.Off)
 						return false
 					end
 					local sliced22 = tbl4.Root()
 					if not sliced22 then
-						pcall(tbl4.CarryCap.Off)
 						return false
-					end
-					if fpsDip and not tbl4.CarryCap.Active then
-						pcall(tbl4.CarryCap.On)
 					end
 					local now4 = os.clock()
 					local slicedn19 = math.max(now4 - now2, 0.0041666666666666666)
@@ -7077,8 +7107,6 @@ do
 					RunService.Heartbeat:Wait()
 					now2 = now4
 				end
-
-				pcall(tbl4.CarryCap.Off)
 
 				local sliced22 = tbl4.Root()
 
@@ -7152,6 +7180,7 @@ do
 
 			tbl4.SafeCarry.Pace = function()
 				local slicedn17 = tonumber(tbl4.SafeCarry.RunSpeed) or 1
+				if tbl4.SafeCarry.StopMode then slicedn17 = math.min(slicedn17, 1.15) end
 				return math.max(tbl4.WalkSpeed() * slicedn17, 16)
 			end
 
@@ -7432,7 +7461,7 @@ do
 
 				local magnitude = Vector3.new(sliced20.Position.X - x, 0, sliced20.Position.Z - slicedn17).Magnitude
 				local max = math.max
-				local carryRatio = (safeCarry.StopMode and math.min(safeCarry.CarryRatio, 3.25) or safeCarry.CarryRatio)
+				local carryRatio = (safeCarry.StopMode and math.min(safeCarry.CarryRatio, 1.15) or safeCarry.CarryRatio)
 				local sliced21 = max(tbl4.WalkSpeed() * carryRatio * (tonumber(safeCarry.Mult) or safeCarry.LightMult), 1)
 				local directMargin = safeCarry.DirectMargin
 				local slicedn18 = math.max(0, (magnitude - safeCarry.DirectBudget) / sliced21) + directMargin
@@ -7739,7 +7768,7 @@ do
 
 				if steal.Carrying and flag4 and slicedn19 >= slicedn18 and not slicedfn13(arg) then
 					str2 = "Line Drop: stepping over the line"
-					local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 3.25) or safeCarry.CrossRatio)
+					local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.15) or safeCarry.CrossRatio)
 
 					slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 						return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -7835,7 +7864,7 @@ do
 
 						slicedn23 = 5
 					else
-						local pickupRatio = (safeCarry.StopMode and math.min(safeCarry.PickupRatio, 3.25) or safeCarry.PickupRatio)
+						local pickupRatio = (safeCarry.StopMode and math.min(safeCarry.PickupRatio, 1.15) or safeCarry.PickupRatio)
 						slicedfn57(sliced22, tbl4.WalkSpeed() * pickupRatio, 5)
 						slicedn23 = 2.5
 					end
@@ -7878,7 +7907,7 @@ do
 				end
 
 				str2 = "Line Drop: stepping over the line"
-				local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 3.25) or safeCarry.CrossRatio)
+				local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.15) or safeCarry.CrossRatio)
 
 				slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 					return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -17888,7 +17917,12 @@ do
 					slicedfn39()
 					return
 				end
-				local slicedn16 = vector.Unit * slicedn15
+				local boost = slicedn15
+
+				if tbl4.SafeCarry.StopMode then
+					boost = math.min(boost, math.max(tbl4.WalkSpeed(), 16) * 1.15)
+				end
+				local slicedn16 = vector.Unit * boost
 				local assemblyLinearVelocity = sliced15.AssemblyLinearVelocity
 
 				pcall(function()
@@ -17923,6 +17957,9 @@ do
 			Name = "Speed Boost",
 			Default = false,
 			Callback = function()
+				if tbl4.SafeCarry.StopMode and tbl4.Toggle(createToggle, false) and MoonLib and MoonLib.Banner then
+					MoonLib.Banner("DELIVERY STOP ACTIVE", "Speed is capped at 115% while this mode is on. Going faster than that will bug the delivery.", 7)
+				end
 				if tbl4.SpeedForced and not tbl4.Toggle(createToggle, false) then
 					flag5 = true
 					flag7 = true
@@ -24825,7 +24862,7 @@ do
 				return mine
 			end
 
-			linkSlider("Go Speed", 50, 325, tbl4.SafeCarry.RunHandle)
+			linkSlider("Go Speed", 50, 120, tbl4.SafeCarry.RunHandle)
 			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
 			linkSlider("Delivery Steps", 1, 6, tbl4.SafeCarry.StopsHandle, "", 3)
 			linkSlider("Carry FPS Cap", 5, 60, tbl4.SafeCarry.CarryFpsHandle, " FPS", 20)
