@@ -602,7 +602,7 @@ end
 				tray = Instance.new("Frame", gui)
 				tray.Name = "PanelTray"; tray.BackgroundTransparency = 1
 				tray.AnchorPoint = Vector2.new(0.5, 0); tray.Position = UDim2.new(0.5, 0, 0, 4)
-				tray.Size = UDim2.new(0, 0, 0, 26); tray.AutomaticSize = Enum.AutomaticSize.X
+				tray.Size = UDim2.new(0, 0, 0, 30); tray.AutomaticSize = Enum.AutomaticSize.X
 				tray.ZIndex = 400
 				local tl = Instance.new("UIListLayout", tray)
 				tl.FillDirection = Enum.FillDirection.Horizontal; tl.Padding = UDim.new(0, 8)
@@ -610,15 +610,14 @@ end
 				tl.VerticalAlignment = Enum.VerticalAlignment.Center
 			end
 			arrowBtn = Instance.new("TextButton", tray)
-			arrowBtn.Size = UDim2.new(0, 44, 0, 24); arrowBtn.AutoButtonColor = false
-			arrowBtn.BackgroundColor3 = C.ROW; arrowBtn.BackgroundTransparency = 0.25
-			arrowBtn.Text = "v"; arrowBtn.Font = Enum.Font.GothamBold; arrowBtn.TextSize = 15
+			arrowBtn.Size = UDim2.new(0, 0, 0, 28); arrowBtn.AutomaticSize = Enum.AutomaticSize.X
+			arrowBtn.AutoButtonColor = false
+			arrowBtn.BackgroundColor3 = C.ROW; arrowBtn.BackgroundTransparency = 0.2
+			arrowBtn.Text = "v  " .. string.upper(tostring(cfg.title or "")); arrowBtn.Font = Enum.Font.GothamBold; arrowBtn.TextSize = 12
 			arrowBtn.TextColor3 = C.WHITE; arrowBtn.ZIndex = 401; arrowBtn.Visible = false
-			corner(arrowBtn, 12); addLivingStroke(arrowBtn, 1.5); liveGrad(arrowBtn)
-			local tip = label(arrowBtn, string.upper(tostring(cfg.title or "")), UDim2.new(1, 0, 0, 10), C.MOONTEXT, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-			tip.Position = UDim2.new(0, 0, 1, 2); tip.TextSize = 8; tip.Visible = false; tip.ZIndex = 401
-			arrowBtn.MouseEnter:Connect(function() tip.Visible = true end)
-			arrowBtn.MouseLeave:Connect(function() tip.Visible = false end)
+			local ap = Instance.new("UIPadding", arrowBtn)
+			ap.PaddingLeft = UDim.new(0, 14); ap.PaddingRight = UDim.new(0, 14)
+			corner(arrowBtn, 14); addLivingStroke(arrowBtn, 1.5); liveGrad(arrowBtn)
 			arrowBtn.MouseButton1Click:Connect(function() w.SetMinimized(false) end)
 		end
 		local function setMinimized(on)
@@ -24308,6 +24307,14 @@ do
 
 				if imageLabel and sliced21 and imageLabel.Image ~= sliced21.Style.Icon then
 					imageLabel.Image = sliced21.Style.Icon
+				elseif imageLabel and not sliced21 then
+					imageLabel.Image = ""
+				end
+
+				local hero = tbl4.Hero
+				if hero and hero.Name and hero.Name.Parent then
+					hero.Name.Text = sliced21 and tostring(sliced21.Style.Name) or "None"
+					hero.Value.Text = sliced21 and slicedfn21(sliced21.Value) or ""
 				end
 
 				slicedfn41()
@@ -24393,8 +24400,8 @@ do
 				tabName = "StealPanel",
 				frameName = "MoonEggSteal",
 				title = "Steal Panel",
-				w = 232,
-				h = 350,
+				w = 262,
+				h = 410,
 				pos = UDim2.new(0, 12, 0, 56),
 			})
 			local tab = win.tab
@@ -24405,9 +24412,41 @@ do
 			bar.Name = "Bar"
 			bar.BackgroundTransparency = 1
 			bar.Size = UDim2.new(1, 0, 0, 82)
+			bar.Position = UDim2.new(0, 0, 0, 66)
 			bar.Parent = win.content
-			page.Position = UDim2.new(0, 0, 0, 82)
-			page.Size = UDim2.new(1, 0, 1, -82)
+			page.Position = UDim2.new(0, 0, 0, 148)
+			page.Size = UDim2.new(1, 0, 1, -148)
+
+			-- hero card: picture of the strongest egg on the field right now
+			local hero = Instance.new("Frame")
+			hero.Name = "Hero"
+			hero.BackgroundColor3 = U.C.ROW
+			hero.BackgroundTransparency = 0.35
+			hero.BorderSizePixel = 0
+			hero.Position = UDim2.new(0, 8, 0, 4)
+			hero.Size = UDim2.new(1, -16, 0, 58)
+			U.corner(hero, 12)
+			U.addLivingStroke(hero, 1)
+			hero.Parent = win.content
+			local heroIcon = Instance.new("ImageLabel")
+			heroIcon.BackgroundTransparency = 1
+			heroIcon.Position = UDim2.new(0, 6, 0, 3)
+			heroIcon.Size = UDim2.fromOffset(52, 52)
+			heroIcon.ScaleType = Enum.ScaleType.Fit
+			heroIcon.Image = ""
+			heroIcon.Parent = hero
+			local heroTag = U.label(hero, "STRONGEST EGG", UDim2.new(1, -70, 0, 12), U.C.SILVER, Enum.Font.GothamBold)
+			heroTag.Position = UDim2.new(0, 64, 0, 6)
+			heroTag.TextSize = 8.5
+			local heroName = U.label(hero, "None", UDim2.new(1, -70, 0, 18), U.C.WHITE, Enum.Font.GothamBold)
+			heroName.Position = UDim2.new(0, 64, 0, 19)
+			heroName.TextSize = 13
+			heroName.TextTruncate = Enum.TextTruncate.AtEnd
+			local heroValue = U.label(hero, "", UDim2.new(1, -70, 0, 14), Color3.fromRGB(105, 235, 155), Enum.Font.GothamBold)
+			heroValue.Position = UDim2.new(0, 64, 0, 38)
+			heroValue.TextSize = 11
+			imageLabel = heroIcon
+			tbl4.Hero = { Name = heroName, Value = heroValue }
 
 			local function makeSwitchButton(text, pos, onChange)
 				local btn = mkBtn(bar, text .. ": OFF", UDim2.new(0.5, -11, 0, 26), pos, nil, tbl14.Queued)
@@ -24475,7 +24514,7 @@ do
 					branch.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 					branch.BackgroundTransparency = 0.2
 					branch.BorderSizePixel = 0
-					branch.Position = UDim2.new(0, 8, 0, 60)
+					branch.Position = UDim2.new(0, 8, 0, 126)
 					branch.Size = UDim2.new(1, -16, 0, #tbl4.Method.Names * 28 + 8)
 					branch.ZIndex = 60
 					branch.Visible = false
