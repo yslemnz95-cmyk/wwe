@@ -1987,6 +1987,8 @@ do
 				SlowUntil = 0,
 				SlowFactor = 0.3,
 				LineDrop = false,
+				Stops = 3,
+				StopTime = 0.7,
 				LineGap = 12,
 				LineWait = 15,
 				DirectBudget = 450,
@@ -3791,6 +3793,18 @@ do
 			Unit = "%",
 			Callback = function(arg)
 				tbl4.SafeCarry.CarryScale = math.clamp(tonumber(arg) or 100, 80, 120) / 100
+			end,
+		})
+
+		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
+			Name = "Delivery Stops",
+			Note = "Pauses on the way home, Anti Guard runs again at each stop",
+			Min = 0,
+			Max = 6,
+			Default = 3,
+			Increment = 1,
+			Callback = function(arg)
+				tbl4.SafeCarry.Stops = math.clamp(math.floor(tonumber(arg) or 3), 0, 6)
 			end,
 		})
 
@@ -6982,6 +6996,10 @@ do
 					slicedfn55()
 				end
 
+				local stopStartX = sliced22 and sliced22.Position.X or sliced19.X
+				local stopsDone = 0
+				local stopsWanted = math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6)
+
 				while not slicedfn13(arg) do
 					local sliced23 = tbl4.Root()
 					if not sliced23 then
@@ -7036,6 +7054,44 @@ do
 							return false
 						end
 						now = slicedn22
+					end
+
+					if stopsDone < stopsWanted and tbl4.Steal.Carrying then
+						local totalX = stopStartX - sliced19.X
+
+						if totalX > 40 and (stopStartX - sliced23.Position.X) / totalX >= (stopsDone + 1) / (stopsWanted + 1) then
+							stopsDone += 1
+							str2 = string.format("Stop %d/%d on the way home", stopsDone, stopsWanted)
+							local guardRun = tbl4.AntiGuard
+							local usedGuard = false
+
+							if guardRun.Enabled and type(guardRun.Fire) == "function" then
+								usedGuard = select(2, pcall(guardRun.Fire)) == true
+							end
+
+							local stopStart = os.clock()
+
+							while os.clock() - stopStart < (tonumber(safeCarry.StopTime) or 0.7) and tbl4.Steal.Carrying and not slicedfn13(arg) do
+								local stopRoot = tbl4.Root()
+
+								if stopRoot and not guardRun.Busy then
+									pcall(function()
+										stopRoot.AssemblyLinearVelocity = Vector3.new(0, stopRoot.AssemblyLinearVelocity.Y, 0)
+									end)
+								end
+
+								RunService.Heartbeat:Wait()
+							end
+
+							local guardWait = 0
+
+							while usedGuard and guardRun.Busy and guardWait < 6 and not slicedfn13(arg) do
+								guardWait += RunService.Heartbeat:Wait()
+							end
+
+							now2 = os.clock()
+							continue
+						end
 					end
 
 					local now3 = os.clock()
@@ -23153,12 +23209,12 @@ do
 
 			local speed = tab:CreateSection({ Name = "Speed", Expanded = false })
 
-			local function linkSlider(name, minV, maxV, handle)
-				local start = 100
+			local function linkSlider(name, minV, maxV, handle, unit, fallback)
+				local start = fallback or 100
 
 				if handle and type(handle.Get) == "function" then
 					local ok, v = pcall(handle.Get, handle)
-					start = ok and tonumber(v) or 100
+					start = ok and tonumber(v) or start
 				end
 
 				local mine
@@ -23168,7 +23224,7 @@ do
 					Max = maxV,
 					Default = start,
 					Increment = 1,
-					Unit = "%",
+					Unit = unit or "%",
 					Callback = function(v)
 						if flagReady and handle and type(handle.Set) == "function" then
 							pcall(handle.Set, handle, v, true)
@@ -23192,6 +23248,7 @@ do
 
 			linkSlider("Go Speed", 50, 120, tbl4.SafeCarry.RunHandle)
 			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
+			linkSlider("Delivery Stops", 0, 6, tbl4.SafeCarry.StopsHandle, "", 3)
 
 			local eggs = tab:CreateSection({ Name = "Field Eggs", Expanded = true })
 			local list = Instance.new("Frame")
@@ -28492,6 +28549,18 @@ do
 			antiGuard.BusySince = os.clock()
 			task.spawn(slicedfn40, os.clock())
 		end
+	end
+
+	-- lets the delivery start the guard run again at every stop on the way home
+	antiGuard.Fire = function()
+		if flag4 and antiGuard.Enabled and not tbl18.Active and not slicedfn41() then
+			tbl18.Active = true
+			antiGuard.Busy = true
+			antiGuard.BusySince = os.clock()
+			task.spawn(slicedfn40, os.clock())
+			return true
+		end
+		return false
 	end
 
 	local eggState = tbl.EggState
