@@ -4101,6 +4101,53 @@ do
 			end
 			A.Ser = ser
 
+			-- guards can live in several containers: look in all of them
+			A.GuardObjects = function()
+				local list = {}
+				local seen = {}
+
+				local function consider(inst)
+					if seen[inst] then
+						return
+					end
+
+					if inst:IsA("Model") then
+						local lower = string.lower(inst.Name)
+
+						if inst:GetAttribute("GuardState") ~= nil or string.find(lower, "guard", 1, true) or string.find(lower, "sentry", 1, true) then
+							seen[inst] = true
+							list[#list + 1] = inst
+						end
+					end
+				end
+
+				for _, child in ipairs(workspace:GetChildren()) do
+					consider(child)
+
+					if child:IsA("Folder") then
+						for _, inner in ipairs(child:GetChildren()) do
+							consider(inner)
+						end
+					end
+				end
+
+				local world = workspace:FindFirstChild("World")
+
+				if world then
+					for _, name in ipairs({ "Sentries", "Guards" }) do
+						local folder = world:FindFirstChild(name)
+
+						if folder then
+							for _, inner in ipairs(folder:GetDescendants()) do
+								consider(inner)
+							end
+						end
+					end
+				end
+
+				return list
+			end
+
 			A.Island = function()
 				local area = tbl4.Steal.CarryAreaId
 
@@ -4218,14 +4265,8 @@ do
 							last = os.clock()
 							local found = {}
 
-							for _, child in ipairs(workspace:GetChildren()) do
-								if child:IsA("Model") then
-									local state = child:GetAttribute("GuardState")
-
-									if state ~= nil then
-										found[#found + 1] = { Name = child.Name, State = state, Dist = (child:GetPivot().Position - r.Position).Magnitude }
-									end
-								end
+							for _, child in ipairs(A.GuardObjects()) do
+								found[#found + 1] = { Name = child.Name, State = child:GetAttribute("GuardState") or "?", Dist = (child:GetPivot().Position - r.Position).Magnitude }
 							end
 
 							table.sort(found, function(x, y)
@@ -4605,6 +4646,78 @@ do
 					end
 				end)
 
+				section("KEY ZONES (children, positions, sizes)")
+				try("zones", function()
+					local root = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+
+					local function describe(inst)
+						local pos, size = nil, nil
+
+						if inst:IsA("BasePart") then
+							pos, size = inst.Position, inst.Size
+						elseif inst:IsA("Model") then
+							pos = inst:GetPivot().Position
+							local ok, _, s = pcall(function()
+								return inst:GetBoundingBox()
+							end)
+							size = ok and s or nil
+						end
+
+						local attrs = {}
+
+						for k, v in pairs(inst:GetAttributes()) do
+							attrs[#attrs + 1] = k .. "=" .. ser(v)
+						end
+
+						table.sort(attrs)
+						return inst.ClassName .. ":" .. inst.Name .. (pos and (" " .. ser(pos)) or "") .. (size and (" size " .. ser(size)) or "") .. (#attrs > 0 and (" [" .. string.sub(table.concat(attrs, ", "), 1, 120) .. "]") or "")
+					end
+
+					local function dump(label, container, limit)
+						if not container then
+							add(label .. ": not found")
+							return
+						end
+
+						add(label .. " " .. describe(container))
+						local shown = 0
+
+						for _, child in ipairs(container:GetChildren()) do
+							if shown < limit then
+								shown += 1
+								add("  " .. describe(child))
+							end
+						end
+
+						if #container:GetChildren() > limit then
+							add("  ... " .. (#container:GetChildren() - limit) .. " more")
+						end
+					end
+
+					if root then
+						local areas = root:FindFirstChild("Areas")
+
+						for _, name in ipairs({ "EggCarryBounds", "GuardAreas", "LightDark", "Cosmic", "CherryBlossom", "ButterflyBloom" }) do
+							dump("Areas/" .. name, areas and areas:FindFirstChild(name), 30)
+						end
+
+						for _, name in ipairs({ "DeliveryHitbox", "TowerEnd", "MapPivot" }) do
+							local part = root:FindFirstChild(name)
+							add("World/" .. name .. ": " .. (part and describe(part) or "not found"))
+						end
+
+						dump("World/Sentries", root:FindFirstChild("Sentries"), 30)
+						dump("World/SecretZones", root:FindFirstChild("SecretZones"), 20)
+						local build = root:FindFirstChild("Build")
+
+						if build then
+							for _, name in ipairs({ "TitanTempleZone", "EnchantedForestZone", "LightDarkZone", "CherryBlossomZone" }) do
+								dump("Build/" .. name, build:FindFirstChild(name), 12)
+							end
+						end
+					end
+				end)
+
 				section("GAME MODULES (client API)")
 				try("modules", function()
 					add("tbl keys: " .. keyList(tbl, 1500))
@@ -4800,23 +4913,8 @@ do
 				section("GUARDS (live objects)")
 				local guardList = {}
 				try("guards", function()
-					local function consider(model)
-						if model:IsA("Model") and model:GetAttribute("GuardState") ~= nil then
-							guardList[#guardList + 1] = model
-						end
-					end
-
-					for _, child in ipairs(workspace:GetChildren()) do
-						consider(child)
-
-						if child:IsA("Folder") then
-							for _, inner in ipairs(child:GetChildren()) do
-								consider(inner)
-							end
-						end
-					end
-
-					add(#guardList .. " guard objects with a GuardState attribute")
+					guardList = A.GuardObjects()
+					add(#guardList .. " guard objects (GuardState attribute, or named guard/sentry)")
 
 					for _, g in ipairs(guardList) do
 						local attrs = {}
