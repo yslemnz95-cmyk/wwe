@@ -3835,8 +3835,12 @@ do
 			Current = function()
 				local sc = tbl4.SafeCarry
 
+				if sc.Teleport then
+					return "Instant TP"
+				end
+
 				if sc.LineDrop then
-					return sc.Straight and "Instant TP" or "Delivery Stop"
+					return "Delivery Stop"
 				end
 				return "Normal"
 			end,
@@ -3850,10 +3854,10 @@ do
 
 				tbl4.MethodApplying = true
 				local hops = name ~= "Normal"
-				sc.StopMode = hops
-				sc.LineDrop = hops
-				sc.Straight = name == "Instant TP"
-				sc.SpeedJitter = hops and 0 or 0.08
+				sc.Teleport = name == "Instant TP"
+				sc.StopMode = name == "Delivery Stop"
+				sc.LineDrop = name == "Delivery Stop"
+				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
 
 				if hops then
 					local handle = ag.Handle
@@ -3885,7 +3889,7 @@ do
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
-			Note = "Normal / Instant TP (hops home as soon as you hold the egg) / Delivery Stop (same with stops)",
+			Note = "Normal (walk) / Instant TP (one jump onto the base as soon as you hold the egg) / Delivery Stop (hops with stops)",
 			Options = tbl4.Method.Names,
 			Default = "Normal",
 			Callback = function(arg)
@@ -7939,6 +7943,74 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
+			-- Instant TP: one jump straight onto the base the moment the egg is in hand
+			tbl4.SafeCarry.InstantHome = function(arg)
+				local safeCarry = tbl4.SafeCarry
+				local home = stealHome()
+				local root = tbl4.Root()
+
+				if not home or not root then
+					return false
+				end
+				local now = os.clock()
+				local character = localPlayer.Character
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+				if humanoid then
+					humanoid.PlatformStand = false
+				end
+				str2 = "Instant TP: jumping onto the base"
+				local target = CFrame.new(home + Vector3.new(0, 3, 0)) * root.CFrame.Rotation
+				local held = 0
+
+				while held < 2 and not slicedfn13(arg) do
+					local current = tbl4.Root()
+
+					if not current then
+						return false
+					end
+
+					if safeCarry.LastDelivered >= now then
+						return true
+					end
+
+					if now <= safeCarry.LastFailed then
+						str2 = "Instant TP: the server sent the egg back"
+						return false
+					end
+
+					if not tbl4.Steal.Carrying then
+						break
+					end
+
+					pcall(function()
+						if (current.Position - target.Position).Magnitude > 4 then
+							character:PivotTo(target)
+						end
+						current.AssemblyLinearVelocity = Vector3.zero
+						current.AssemblyAngularVelocity = Vector3.zero
+					end)
+
+					held += RunService.Heartbeat:Wait()
+
+					if held > 0.35 and tbl4.Steal.Carrying then
+						local eggState = tbl.EggState
+
+						if type(eggState) == "table" and type(eggState.DropFieldEgg) == "function" then
+							pcall(eggState.DropFieldEgg, "PlayerRequest")
+						end
+					end
+				end
+
+				local waited = 0
+
+				while waited < 1 and safeCarry.LastDelivered < now and not slicedfn13(arg) do
+					waited += RunService.Heartbeat:Wait()
+				end
+
+				return safeCarry.LastDelivered >= now
+			end
+
 			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
@@ -8034,6 +8106,10 @@ do
 						str2 = "The egg is gone"
 						return false
 					end
+				end
+
+				if tbl4.SafeCarry.Teleport then
+					return tbl4.SafeCarry.InstantHome(arg)
 				end
 
 				if tbl4.SafeCarry.LineDrop then
