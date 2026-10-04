@@ -534,6 +534,8 @@ end
 		end)
 	end
 
+	lib.GuideSeen = function() return store["GuideSeen"] == true end
+	lib.MarkGuideSeen = function() setStored("GuideSeen", true) end
 	lib.ThemeNames = TH.names
 	lib.ThemeName = TH.current
 	lib.SetTheme = function(name)
@@ -7968,7 +7970,36 @@ do
 				end
 
 				str2 = "Line Drop: landing next to the line"
+
+				pcall(function()
+					local params = RaycastParams.new()
+					params.FilterType = Enum.RaycastFilterType.Exclude
+					params.FilterDescendantsInstances = { localPlayer.Character, tbl4.StealClone }
+					params.IgnoreWater = true
+					local hit = workspace:Raycast(vector + Vector3.new(0, 60, 0), Vector3.new(0, -140, 0), params)
+
+					if hit and hit.Material ~= Enum.Material.Water and math.abs(hit.Position.Y - vector.Y) < 40 then
+						vector = Vector3.new(vector.X, hit.Position.Y + 3.5, vector.Z)
+					end
+				end)
+
 				slicedfn59()
+
+				for attempt = 1, 3 do
+					local settle = 0
+
+					while settle < 0.15 and not slicedfn13(arg) do
+						settle += RunService.Heartbeat:Wait()
+					end
+					local landed = tbl4.Root()
+
+					if steal.Carrying and landed and (Vector3.new(landed.Position.X - vector.X, 0, landed.Position.Z - vector.Z).Magnitude > 12 or landed.Position.Y < vector.Y - 25) then
+						str2 = "Line Drop: landing retry " .. attempt
+						slicedfn59()
+					else
+						break
+					end
+				end
 
 				if safeCarry.Hops and steal.Carrying then
 					local slicedn19 = 0
@@ -24600,6 +24631,21 @@ do
 			local modeBadgeHint = U.label(modeBadge, "< editable with Mode", UDim2.new(1, -10, 0, 9), U.C.SILVER2, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
 			modeBadgeHint.Position = UDim2.new(0, 5, 0, 11)
 			modeBadgeHint.TextSize = 7
+
+			local function hideGuide()
+				if modeBadge.Visible then
+					modeBadge.Visible = false
+					modeButton.Button.Size = UDim2.new(1, -16, 0, 22)
+				end
+				MoonLib.MarkGuideSeen()
+			end
+
+			if MoonLib.GuideSeen() then
+				modeBadge.Visible = false
+				modeButton.Button.Size = UDim2.new(1, -16, 0, 22)
+			else
+				task.delay(25, hideGuide)
+			end
 			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
 			local guardHandle = { Name = "Normal" }
 
@@ -24623,6 +24669,7 @@ do
 			end
 
 			modeButton.Button.Activated:Connect(function()
+				hideGuide()
 				if not branch then
 					local groups = {
 						{ Title = "DELIVER", Names = tbl4.Method.Names, Current = tbl4.Method.Current, Apply = tbl4.Method.Apply },
