@@ -4306,25 +4306,54 @@ do
 
 				A.Last = text
 
-				if A.Enabled and copy(text) then
-					pcall(tbl4.Notify, "Analyzer", "Delivery report copied (" .. #text .. " characters)")
+				A.SetQueue(text)
+
+				if A.Enabled then
+					A.CopyNext()
 				end
 			end
 
-			-- the last report in slices of 3000 characters, to send it in several messages
-			A.CopyPart = function(n)
-				local text = A.Last
+			-- reports are sent in 4 parts: each press copies the next one and says which it is
+			A.Parts = {}
+			A.NextPart = 1
 
-				if not text then
+			A.SetQueue = function(text)
+				local size = math.max(1, math.ceil(#text / 4))
+				A.Parts = {}
+
+				for k = 1, 4 do
+					A.Parts[k] = string.sub(text, (k - 1) * size + 1, k * size)
+				end
+
+				A.NextPart = 1
+			end
+
+			A.CopyNext = function()
+				if #A.Parts == 0 then
+					pcall(tbl4.Notify, "Analyzer", "Nothing to copy yet")
 					return false
 				end
-				local size = 3000
-				local part = string.sub(text, (n - 1) * size + 1, n * size)
 
-				if part == "" then
+				if A.NextPart > 4 then
+					A.NextPart = 1
+				end
+
+				local k = A.NextPart
+				local ok = copy(string.format("[%d/4]\n%s", k, A.Parts[k]))
+
+				if not ok then
+					pcall(tbl4.Notify, "Analyzer", "Copy is not available on this executor")
 					return false
 				end
-				return copy(string.format("[%d/%d]\n%s", n, math.ceil(#text / size), part))
+
+				A.NextPart = k + 1
+
+				if k < 4 then
+					pcall(tbl4.Notify, "Analyzer", string.format("Part %d/4 copied. Paste it, then press Copy next part", k))
+				else
+					pcall(tbl4.Notify, "Analyzer", "Part 4/4 copied. All parts done")
+				end
+				return true
 			end
 
 			A.Scan = function()
@@ -29751,28 +29780,25 @@ do
 		end,
 	})
 
-	for part = 1, 3 do
-		analyzerSection:CreateButton({
-			Name = "Report part " .. part .. " (3 000 characters)",
-			ButtonText = "Copy",
-			ConfirmText = "Copied",
-			Callback = function()
-				if not tbl4.Analyzer.CopyPart(part) then
-					pcall(tbl4.Notify, "Analyzer", "Nothing in part " .. part)
-				end
-			end,
-		})
-	end
+	analyzerSection:CreateButton({
+		Name = "Copy next part (of 4)",
+		Note = "Says which part was copied; press again for the next one",
+		ButtonText = "Next",
+		Callback = function()
+			tbl4.Analyzer.CopyNext()
+		end,
+	})
 
 	analyzerSection:CreateButton({
-		Name = "Last delivery report (all)",
-		ButtonText = "Copy",
-		ConfirmText = "Copied",
+		Name = "Last delivery report",
+		Note = "Loads it in 4 parts and copies part 1",
+		ButtonText = "Part 1",
 		Callback = function()
 			local text = tbl4.Analyzer.Last
 
 			if text then
-				tbl4.Analyzer.Copy(text)
+				tbl4.Analyzer.SetQueue(text)
+				tbl4.Analyzer.CopyNext()
 			else
 				pcall(tbl4.Notify, "Analyzer", "No delivery recorded yet")
 			end
@@ -29784,8 +29810,8 @@ do
 		ButtonText = "Copy",
 		ConfirmText = "Copied",
 		Callback = function()
-			local text = tbl4.Analyzer.Scan()
-			tbl4.Analyzer.Copy(text)
+			tbl4.Analyzer.SetQueue(tbl4.Analyzer.Scan())
+			tbl4.Analyzer.CopyNext()
 		end,
 	})
 
