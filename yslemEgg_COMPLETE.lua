@@ -3140,6 +3140,7 @@ do
 				"Cherry Blossom",
 				"Light Dark",
 				"Titan Temple",
+				"Enchanted Forest",
 			}
 
 			local tbl19 = {}
@@ -28107,9 +28108,9 @@ do
 	end
 
 	-- per-island profile: name (letters only, lower case) -> config name.
-	-- Early islands keep the classic hop system; the last islands (Light Dark, Titan Temple,
-	-- Angel, Demon and any island added later) share the Light Dark line system.
-	local tbl19 = { lightdark = "LightDark", titantemple = "LightDark", angel = "LightDark", demon = "LightDark" }
+	-- Early islands keep the classic hop system; the last islands (Light Dark (Angels and Demons), Titan Temple,
+	-- Enchanted Forest and any island added later) share the Light Dark line system.
+	local tbl19 = { lightdark = "LightDark", titantemple = "LightDark", enchantedforest = "LightDark" }
 	local earlyIslands = {
 		forest = true, desert = true, snow = true, lake = true, jungle = true,
 		volcano = true, prehistoric = true, cosmic = true, abyssocean = true, cherryblossom = true,
