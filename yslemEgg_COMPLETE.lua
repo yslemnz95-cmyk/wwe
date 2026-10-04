@@ -3798,7 +3798,7 @@ do
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
 			Name = "Delivery Stops",
-			Note = "Pauses on the way home, Anti Guard runs again at each stop",
+			Note = "Instant Steal: pauses on the way to the line",
 			Min = 0,
 			Max = 6,
 			Default = 3,
@@ -6647,6 +6647,8 @@ do
 						local hopRatio = safeCarry.HopRatio
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
 						local hopDir = x0 > vector.X and -1 or 1
+						local stopsDone = 0
+						local stopsWanted = math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6)
 
 						while math.abs(vector.X - x2) > slicedn20 and steal.Carrying and not slicedfn13(arg) do
 							x2 += hopDir * slicedn20
@@ -6667,6 +6669,26 @@ do
 								end
 
 								slicedn21 += RunService.Heartbeat:Wait()
+							end
+
+							if stopsDone < stopsWanted and math.abs(x2 - x0) / math.max(math.abs(vector.X - x0), 1) >= (stopsDone + 1) / (stopsWanted + 1) then
+								stopsDone += 1
+								str2 = string.format("Line Drop: stop %d/%d", stopsDone, stopsWanted)
+								local stopHeld = 0
+
+								while stopHeld < (tonumber(safeCarry.StopTime) or 0.7) and steal.Carrying and not slicedfn13(arg) do
+									local stopRoot = tbl4.Root()
+
+									if stopRoot then
+										pcall(function()
+											stopRoot.CFrame = CFrame.new(x2, slicedn19, z2) * CFrame.Angles(0, 1.5707963267948966, 0)
+											stopRoot.AssemblyLinearVelocity = Vector3.zero
+											stopRoot.AssemblyAngularVelocity = Vector3.zero
+										end)
+									end
+
+									stopHeld += RunService.Heartbeat:Wait()
+								end
 							end
 						end
 					end
@@ -6996,10 +7018,6 @@ do
 					slicedfn55()
 				end
 
-				local stopStartX = sliced22 and sliced22.Position.X or sliced19.X
-				local stopsDone = 0
-				local stopsWanted = math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6)
-
 				while not slicedfn13(arg) do
 					local sliced23 = tbl4.Root()
 					if not sliced23 then
@@ -7054,44 +7072,6 @@ do
 							return false
 						end
 						now = slicedn22
-					end
-
-					if stopsDone < stopsWanted and tbl4.Steal.Carrying then
-						local totalX = stopStartX - sliced19.X
-
-						if totalX > 40 and (stopStartX - sliced23.Position.X) / totalX >= (stopsDone + 1) / (stopsWanted + 1) then
-							stopsDone += 1
-							str2 = string.format("Stop %d/%d on the way home", stopsDone, stopsWanted)
-							local guardRun = tbl4.AntiGuard
-							local usedGuard = false
-
-							if guardRun.Enabled and type(guardRun.Fire) == "function" then
-								usedGuard = select(2, pcall(guardRun.Fire)) == true
-							end
-
-							local stopStart = os.clock()
-
-							while os.clock() - stopStart < (tonumber(safeCarry.StopTime) or 0.7) and tbl4.Steal.Carrying and not slicedfn13(arg) do
-								local stopRoot = tbl4.Root()
-
-								if stopRoot and not guardRun.Busy then
-									pcall(function()
-										stopRoot.AssemblyLinearVelocity = Vector3.new(0, stopRoot.AssemblyLinearVelocity.Y, 0)
-									end)
-								end
-
-								RunService.Heartbeat:Wait()
-							end
-
-							local guardWait = 0
-
-							while usedGuard and guardRun.Busy and guardWait < 6 and not slicedfn13(arg) do
-								guardWait += RunService.Heartbeat:Wait()
-							end
-
-							now2 = os.clock()
-							continue
-						end
 					end
 
 					local now3 = os.clock()
@@ -22734,7 +22714,7 @@ do
 		local function slicedfn43(arg)
 			local U = MoonLib.UI
 			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 58)
+			row.Size = UDim2.new(1, 0, 0, 64)
 			row.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 			row.BackgroundTransparency = 0.35
 			row.BorderSizePixel = 0
@@ -22748,8 +22728,8 @@ do
 			local accent = Instance.new("Frame")
 			accent.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			accent.BorderSizePixel = 0
-			accent.Position = UDim2.new(0, 4, 0.5, -18)
-			accent.Size = UDim2.fromOffset(3, 36)
+			accent.Position = UDim2.new(0, 4, 0.5, -20)
+			accent.Size = UDim2.fromOffset(3, 40)
 			accent.ZIndex = 2
 			U.corner(accent, 2)
 			local accentGradient = Instance.new("UIGradient")
@@ -22760,8 +22740,8 @@ do
 			local iconHolder = Instance.new("Frame")
 			iconHolder.BackgroundColor3 = Color3.fromRGB(10, 16, 34)
 			iconHolder.BorderSizePixel = 0
-			iconHolder.Position = UDim2.new(0, 12, 0.5, -20)
-			iconHolder.Size = UDim2.fromOffset(40, 40)
+			iconHolder.Position = UDim2.new(0, 12, 0.5, -22)
+			iconHolder.Size = UDim2.fromOffset(44, 44)
 			iconHolder.ZIndex = 2
 			U.corner(iconHolder, 9)
 			iconHolder.Parent = row
@@ -22777,10 +22757,10 @@ do
 
 			local nameLabel = Instance.new("TextLabel")
 			nameLabel.BackgroundTransparency = 1
-			nameLabel.Position = UDim2.new(0, 58, 0, 5)
-			nameLabel.Size = UDim2.new(1, -64, 0, 15)
+			nameLabel.Position = UDim2.new(0, 64, 0, 6)
+			nameLabel.Size = UDim2.new(1, -70, 0, 16)
 			nameLabel.Font = Enum.Font.GothamBold
-			nameLabel.TextSize = 11.5
+			nameLabel.TextSize = 12.5
 			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 			nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -22792,10 +22772,10 @@ do
 
 			local valueLabel = Instance.new("TextLabel")
 			valueLabel.BackgroundTransparency = 1
-			valueLabel.Position = UDim2.new(0, 58, 0, 20)
-			valueLabel.Size = UDim2.fromOffset(78, 13)
+			valueLabel.Position = UDim2.new(0, 64, 0, 23)
+			valueLabel.Size = UDim2.fromOffset(84, 14)
 			valueLabel.Font = Enum.Font.GothamBold
-			valueLabel.TextSize = 10.5
+			valueLabel.TextSize = 11.5
 			valueLabel.TextXAlignment = Enum.TextXAlignment.Left
 			valueLabel.TextColor3 = Color3.fromRGB(105, 235, 155)
 			valueLabel.Text = ""
@@ -22804,10 +22784,10 @@ do
 
 			local detailLabel = Instance.new("TextLabel")
 			detailLabel.BackgroundTransparency = 1
-			detailLabel.Position = UDim2.new(0, 138, 0, 20)
-			detailLabel.Size = UDim2.new(1, -144, 0, 13)
+			detailLabel.Position = UDim2.new(0, 150, 0, 23)
+			detailLabel.Size = UDim2.new(1, -156, 0, 14)
 			detailLabel.Font = Enum.Font.GothamMedium
-			detailLabel.TextSize = 9
+			detailLabel.TextSize = 10
 			detailLabel.TextXAlignment = Enum.TextXAlignment.Left
 			detailLabel.TextTruncate = Enum.TextTruncate.AtEnd
 			detailLabel.TextColor3 = Color3.fromRGB(140, 162, 205)
@@ -22844,11 +22824,11 @@ do
 				BadgeGradient = badgeGradient,
 			}
 
-			tbl24.Steal = mkBtn(row, "Steal", UDim2.fromOffset(58, 20), UDim2.new(1, -6, 0, 46), Vector2.new(1, 0.5), tbl14.Steal)
-			tbl24.Cancel = mkBtn(row, "X", UDim2.fromOffset(22, 20), UDim2.new(1, -6, 0, 46), Vector2.new(1, 0.5), tbl14.Cancel)
-			tbl24.Down = mkBtn(row, "v", UDim2.fromOffset(22, 20), UDim2.new(1, -31, 0, 46), Vector2.new(1, 0.5), tbl14.Hud)
-			tbl24.Up = mkBtn(row, "^", UDim2.fromOffset(22, 20), UDim2.new(1, -56, 0, 46), Vector2.new(1, 0.5), tbl14.Hud)
-			tbl24.Star = mkBtn(row, "TOP", UDim2.fromOffset(32, 20), UDim2.new(1, -81, 0, 46), Vector2.new(1, 0.5), tbl14.Queued)
+			tbl24.Steal = mkBtn(row, "Steal", UDim2.fromOffset(64, 24), UDim2.new(1, -6, 0, 49), Vector2.new(1, 0.5), tbl14.Steal)
+			tbl24.Cancel = mkBtn(row, "X", UDim2.fromOffset(26, 24), UDim2.new(1, -6, 0, 49), Vector2.new(1, 0.5), tbl14.Cancel)
+			tbl24.Down = mkBtn(row, "v", UDim2.fromOffset(26, 24), UDim2.new(1, -34, 0, 49), Vector2.new(1, 0.5), tbl14.Hud)
+			tbl24.Up = mkBtn(row, "^", UDim2.fromOffset(26, 24), UDim2.new(1, -62, 0, 49), Vector2.new(1, 0.5), tbl14.Hud)
+			tbl24.Star = mkBtn(row, "TOP", UDim2.fromOffset(36, 24), UDim2.new(1, -90, 0, 49), Vector2.new(1, 0.5), tbl14.Queued)
 			tbl24.Cancel.Button.Visible = false
 			tbl24.Down.Button.Visible = false
 			tbl24.Up.Button.Visible = false
@@ -23125,52 +23105,67 @@ do
 				tabName = "StealPanel",
 				frameName = "MoonEggSteal",
 				title = "Steal Panel",
-				w = 252,
-				h = 360,
+				w = 272,
+				h = 400,
 				pos = UDim2.new(0, 12, 0, 56),
 			})
 			local tab = win.tab
 
-			local controls = tab:CreateSection({ Name = "Controls", Expanded = true })
+			-- pinned toolbar: the three things used all the time
+			local page = tab.page
+			local bar = Instance.new("Frame")
+			bar.Name = "Bar"
+			bar.BackgroundTransparency = 1
+			bar.Size = UDim2.new(1, 0, 0, 78)
+			bar.Parent = win.content
+			page.Position = UDim2.new(0, 0, 0, 78)
+			page.Size = UDim2.new(1, 0, 1, -78)
 
-			local toggleHandle = controls:CreateToggle({
-				Name = "Auto Steal",
-				Note = "Steals the queued eggs by itself",
-				Default = false,
-				Callback = function(v)
-					if not flagReady then
+			local function makeSwitchButton(text, pos, onChange)
+				local btn = mkBtn(bar, text .. ": OFF", UDim2.new(0.5, -11, 0, 36), pos, nil, tbl14.Queued)
+				btn.Label.TextSize = 11.5
+				local obj = { State = false }
+
+				function obj:Set(v)
+					v = v == true
+
+					if v == self.State then
 						return
 					end
-					local handle = sliced5
+					self.State = v
+					slicedfn31(btn, v and tbl14.Steal or tbl14.Queued)
+					btn.Label.Text = text .. (v and ": ON" or ": OFF")
+				end
 
-					if handle and type(handle.Set) == "function" then
-						pcall(handle.Set, handle, v == true)
-					end
+				btn.Button.Activated:Connect(function()
+					onChange(not obj.State)
+				end)
 
-					tbl4.UiDefer(slicedfn40)
-				end,
-			})
+				return obj
+			end
 
-			local guardHandle = controls:CreateToggle({
-				Name = "Instant Steal",
-				Note = "Works with Auto Steal, delivers in a few seconds",
-				Default = false,
-				Callback = function(v)
-					if not flagReady then
-						return
-					end
-					local safeCarry = tbl4.SafeCarry
-					local instantHandle = safeCarry.InstantHandle
+			local toggleHandle = makeSwitchButton("Auto Steal", UDim2.new(0, 8, 0, 4), function(v)
+				local handle = sliced5
 
-					if instantHandle and type(instantHandle.Set) == "function" then
-						pcall(instantHandle.Set, instantHandle, v == true)
-					end
+				if handle and type(handle.Set) == "function" then
+					pcall(handle.Set, handle, v == true)
+				end
 
-					safeCarry.LineDrop = v == true
-					safeCarry.SpeedJitter = v == true and 0 or 0.08
-					tbl4.UiDefer(slicedfn40)
-				end,
-			})
+				tbl4.UiDefer(slicedfn40)
+			end)
+
+			local guardHandle = makeSwitchButton("Instant Steal", UDim2.new(0.5, 3, 0, 4), function(v)
+				local safeCarry = tbl4.SafeCarry
+				local instantHandle = safeCarry.InstantHandle
+
+				if instantHandle and type(instantHandle.Set) == "function" then
+					pcall(instantHandle.Set, instantHandle, v == true)
+				end
+
+				safeCarry.LineDrop = v == true
+				safeCarry.SpeedJitter = v == true and 0 or 0.08
+				tbl4.UiDefer(slicedfn40)
+			end)
 
 			local slicedn29 = 0
 
@@ -23200,12 +23195,17 @@ do
 				end)
 			end
 
-			local sortHandle = controls:CreateButton({
-				Name = "Sort",
-				ButtonText = tostring(sliced4),
-				ButtonWidth = 104,
-				Callback = cycleSort,
-			})
+			local sortButton = mkBtn(bar, "Sort: " .. tostring(sliced4), UDim2.new(1, -16, 0, 28), UDim2.new(0, 8, 0, 46), nil, tbl14.Hud)
+			sortButton.Label.TextSize = 11
+			sortButton.Button.Activated:Connect(function()
+				sortButton.Pulse()
+				cycleSort()
+			end)
+			local sortHandle = {
+				SetText = function(t)
+					sortButton.Label.Text = "Sort: " .. tostring(t)
+				end,
+			}
 
 			local speed = tab:CreateSection({ Name = "Speed", Expanded = false })
 
