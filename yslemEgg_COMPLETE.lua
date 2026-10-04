@@ -127,10 +127,14 @@ local TH = {names = {"Moon", "Neon", "Toxic", "Gold"}, list = {}}
 do
 	local function c3(r, g, b) return Color3.fromRGB(r, g, b) end
 	TH.sets = {
-		Moon  = {DEEP1 = c3(4,7,16),  DEEP2 = c3(14,28,58), DEEP3 = c3(40,80,165),  DEEP4 = c3(90,150,255),  MOON = c3(90,160,255),  MOON2 = c3(160,200,255), ON_BG = c3(20,45,80)},
-		Neon  = {DEEP1 = c3(18,4,14), DEEP2 = c3(58,14,40), DEEP3 = c3(165,40,110), DEEP4 = c3(255,90,180),  MOON = c3(255,100,190), MOON2 = c3(255,170,220), ON_BG = c3(80,20,55)},
-		Toxic = {DEEP1 = c3(4,16,6),  DEEP2 = c3(14,58,24), DEEP3 = c3(40,165,70),  DEEP4 = c3(110,255,140), MOON = c3(90,240,130),  MOON2 = c3(170,255,190), ON_BG = c3(20,80,35)},
-		Gold  = {DEEP1 = c3(18,12,2), DEEP2 = c3(58,40,10), DEEP3 = c3(165,120,30), DEEP4 = c3(255,200,90),  MOON = c3(255,195,80),  MOON2 = c3(255,225,150), ON_BG = c3(80,58,15)},
+		Moon  = {DEEP1 = c3(4,7,16),  DEEP2 = c3(14,28,58), DEEP3 = c3(40,80,165),  DEEP4 = c3(90,150,255),  MOON = c3(90,160,255),  MOON2 = c3(160,200,255), ON_BG = c3(20,45,80),
+			SILVER = c3(210,222,240), SILVER2 = c3(140,165,210), HUDA = c3(210,225,255), HUDB = c3(140,180,255)},
+		Neon  = {DEEP1 = c3(18,4,14), DEEP2 = c3(58,14,40), DEEP3 = c3(165,40,110), DEEP4 = c3(255,90,180),  MOON = c3(255,100,190), MOON2 = c3(255,170,220), ON_BG = c3(80,20,55),
+			SILVER = c3(240,214,230), SILVER2 = c3(210,150,185), HUDA = c3(255,220,240), HUDB = c3(255,150,205)},
+		Toxic = {DEEP1 = c3(4,16,6),  DEEP2 = c3(14,58,24), DEEP3 = c3(40,165,70),  DEEP4 = c3(110,255,140), MOON = c3(90,240,130),  MOON2 = c3(170,255,190), ON_BG = c3(20,80,35),
+			SILVER = c3(214,240,222), SILVER2 = c3(150,210,165), HUDA = c3(220,255,230), HUDB = c3(150,255,180)},
+		Gold  = {DEEP1 = c3(18,12,2), DEEP2 = c3(58,40,10), DEEP3 = c3(165,120,30), DEEP4 = c3(255,200,90),  MOON = c3(255,195,80),  MOON2 = c3(255,225,150), ON_BG = c3(80,58,15),
+			SILVER = c3(240,230,208), SILVER2 = c3(210,185,140), HUDA = c3(255,240,215), HUDB = c3(255,210,140)},
 	}
 	TH.current = TH.sets[store["Theme"]] and store["Theme"] or "Moon"
 	TH.apply = function(name)
@@ -157,6 +161,57 @@ do
 		end
 	end
 	TH.reg = function(inst, kind) TH.list[#TH.list + 1] = {inst = inst, kind = kind} end
+	TH.hooks = {}
+	TH.pairsFor = function(fromName, toName)
+		local list = {}
+		for k, a in pairs(TH.sets[fromName]) do
+			local b = TH.sets[toName][k]
+			if b and a ~= b then list[#list + 1] = {a, b} end
+		end
+		return list
+	end
+	TH.mapColor = function(list, c)
+		for i = 1, #list do
+			if c == list[i][1] then return list[i][2] end
+		end
+		return c
+	end
+	TH.mapSeq = function(list, seq)
+		local kps, changed = {}, false
+		for i, kp in ipairs(seq.Keypoints) do
+			local nc = TH.mapColor(list, kp.Value)
+			if nc ~= kp.Value then changed = true end
+			kps[i] = ColorSequenceKeypoint.new(kp.Time, nc)
+		end
+		return changed and ColorSequence.new(kps) or seq
+	end
+	TH.recolor = function(root, list)
+		if #list == 0 then return end
+		local function fix(inst, prop)
+			local ok, v = pcall(function() return inst[prop] end)
+			if ok and typeof(v) == "Color3" then
+				local nv = TH.mapColor(list, v)
+				if nv ~= v then inst[prop] = nv end
+			end
+		end
+		for _, d in ipairs(root:GetDescendants()) do
+			if d:IsA("GuiObject") then
+				fix(d, "BackgroundColor3")
+				if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then fix(d, "TextColor3") end
+				if d:IsA("ImageLabel") or d:IsA("ImageButton") then fix(d, "ImageColor3") end
+				if d:IsA("ScrollingFrame") then fix(d, "ScrollBarImageColor3") end
+			elseif d:IsA("UIStroke") then
+				fix(d, "Color")
+			elseif d:IsA("UIGradient") then
+				d.Color = TH.mapSeq(list, d.Color)
+			end
+		end
+	end
+	TH.runHooks = function(list)
+		for _, fn in ipairs(TH.hooks) do
+			pcall(fn, function(c) return TH.mapColor(list, c) end, function(q) return TH.mapSeq(list, q) end)
+		end
+	end
 end
 local function corner(inst, r) local c = Instance.new("UICorner", inst); c.CornerRadius = UDim.new(0, r or 8); return c end
 local function stroke(inst, col, th, tr)
@@ -492,10 +547,17 @@ end
 	lib.ThemeNames = TH.names
 	lib.ThemeName = TH.current
 	lib.SetTheme = function(name)
-		if not TH.sets[name] then return end
+		if not TH.sets[name] or name == TH.current then return end
+		local list = TH.pairsFor(TH.current, name)
 		TH.current = name; lib.ThemeName = name
-		TH.apply(name); TH.refresh()
+		TH.apply(name)
+		TH.recolor(gui, list)
+		TH.runHooks(list)
 		setStored("Theme", name)
+	end
+	lib.ThemeHooks = TH.hooks
+	lib.RunThemeHooksFrom = function(fromName)
+		if TH.sets[fromName] and fromName ~= TH.current then TH.runHooks(TH.pairsFor(fromName, TH.current)) end
 	end
 
 	lib.SoundOn = true
@@ -23157,6 +23219,23 @@ do
 		moonStyle(tbl14.Queued, c3(165, 180, 210), c3(110, 125, 160), c3(40, 80, 165))
 		moonStyle(tbl14.PriorityOn, c3(255, 225, 140), c3(255, 190, 70), c3(255, 200, 60), c3(45, 34, 8))
 		moonStyle(tbl14.Cancel, c3(255, 160, 160), c3(235, 90, 100), c3(220, 60, 60), c3(50, 14, 16))
+
+		MoonLib.ThemeHooks[#MoonLib.ThemeHooks + 1] = function(mapColor, mapSeq)
+			for _, st in pairs(tbl14) do
+				if type(st) == "table" then
+					for k, v in pairs(st) do
+						local t = typeof(v)
+
+						if t == "Color3" then
+							st[k] = mapColor(v)
+						elseif t == "ColorSequence" then
+							st[k] = mapSeq(v)
+						end
+					end
+				end
+			end
+		end
+		MoonLib.RunThemeHooksFrom("Moon")
 	end
 
 	local slicedfn19
