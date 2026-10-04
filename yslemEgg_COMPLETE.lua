@@ -3901,14 +3901,14 @@ do
 
 		tbl4.SafeCarry.RunHandle = sliced8:CreateSlider({
 			Name = "Tween Speed",
-			Note = "Over 100% may glitch",
+			Note = "Over 120% runs with the FPS dip of Delivery Stop",
 			Min = 50,
-			Max = 120,
+			Max = 325,
 			Default = 100,
 			Increment = 1,
 			Unit = "%",
 			Callback = function(arg)
-				tbl4.SafeCarry.RunSpeed = math.clamp(tonumber(arg) or 100, 50, 120) / 100
+				tbl4.SafeCarry.RunSpeed = math.clamp(tonumber(arg) or 100, 50, 325) / 100
 			end,
 		})
 
@@ -7011,13 +7011,19 @@ do
 					end)
 				end
 
+				local fpsDip = safeCarry.RunSpeed > 1.2
 				while os.clock() - now < 240 do
 					if slicedfn13(arg2) then
+						pcall(tbl4.CarryCap.Off)
 						return false
 					end
 					local sliced22 = tbl4.Root()
 					if not sliced22 then
+						pcall(tbl4.CarryCap.Off)
 						return false
+					end
+					if fpsDip and not tbl4.CarryCap.Active then
+						pcall(tbl4.CarryCap.On)
 					end
 					local now4 = os.clock()
 					local slicedn19 = math.max(now4 - now2, 0.0041666666666666666)
@@ -7071,6 +7077,8 @@ do
 					RunService.Heartbeat:Wait()
 					now2 = now4
 				end
+
+				pcall(tbl4.CarryCap.Off)
 
 				local sliced22 = tbl4.Root()
 
@@ -7424,7 +7432,7 @@ do
 
 				local magnitude = Vector3.new(sliced20.Position.X - x, 0, sliced20.Position.Z - slicedn17).Magnitude
 				local max = math.max
-				local carryRatio = (safeCarry.StopMode and math.min(safeCarry.CarryRatio, 1.2) or safeCarry.CarryRatio)
+				local carryRatio = (safeCarry.StopMode and math.min(safeCarry.CarryRatio, 3.25) or safeCarry.CarryRatio)
 				local sliced21 = max(tbl4.WalkSpeed() * carryRatio * (tonumber(safeCarry.Mult) or safeCarry.LightMult), 1)
 				local directMargin = safeCarry.DirectMargin
 				local slicedn18 = math.max(0, (magnitude - safeCarry.DirectBudget) / sliced21) + directMargin
@@ -7459,6 +7467,11 @@ do
 						local hopStartX = x2
 						local hopStops = 0
 						local hopRetries = 0
+						local lastImpulse = tbl4.Analyzer.ImpulseAt
+						local function eggAtNest()
+							local record = slicedfn58()
+							return record ~= nil and record.State == "Slot"
+						end
 						local hopStopsWanted = safeCarry.StopMode and not safeCarry.Straight and math.clamp(math.floor(tonumber(safeCarry.Stops) or 3) - 1, 0, 5) or 0
 
 						-- a clone stays where the egg was taken, the lag starts here
@@ -7488,10 +7501,19 @@ do
 
 							-- failure detection: the server pulled us back (Relocate) or the body is far behind the hop target
 							local checkRoot = tbl4.Root()
-							local pulledBack = flag3 or (checkRoot ~= nil and checkRoot.Position.X - x2 > 10)
+							local impulsed = tbl4.Analyzer.ImpulseAt > lastImpulse
+							lastImpulse = math.max(lastImpulse, tbl4.Analyzer.ImpulseAt)
+							local tooFast = checkRoot ~= nil and checkRoot.AssemblyLinearVelocity.Magnitude > 150
+							local pulledBack = flag3 or impulsed or tooFast or (checkRoot ~= nil and checkRoot.Position.X - x2 > 10)
 
 							if pulledBack and steal.Carrying and not slicedfn13(arg) then
 								flag3 = false
+								if eggAtNest() then
+									slicedfn56()
+									str2 = "Delivery Stop: the egg went back to its nest, stopping"
+									pcall(tbl4.Analyzer.Event, "nest", "egg back at its origin")
+									return false
+								end
 								hopRetries += 1
 								pcall(tbl4.Analyzer.Event, "pullback", string.format("retry %d at x=%.0f", hopRetries, x2))
 
@@ -7572,6 +7594,12 @@ do
 										tripStop()
 									end
 
+									if not steal.Carrying and eggAtNest() then
+										slicedfn56()
+										str2 = "Delivery Stop: the egg went back to its nest, stopping"
+										return false
+									end
+
 									if not steal.Carrying then
 										str2 = string.format("Delivery step %d/%d: taking the egg back", hopStops, hopStopsWanted + 1)
 										tripStop()
@@ -7613,6 +7641,16 @@ do
 								end
 							end
 						end
+					end
+				end
+
+				if safeCarry.StopMode and not steal.Carrying then
+					local nestRecord = slicedfn58()
+
+					if nestRecord and nestRecord.State == "Slot" then
+						slicedfn56()
+						str2 = "Delivery Stop: the egg went back to its nest, stopping"
+						return false
 					end
 				end
 
@@ -7701,7 +7739,7 @@ do
 
 				if steal.Carrying and flag4 and slicedn19 >= slicedn18 and not slicedfn13(arg) then
 					str2 = "Line Drop: stepping over the line"
-					local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.2) or safeCarry.CrossRatio)
+					local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 3.25) or safeCarry.CrossRatio)
 
 					slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 						return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -7797,7 +7835,7 @@ do
 
 						slicedn23 = 5
 					else
-						local pickupRatio = (safeCarry.StopMode and math.min(safeCarry.PickupRatio, 1.2) or safeCarry.PickupRatio)
+						local pickupRatio = (safeCarry.StopMode and math.min(safeCarry.PickupRatio, 3.25) or safeCarry.PickupRatio)
 						slicedfn57(sliced22, tbl4.WalkSpeed() * pickupRatio, 5)
 						slicedn23 = 2.5
 					end
@@ -7840,7 +7878,7 @@ do
 				end
 
 				str2 = "Line Drop: stepping over the line"
-				local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 1.2) or safeCarry.CrossRatio)
+				local crossRatio = (safeCarry.StopMode and math.min(safeCarry.CrossRatio, 3.25) or safeCarry.CrossRatio)
 
 				slicedfn57(sliced19, tbl4.WalkSpeed() * crossRatio, 6, function()
 					return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -24787,7 +24825,7 @@ do
 				return mine
 			end
 
-			linkSlider("Go Speed", 50, 120, tbl4.SafeCarry.RunHandle)
+			linkSlider("Go Speed", 50, 325, tbl4.SafeCarry.RunHandle)
 			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
 			linkSlider("Delivery Steps", 1, 6, tbl4.SafeCarry.StopsHandle, "", 3)
 			linkSlider("Carry FPS Cap", 5, 60, tbl4.SafeCarry.CarryFpsHandle, " FPS", 20)
