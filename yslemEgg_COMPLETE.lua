@@ -24676,10 +24676,10 @@ do
 						{ Title = "DELIVER", Names = tbl4.Method.Names, Current = tbl4.Method.Current, Apply = tbl4.Method.Apply },
 						{ Title = "GO METHOD", Names = tbl4.GoMethod.Names, Current = tbl4.GoMethod.Current, Apply = tbl4.GoMethod.Apply },
 					}
-					local total = 8
+					local total = 6
 
 					for _, group in ipairs(groups) do
-						total += 16 + #group.Names * 28
+						total += 14 + #group.Names * 24
 					end
 
 					branch = Instance.new("ScrollingFrame")
@@ -24692,7 +24692,7 @@ do
 					branch.BackgroundTransparency = 0.2
 					branch.BorderSizePixel = 0
 					branch.Position = UDim2.new(0, 8, 0, 126)
-					branch.Size = UDim2.new(1, -16, 0, math.min(total, 180))
+					branch.Size = UDim2.new(1, -16, 0, math.min(total, 170))
 					branch.Active = true
 					branch.ScrollingEnabled = true
 					branch.ZIndex = 60
@@ -24707,33 +24707,33 @@ do
 						local title = U.label(branch, group.Title, UDim2.new(1, -16, 0, 14), U.C.SILVER2, Enum.Font.GothamBold)
 						title.Position = UDim2.new(0, 10, 0, cursor)
 						title.TextSize = 8.5
-						cursor += 16
+						cursor += 14
 
 						local trunk = Instance.new("Frame")
 						trunk.BackgroundColor3 = U.C.DEEP4
 						trunk.BorderSizePixel = 0
 						trunk.Position = UDim2.new(0, 12, 0, cursor + 4)
-						trunk.Size = UDim2.new(0, 1, 0, (#group.Names - 1) * 28 + 11)
+						trunk.Size = UDim2.new(0, 1, 0, (#group.Names - 1) * 24 + 10)
 						trunk.Parent = branch
 
 						for i, name in ipairs(group.Names) do
-							local y = cursor + (i - 1) * 28
+							local y = cursor + (i - 1) * 24
 							local stub = Instance.new("Frame")
 							stub.BackgroundColor3 = U.C.DEEP4
 							stub.BorderSizePixel = 0
-							stub.Position = UDim2.new(0, 12, 0, y + 11)
+							stub.Position = UDim2.new(0, 12, 0, y + 10)
 							stub.Size = UDim2.fromOffset(12, 1)
 							stub.Parent = branch
 
 							local node = Instance.new("Frame")
 							node.BackgroundColor3 = U.C.MOON2
 							node.BorderSizePixel = 0
-							node.Position = UDim2.new(0, 22, 0, y + 9)
+							node.Position = UDim2.new(0, 22, 0, y + 8)
 							node.Size = UDim2.fromOffset(5, 5)
 							U.corner(node, 3)
 							node.Parent = branch
 
-							local optionButton = mkBtn(branch, name, UDim2.new(1, -40, 0, 22), UDim2.new(0, 32, 0, y), nil, tbl14.Queued)
+							local optionButton = mkBtn(branch, name, UDim2.new(1, -40, 0, 20), UDim2.new(0, 32, 0, y), nil, tbl14.Queued)
 							optionButton.Label.TextSize = 10
 							branchButtons[#branchButtons + 1] = { Button = optionButton, Name = name, Group = group }
 							optionButton.Button.Activated:Connect(function()
@@ -24742,7 +24742,7 @@ do
 								tbl4.UiDefer(slicedfn40)
 							end)
 						end
-						cursor += #group.Names * 28
+						cursor += #group.Names * 24
 					end
 				end
 
