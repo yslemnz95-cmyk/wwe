@@ -4219,6 +4219,7 @@ do
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name ~= "Normal"
+				sc.RunHeight = name == "Instant TP" and 0 or 50
 				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
 
 				if hops then
