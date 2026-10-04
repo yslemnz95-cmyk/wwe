@@ -3836,14 +3836,14 @@ do
 		})
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
-			Name = "Delivery Stops",
-			Note = "Delivery Stop mode: hops, then an Anti Guard teleport at each stop",
-			Min = 0,
+			Name = "Delivery Steps",
+			Note = "Delivery Stop mode: number of teleport steps (clone + FPS dip)",
+			Min = 1,
 			Max = 6,
 			Default = 3,
 			Increment = 1,
 			Callback = function(arg)
-				tbl4.SafeCarry.Stops = math.clamp(math.floor(tonumber(arg) or 3), 0, 6)
+				tbl4.SafeCarry.Stops = math.clamp(math.floor(tonumber(arg) or 3), 1, 6)
 			end,
 		})
 
@@ -3892,7 +3892,7 @@ do
 				sc.StopMode = name == "Delivery Stop"
 
 				if name == "Delivery Stop" then
-					setGuard(true)
+					setGuard(false)
 					setInstant(true)
 				elseif name == "Instant TP" then
 					setInstant(false)
@@ -3917,6 +3917,100 @@ do
 				if tbl4.MethodReady and table.find(tbl4.Method.Names, arg) and tbl4.Method.Current() ~= arg then
 					tbl4.Method.Apply(arg)
 				end
+			end,
+		})
+
+		-- clone left where the egg was taken (client side, removed when the delivery ends)
+		tbl4.PostClone = function()
+			tbl4.DropClone()
+			local character = localPlayer.Character
+			if not character then
+				return
+			end
+			local was = character.Archivable
+			character.Archivable = true
+			local copy = character:Clone()
+			character.Archivable = was
+
+			if copy then
+				for _, d in ipairs(copy:GetDescendants()) do
+					if d:IsA("LuaSourceContainer") or d:IsA("Humanoid") then
+						pcall(function()
+							d:Destroy()
+						end)
+					elseif d:IsA("BasePart") then
+						d.Anchored = true
+						d.CanCollide = false
+						d.CanTouch = false
+						d.CanQuery = false
+					end
+				end
+
+				copy.Name = "Clone"
+				copy.Parent = workspace
+				tbl4.StealClone = copy
+			end
+		end
+
+		tbl4.DropClone = function()
+			local copy = tbl4.StealClone
+			tbl4.StealClone = nil
+
+			if copy then
+				pcall(function()
+					copy:Destroy()
+				end)
+			end
+		end
+
+		-- FPS dip while the delivery is running (restores the FPS Cap slider value afterwards)
+		tbl4.SafeCarry.CarryFps = 20
+		tbl4.CarryCap = {
+			Active = false,
+			On = function()
+				local cap = tbl4.CarryCap
+				if cap.Active or type(setfpscap) ~= "function" then
+					return
+				end
+				cap.Active = true
+				cap.At = os.clock()
+				pcall(setfpscap, math.clamp(math.floor(tonumber(tbl4.SafeCarry.CarryFps) or 20), 5, 60))
+				task.delay(30, function()
+					if cap.Active and os.clock() - cap.At >= 29 then
+						cap.Off()
+					end
+				end)
+			end,
+			Off = function()
+				local cap = tbl4.CarryCap
+				if not cap.Active then
+					return
+				end
+				cap.Active = false
+				local normal = 240
+				local handle = tbl4.FpsCapHandle
+
+				if handle and type(handle.Get) == "function" then
+					local ok, value = pcall(handle.Get, handle)
+					normal = ok and tonumber(value) or 240
+				end
+
+				if type(setfpscap) == "function" then
+					pcall(setfpscap, math.clamp(math.floor(normal), 30, 1000))
+				end
+			end,
+		}
+
+		tbl4.SafeCarry.CarryFpsHandle = sliced8:CreateSlider({
+			Name = "Carry FPS Cap",
+			Note = "Delivery Stop only: FPS dip while the egg is carried",
+			Min = 5,
+			Max = 60,
+			Default = 20,
+			Increment = 1,
+			Unit = " FPS",
+			Callback = function(arg)
+				tbl4.SafeCarry.CarryFps = math.clamp(math.floor(tonumber(arg) or 20), 5, 60)
 			end,
 		})
 
@@ -6628,7 +6722,7 @@ do
 				local tbl22 = nil
 
 				local function slicedfn54()
-					if tbl22 or not currentCamera then
+					if tbl22 or not currentCamera or safeCarry.StopMode then
 						return
 					end
 					tbl22 = { Type = currentCamera.CameraType, CFrame = currentCamera.CFrame }
@@ -6653,6 +6747,8 @@ do
 
 				local function slicedfn56()
 					slicedfn55()
+					pcall(tbl4.CarryCap.Off)
+					pcall(tbl4.DropClone)
 
 					if connection then
 						connection:Disconnect()
@@ -6758,11 +6854,17 @@ do
 						local slicedn20 = math.max(tbl4.WalkSpeed() * hopRatio, 40)
 						local hopStartX = x2
 						local hopStops = 0
-						local hopStopsWanted = safeCarry.StopMode and math.clamp(math.floor(tonumber(safeCarry.Stops) or 0), 0, 6) or 0
+						local hopStopsWanted = safeCarry.StopMode and math.clamp(math.floor(tonumber(safeCarry.Stops) or 3) - 1, 0, 5) or 0
+
+						if safeCarry.StopMode then
+							-- a clone stays where the egg was taken, the lag starts here
+							pcall(tbl4.PostClone)
+							pcall(tbl4.CarryCap.On)
+						end
 
 						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
 							x2 -= slicedn20
-							tbl4.Trip = { Phase = "Hopping", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted, At = os.clock() }
+							tbl4.Trip = { Phase = "Hopping", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops + 1, Stops = hopStopsWanted + 1, At = os.clock() }
 							str2 = string.format("Line Drop: hopping home, X %d", math.floor(x2))
 							local slicedn21 = 0
 
@@ -6782,20 +6884,14 @@ do
 
 							if hopStops < hopStopsWanted and (hopStartX - x2) / math.max(hopStartX - vector.X, 1) >= (hopStops + 1) / (hopStopsWanted + 1) then
 								hopStops += 1
-								str2 = string.format("Delivery stop %d/%d", hopStops, hopStopsWanted)
-								tbl4.Trip = { Phase = "Stop", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted, At = os.clock() }
+								str2 = string.format("Delivery step %d/%d", hopStops, hopStopsWanted + 1)
+								tbl4.Trip = { Phase = "Stop", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted + 1, At = os.clock() }
 								local held = 0
-								local guardRun = tbl4.AntiGuard
-								local usedGuard = false
 
-								if guardRun.Enabled and type(guardRun.Fire) == "function" then
-									usedGuard = select(2, pcall(guardRun.Fire)) == true
-								end
-
-								while (held < (tonumber(safeCarry.StopTime) or 0.7) or (usedGuard and guardRun.Busy and held < 6)) and steal.Carrying and not slicedfn13(arg) do
+								while held < (tonumber(safeCarry.StopTime) or 0.5) and steal.Carrying and not slicedfn13(arg) do
 									local stopRoot = tbl4.Root()
 
-									if stopRoot and not (usedGuard and guardRun.Busy) then
+									if stopRoot then
 										pcall(function()
 											stopRoot.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
 											stopRoot.AssemblyLinearVelocity = Vector3.zero
@@ -23436,9 +23532,9 @@ do
 					progress = trip.Progress or 0
 
 					if trip.Phase == "Stop" then
-						text = string.format("Stop %d/%d", trip.Stop or 0, stops)
-					elseif stops > 0 then
-						text = string.format("Hopping, stop %d/%d", trip.Stop or 0, stops)
+						text = string.format("Step %d/%d done", trip.Stop or 0, stops)
+					elseif stops > 1 then
+						text = string.format("Hopping, step %d/%d", trip.Stop or 1, stops)
 					else
 						text = "Hopping"
 					end
@@ -23452,8 +23548,8 @@ do
 					shownStops = stops
 
 					for i, tick in ipairs(ticks) do
-						tick.Visible = i <= stops
-						tick.Position = UDim2.new(i / (stops + 1), 0, 0.5, 0)
+						tick.Visible = i <= stops - 1
+						tick.Position = UDim2.new(i / math.max(stops, 1), 0, 0.5, 0)
 					end
 				end
 
@@ -23518,7 +23614,8 @@ do
 
 			linkSlider("Go Speed", 50, 120, tbl4.SafeCarry.RunHandle)
 			linkSlider("Carry Speed", 80, 120, tbl4.SafeCarry.CarryHandle)
-			linkSlider("Delivery Stops", 0, 6, tbl4.SafeCarry.StopsHandle, "", 3)
+			linkSlider("Delivery Steps", 1, 6, tbl4.SafeCarry.StopsHandle, "", 3)
+			linkSlider("Carry FPS Cap", 5, 60, tbl4.SafeCarry.CarryFpsHandle, " FPS", 20)
 
 			local eggs = tab:CreateSection({ Name = "Field Eggs", Expanded = true })
 			local list = Instance.new("Frame")
@@ -26813,7 +26910,7 @@ do
 	local sliced14 = sliced13:CreateSection({ Name = "Performance", Expanded = true })
 	local flag4 = false
 
-	sliced14:CreateSlider({
+	tbl4.FpsCapHandle = sliced14:CreateSlider({
 		Name = "FPS Cap",
 		Min = 30,
 		Max = 1000,
@@ -29032,7 +29129,7 @@ do
 				end
 
 				tIsland:Set(string.format("%s\nAnti Guard profile: %s", area, profile))
-				tMode:Set(string.format("%s (stops: %d)", tbl4.Method.Current(), tonumber(tbl4.SafeCarry.Stops) or 0))
+				tMode:Set(string.format("%s (steps: %d)", tbl4.Method.Current(), tonumber(tbl4.SafeCarry.Stops) or 0))
 				tPerf:Set(string.format("%d FPS, %d ms ping", math.floor(fps + 0.5), math.floor(ping + 0.5)))
 
 				local names = {}
