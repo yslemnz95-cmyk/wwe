@@ -7337,6 +7337,7 @@ do
 
 					if tpRoot and tpChar then
 						str2 = "Go Method: first jump, half way"
+						pcall(tbl4.CarryCap.On)
 						local startPos = tpRoot.Position
 						local halfway = Vector3.new((startPos.X + position.X) / 2, slicedn18, (startPos.Z + position.Z) / 2)
 						pcall(function()
@@ -7361,6 +7362,7 @@ do
 						end
 						str3 = "field"
 						RunService.Heartbeat:Wait()
+						pcall(tbl4.CarryCap.Off)
 					end
 				end
 
