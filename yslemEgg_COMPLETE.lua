@@ -21967,17 +21967,18 @@ do
 
 	do
 		local c3 = Color3.fromRGB
-		local function moonStyle(style, a, b, strokeColor)
+		local function moonStyle(style, a, b, strokeColor, transparency)
 			style.Color = ColorSequence.new(a, b)
-			style.Rotation = -90
+			style.Rotation = 90
 			style.Stroke = strokeColor
 			style.Light = strokeColor
 		end
+		-- same look as the hub buttons: blue gradient + light stroke
 		moonStyle(tbl14.Hud, c3(40, 80, 165), c3(90, 150, 255), c3(160, 200, 255))
-		moonStyle(tbl14.Steal, c3(30, 110, 210), c3(90, 190, 255), c3(170, 215, 255))
-		moonStyle(tbl14.Queued, c3(24, 34, 58), c3(44, 60, 96), c3(70, 92, 140))
-		moonStyle(tbl14.PriorityOn, c3(255, 200, 60), c3(255, 150, 50), c3(255, 225, 140))
-		moonStyle(tbl14.Cancel, c3(150, 36, 52), c3(215, 64, 76), c3(255, 130, 130))
+		moonStyle(tbl14.Steal, c3(90, 150, 255), c3(40, 80, 165), c3(160, 200, 255))
+		moonStyle(tbl14.Queued, c3(22, 30, 50), c3(10, 15, 28), c3(56, 74, 120))
+		moonStyle(tbl14.PriorityOn, c3(255, 200, 60), c3(200, 120, 30), c3(255, 225, 140))
+		moonStyle(tbl14.Cancel, c3(215, 64, 76), c3(130, 30, 44), c3(255, 130, 130))
 	end
 
 	local slicedfn19
@@ -22745,6 +22746,7 @@ do
 			gradient.Parent = button
 			local strokeObj = Instance.new("UIStroke")
 			strokeObj.Thickness = 1
+			strokeObj.Transparency = 0.3
 			strokeObj.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			strokeObj.Parent = button
 			local lbl = Instance.new("TextLabel")
@@ -22752,7 +22754,7 @@ do
 			lbl.BackgroundTransparency = 1
 			lbl.Size = UDim2.fromScale(1, 1)
 			lbl.Font = Enum.Font.GothamBold
-			lbl.TextSize = 10.5
+			lbl.TextSize = 10
 			lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 			lbl.Text = text or ""
 			lbl.ZIndex = 4
@@ -22790,7 +22792,7 @@ do
 		local function slicedfn43(arg)
 			local U = MoonLib.UI
 			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 64)
+			row.Size = UDim2.new(1, 0, 0, 52)
 			row.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 			row.BackgroundTransparency = 0.35
 			row.BorderSizePixel = 0
@@ -22804,8 +22806,8 @@ do
 			local accent = Instance.new("Frame")
 			accent.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			accent.BorderSizePixel = 0
-			accent.Position = UDim2.new(0, 4, 0.5, -20)
-			accent.Size = UDim2.fromOffset(3, 40)
+			accent.Position = UDim2.new(0, 4, 0.5, -16)
+			accent.Size = UDim2.fromOffset(3, 32)
 			accent.ZIndex = 2
 			U.corner(accent, 2)
 			local accentGradient = Instance.new("UIGradient")
@@ -22816,8 +22818,8 @@ do
 			local iconHolder = Instance.new("Frame")
 			iconHolder.BackgroundColor3 = Color3.fromRGB(10, 16, 34)
 			iconHolder.BorderSizePixel = 0
-			iconHolder.Position = UDim2.new(0, 12, 0.5, -22)
-			iconHolder.Size = UDim2.fromOffset(44, 44)
+			iconHolder.Position = UDim2.new(0, 11, 0.5, -18)
+			iconHolder.Size = UDim2.fromOffset(36, 36)
 			iconHolder.ZIndex = 2
 			U.corner(iconHolder, 9)
 			iconHolder.Parent = row
@@ -22833,10 +22835,10 @@ do
 
 			local nameLabel = Instance.new("TextLabel")
 			nameLabel.BackgroundTransparency = 1
-			nameLabel.Position = UDim2.new(0, 64, 0, 6)
-			nameLabel.Size = UDim2.new(1, -70, 0, 16)
+			nameLabel.Position = UDim2.new(0, 54, 0, 4)
+			nameLabel.Size = UDim2.new(1, -60, 0, 14)
 			nameLabel.Font = Enum.Font.GothamBold
-			nameLabel.TextSize = 12.5
+			nameLabel.TextSize = 11
 			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 			nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -22848,10 +22850,10 @@ do
 
 			local valueLabel = Instance.new("TextLabel")
 			valueLabel.BackgroundTransparency = 1
-			valueLabel.Position = UDim2.new(0, 64, 0, 23)
-			valueLabel.Size = UDim2.fromOffset(84, 14)
+			valueLabel.Position = UDim2.new(0, 54, 0, 18)
+			valueLabel.Size = UDim2.fromOffset(70, 13)
 			valueLabel.Font = Enum.Font.GothamBold
-			valueLabel.TextSize = 11.5
+			valueLabel.TextSize = 10
 			valueLabel.TextXAlignment = Enum.TextXAlignment.Left
 			valueLabel.TextColor3 = Color3.fromRGB(105, 235, 155)
 			valueLabel.Text = ""
@@ -22860,10 +22862,10 @@ do
 
 			local detailLabel = Instance.new("TextLabel")
 			detailLabel.BackgroundTransparency = 1
-			detailLabel.Position = UDim2.new(0, 150, 0, 23)
-			detailLabel.Size = UDim2.new(1, -156, 0, 14)
+			detailLabel.Position = UDim2.new(0, 126, 0, 18)
+			detailLabel.Size = UDim2.new(1, -132, 0, 13)
 			detailLabel.Font = Enum.Font.GothamMedium
-			detailLabel.TextSize = 10
+			detailLabel.TextSize = 9
 			detailLabel.TextXAlignment = Enum.TextXAlignment.Left
 			detailLabel.TextTruncate = Enum.TextTruncate.AtEnd
 			detailLabel.TextColor3 = Color3.fromRGB(140, 162, 205)
@@ -22874,7 +22876,7 @@ do
 			local badge = Instance.new("TextLabel")
 			badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			badge.BorderSizePixel = 0
-			badge.Position = UDim2.new(0, 6, 0, 3)
+			badge.Position = UDim2.new(0, 5, 0, 2)
 			badge.Size = UDim2.fromOffset(24, 13)
 			badge.Font = Enum.Font.GothamBold
 			badge.TextSize = 9.5
@@ -22900,16 +22902,16 @@ do
 				BadgeGradient = badgeGradient,
 			}
 
-			tbl24.Steal = mkBtn(row, "Steal", UDim2.fromOffset(64, 24), UDim2.new(1, -6, 0, 49), Vector2.new(1, 0.5), tbl14.Steal)
-			tbl24.Cancel = mkBtn(row, "X", UDim2.fromOffset(26, 24), UDim2.new(1, -6, 0, 49), Vector2.new(1, 0.5), tbl14.Cancel)
-			tbl24.Down = mkBtn(row, "v", UDim2.fromOffset(26, 24), UDim2.new(1, -34, 0, 49), Vector2.new(1, 0.5), tbl14.Hud)
-			tbl24.Up = mkBtn(row, "^", UDim2.fromOffset(26, 24), UDim2.new(1, -62, 0, 49), Vector2.new(1, 0.5), tbl14.Hud)
-			tbl24.Star = mkBtn(row, "TOP", UDim2.fromOffset(36, 24), UDim2.new(1, -90, 0, 49), Vector2.new(1, 0.5), tbl14.Queued)
+			tbl24.Steal = mkBtn(row, "Steal", UDim2.fromOffset(54, 20), UDim2.new(1, -6, 0, 38), Vector2.new(1, 0.5), tbl14.Steal)
+			tbl24.Cancel = mkBtn(row, "X", UDim2.fromOffset(22, 20), UDim2.new(1, -6, 0, 38), Vector2.new(1, 0.5), tbl14.Cancel)
+			tbl24.Down = mkBtn(row, "v", UDim2.fromOffset(22, 20), UDim2.new(1, -30, 0, 38), Vector2.new(1, 0.5), tbl14.Hud)
+			tbl24.Up = mkBtn(row, "^", UDim2.fromOffset(22, 20), UDim2.new(1, -54, 0, 38), Vector2.new(1, 0.5), tbl14.Hud)
+			tbl24.Star = mkBtn(row, "TOP", UDim2.fromOffset(30, 20), UDim2.new(1, -78, 0, 38), Vector2.new(1, 0.5), tbl14.Queued)
 			tbl24.Cancel.Button.Visible = false
 			tbl24.Down.Button.Visible = false
 			tbl24.Up.Button.Visible = false
-			tbl24.Star.Label.TextSize = 9
-			tbl24.Steal.Label.TextSize = 10
+			tbl24.Star.Label.TextSize = 8.5
+			tbl24.Steal.Label.TextSize = 9.5
 
 			for _, sliced20 in ipairs({ { tbl24.Up, -1 }, { tbl24.Down, 1 } }) do
 				sliced20[1].Button.Activated:Connect(function()
@@ -23181,8 +23183,8 @@ do
 				tabName = "StealPanel",
 				frameName = "MoonEggSteal",
 				title = "Steal Panel",
-				w = 272,
-				h = 400,
+				w = 232,
+				h = 330,
 				pos = UDim2.new(0, 12, 0, 56),
 			})
 			local tab = win.tab
@@ -23192,14 +23194,14 @@ do
 			local bar = Instance.new("Frame")
 			bar.Name = "Bar"
 			bar.BackgroundTransparency = 1
-			bar.Size = UDim2.new(1, 0, 0, 78)
+			bar.Size = UDim2.new(1, 0, 0, 62)
 			bar.Parent = win.content
-			page.Position = UDim2.new(0, 0, 0, 78)
-			page.Size = UDim2.new(1, 0, 1, -78)
+			page.Position = UDim2.new(0, 0, 0, 62)
+			page.Size = UDim2.new(1, 0, 1, -62)
 
 			local function makeSwitchButton(text, pos, onChange)
-				local btn = mkBtn(bar, text .. ": OFF", UDim2.new(0.5, -11, 0, 36), pos, nil, tbl14.Queued)
-				btn.Label.TextSize = 11.5
+				local btn = mkBtn(bar, text .. ": OFF", UDim2.new(0.5, -11, 0, 26), pos, nil, tbl14.Queued)
+				btn.Label.TextSize = 10
 				local obj = { State = false }
 
 				function obj:Set(v)
@@ -23230,8 +23232,8 @@ do
 				tbl4.UiDefer(slicedfn40)
 			end)
 
-			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 36), UDim2.new(0.5, 3, 0, 4), nil, tbl14.Queued)
-			modeButton.Label.TextSize = 11.5
+			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 26), UDim2.new(0.5, 3, 0, 4), nil, tbl14.Queued)
+			modeButton.Label.TextSize = 10
 			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
 			local guardHandle = { Name = "Normal" }
 
@@ -23279,8 +23281,8 @@ do
 				end)
 			end
 
-			local sortButton = mkBtn(bar, "Sort: " .. tostring(sliced4), UDim2.new(1, -16, 0, 28), UDim2.new(0, 8, 0, 46), nil, tbl14.Hud)
-			sortButton.Label.TextSize = 11
+			local sortButton = mkBtn(bar, "Sort: " .. tostring(sliced4), UDim2.new(1, -16, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Hud)
+			sortButton.Label.TextSize = 10
 			sortButton.Button.Activated:Connect(function()
 				sortButton.Pulse()
 				cycleSort()
