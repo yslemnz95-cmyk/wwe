@@ -3831,9 +3831,13 @@ do
 		-- three delivery modes. The mode is the only switch for the hops: Instant TP hops home the moment the egg is
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
 		tbl4.Method = {
-			Names = { "Normal", "Instant TP", "Delivery Stop" },
+			Names = { "Normal", "Instant TP", "Delivery Stop", "Snap Steal" },
 			Current = function()
 				local sc = tbl4.SafeCarry
+
+				if sc.SnapSteal then
+					return "Snap Steal"
+				end
 
 				if sc.Teleport then
 					return "Instant TP"
@@ -3853,7 +3857,8 @@ do
 				end
 
 				tbl4.MethodApplying = true
-				local hops = name ~= "Normal"
+				local hops = name == "Instant TP" or name == "Delivery Stop"
+				sc.SnapSteal = name == "Snap Steal"
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name == "Delivery Stop"
@@ -3889,7 +3894,7 @@ do
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
-			Note = "Normal (walk) / Instant TP (one jump onto the base as soon as you hold the egg) / Delivery Stop (hops with stops)",
+			Note = "Normal (walk) / Instant TP (hop home) / Delivery Stop (hops with stops) / Snap Steal (instant single TP to base, Anti Guard stays on)",
 			Options = tbl4.Method.Names,
 			Default = "Normal",
 			Callback = function(arg)
@@ -4518,7 +4523,7 @@ do
 				if tbl4.MethodReady and not tbl4.MethodApplying then
 					local mode = tbl4.Method.Current()
 
-					if tbl4.AntiGuard.Enabled and mode ~= "Normal" then
+					if tbl4.AntiGuard.Enabled and mode ~= "Normal" and mode ~= "Snap Steal" then
 						tbl4.Method.Apply("Normal")
 					end
 				end
@@ -8283,10 +8288,59 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
+			-- Snap Steal: one direct TP from the field back to base the instant the egg is in hand.
+			-- Compatible with Anti Guard (AG stays on to protect the base side).
+			tbl4.SafeCarry.SnapStealHome = function(arg)
+				local safeCarry = tbl4.SafeCarry
+				local now = os.clock()
+				local home = stealHome()
+				local root = tbl4.Root()
+				local character = localPlayer.Character
+
+				if not home or not root or not character then
+					return false
+				end
+
+				str2 = "Snap Steal: snapping to base..."
+				local rotation = root.CFrame.Rotation
+				local snapCF = CFrame.new(home.X, home.Y + 3.5, home.Z) * rotation
+
+				-- Single instant TP – no ground scan needed, the delivery marker is on solid ground
+				pcall(function()
+					character:PivotTo(snapCF)
+					root.AssemblyLinearVelocity = Vector3.zero
+					root.AssemblyAngularVelocity = Vector3.zero
+				end)
+
+				-- One frame so the engine registers the position before we fire DropFieldEgg
+				RunService.Heartbeat:Wait()
+
+				if tbl4.Steal.Carrying then
+					local eggState = tbl.EggState
+					if type(eggState) == "table" and type(eggState.DropFieldEgg) == "function" then
+						pcall(eggState.DropFieldEgg, "PlayerRequest")
+					end
+				end
+
+				local waited = 0
+				while waited < 2 and safeCarry.LastDelivered < now and not slicedfn13(arg) do
+					if safeCarry.LastFailed >= now then
+						str2 = "Snap Steal: server rejected"
+						return false
+					end
+					if not tbl4.Steal.Carrying then
+						break
+					end
+					waited += RunService.Heartbeat:Wait()
+				end
+
+				return safeCarry.LastDelivered >= now
+			end
+
 			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
-				if antiGuard.Enabled and not tbl4.SafeCarry.LineDrop then
+				if antiGuard.Enabled and not tbl4.SafeCarry.LineDrop and not tbl4.SafeCarry.SnapSteal then
 					local slicedn17 = 0
 
 					while not antiGuard.Busy and slicedn17 < 1 and not slicedfn13(arg) do
@@ -8378,6 +8432,10 @@ do
 						str2 = "The egg is gone"
 						return false
 					end
+				end
+
+				if tbl4.SafeCarry.SnapSteal then
+					return tbl4.SafeCarry.SnapStealHome(arg)
 				end
 
 				if tbl4.SafeCarry.Teleport then
@@ -24322,7 +24380,7 @@ do
 
 			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(1, -16, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
 			modeButton.Label.TextSize = 9
-			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
+			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn, ["Snap Steal"] = tbl14.Chilli }
 			local guardHandle = { Name = "Normal" }
 
 			function guardHandle:Set(name)
