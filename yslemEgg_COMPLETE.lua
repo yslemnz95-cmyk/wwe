@@ -3831,13 +3831,9 @@ do
 		-- three delivery modes. The mode is the only switch for the hops: Instant TP hops home the moment the egg is
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
 		tbl4.Method = {
-			Names = { "Normal", "Instant TP", "Delivery Stop", "Snap Steal" },
+			Names = { "Normal", "Instant TP", "Delivery Stop" },
 			Current = function()
 				local sc = tbl4.SafeCarry
-
-				if sc.SnapSteal then
-					return "Snap Steal"
-				end
 
 				if sc.Teleport then
 					return "Instant TP"
@@ -3857,18 +3853,7 @@ do
 				end
 
 				tbl4.MethodApplying = true
-				local hops = name == "Instant TP" or name == "Delivery Stop"
-				sc.SnapSteal = name == "Snap Steal"
-
-				if sc.SnapSteal then
-					pcall(function()
-						local rootPart = tbl4.Root()
-
-						if rootPart then
-							sc.SnapAnchor = rootPart.CFrame
-						end
-					end)
-				end
+				local hops = name ~= "Normal"
 				sc.Teleport = name == "Instant TP"
 				sc.StopMode = name == "Delivery Stop"
 				sc.LineDrop = name == "Delivery Stop"
@@ -3904,7 +3889,7 @@ do
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
-			Note = "Normal (walk) / Instant TP (hop home) / Delivery Stop (hops with stops) / Snap Steal (instant single TP to base, Anti Guard stays on)",
+			Note = "Normal (walk) / Instant TP (one jump onto the base as soon as you hold the egg) / Delivery Stop (hops with stops)",
 			Options = tbl4.Method.Names,
 			Default = "Normal",
 			Callback = function(arg)
@@ -3961,14 +3946,14 @@ do
 		tbl4.SafeCarry.CarryFps = 20
 		tbl4.CarryCap = {
 			Active = false,
-			On = function(fps)
+			On = function()
 				local cap = tbl4.CarryCap
 				if cap.Active or type(setfpscap) ~= "function" then
 					return
 				end
 				cap.Active = true
 				cap.At = os.clock()
-				pcall(setfpscap, math.clamp(math.floor(tonumber(fps) or tonumber(tbl4.SafeCarry.CarryFps) or 20), 5, 60))
+				pcall(setfpscap, math.clamp(math.floor(tonumber(tbl4.SafeCarry.CarryFps) or 20), 5, 60))
 				task.delay(30, function()
 					if cap.Active and os.clock() - cap.At >= 29 then
 						cap.Off()
@@ -4533,7 +4518,7 @@ do
 				if tbl4.MethodReady and not tbl4.MethodApplying then
 					local mode = tbl4.Method.Current()
 
-					if tbl4.AntiGuard.Enabled and mode ~= "Normal" and mode ~= "Snap Steal" then
+					if tbl4.AntiGuard.Enabled and mode ~= "Normal" then
 						tbl4.Method.Apply("Normal")
 					end
 				end
@@ -8298,171 +8283,10 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
-			-- Snap Steal: a still copy of your body stays on the spot where the mode was activated (camera follows it)
-			-- while the real character goes for the egg; the frame the egg is in hand the real character jumps back
-			-- onto that spot with the egg and the copy disappears
-			do
-				local wasCarrying = false
-				local decoy = nil
-
-				local function dropDecoy()
-					if not decoy then
-						return
-					end
-					local old = decoy
-					decoy = nil
-
-					pcall(function()
-						local cam = workspace.CurrentCamera
-						local char = localPlayer.Character
-						local hum = char and char:FindFirstChildOfClass("Humanoid")
-
-						if cam and hum then
-							cam.CameraSubject = hum
-						end
-					end)
-					pcall(function()
-						old:Destroy()
-					end)
-				end
-
-				RunService.Heartbeat:Connect(function()
-					local sc = tbl4.SafeCarry
-					local carrying = tbl4.Steal.Carrying == true
-					local anchor = sc.SnapAnchor
-					local character = localPlayer.Character
-					local rootPart = tbl4.Root()
-
-					if not sc.SnapSteal or typeof(anchor) ~= "CFrame" or not character or not rootPart then
-						dropDecoy()
-						wasCarrying = carrying
-						return
-					end
-
-					if not decoy and tbl4.Steal.Active and not carrying and (rootPart.Position - anchor.Position).Magnitude < 10 then
-						pcall(function()
-							local was = character.Archivable
-							character.Archivable = true
-							local copy = character:Clone()
-							character.Archivable = was
-
-							for _, d in ipairs(copy:GetDescendants()) do
-								if d:IsA("LuaSourceContainer") or d:IsA("Humanoid") then
-									pcall(function()
-										d:Destroy()
-									end)
-								elseif d:IsA("BasePart") then
-									d.Anchored = true
-									d.CanCollide = false
-									d.CanTouch = false
-									d.CanQuery = false
-								end
-							end
-							copy.Name = "SnapBody"
-							copy:PivotTo(rootPart.CFrame)
-							copy.Parent = workspace
-							decoy = copy
-
-							local cam = workspace.CurrentCamera
-							local copyRoot = copy:FindFirstChild("HumanoidRootPart")
-
-							if cam and copyRoot then
-								cam.CameraSubject = copyRoot
-							end
-						end)
-					end
-
-					if carrying and not wasCarrying then
-						pcall(tbl4.CarryCap.On, 30)
-						pcall(function()
-							character:PivotTo(anchor + Vector3.new(0, 1.5, 0))
-							rootPart.AssemblyLinearVelocity = Vector3.zero
-							rootPart.AssemblyAngularVelocity = Vector3.zero
-						end)
-						dropDecoy()
-					elseif decoy and not tbl4.Steal.Active then
-						dropDecoy()
-					end
-					wasCarrying = carrying
-				end)
-			end
-
-			-- Snap Steal: the moment the egg is in hand, one direct TP back to the spot where the mode was last activated
-			-- (falls back to the base marker). FPS is dipped to 30 for the trip. Compatible with Anti Guard.
-			tbl4.SafeCarry.SnapStealHome = function(arg)
-				local safeCarry = tbl4.SafeCarry
-				local now = os.clock()
-				local root = tbl4.Root()
-				local character = localPlayer.Character
-
-				if not root or not character then
-					return false
-				end
-				local anchor = safeCarry.SnapAnchor
-				local snapCF
-
-				if typeof(anchor) == "CFrame" then
-					snapCF = anchor + Vector3.new(0, 1.5, 0)
-				else
-					local home = stealHome()
-
-					if not home then
-						return false
-					end
-					snapCF = CFrame.new(home.X, home.Y + 3.5, home.Z) * root.CFrame.Rotation
-				end
-
-				str2 = "Snap Steal: back to the activation spot..."
-				pcall(tbl4.CarryCap.On, 30)
-
-				local function finish(result)
-					pcall(tbl4.CarryCap.Off)
-					return result
-				end
-
-				pcall(function()
-					character:PivotTo(snapCF)
-					root.AssemblyLinearVelocity = Vector3.zero
-					root.AssemblyAngularVelocity = Vector3.zero
-				end)
-
-				RunService.Heartbeat:Wait()
-
-				if tbl4.Steal.Carrying then
-					local eggState = tbl.EggState
-					if type(eggState) == "table" and type(eggState.DropFieldEgg) == "function" then
-						pcall(eggState.DropFieldEgg, "PlayerRequest")
-					end
-				end
-
-				local waited = 0
-				while waited < 2 and safeCarry.LastDelivered < now and not slicedfn13(arg) do
-					local here = tbl4.Root()
-
-					if waited < 0.6 and here and (here.Position - snapCF.Position).Magnitude > 6 and tbl4.Analyzer.RelocateAt < now then
-						pcall(function()
-							character:PivotTo(snapCF)
-							here.AssemblyLinearVelocity = Vector3.zero
-						end)
-					end
-
-					if safeCarry.LastFailed >= now then
-						str2 = "Snap Steal: server rejected"
-						return finish(false)
-					end
-					if not tbl4.Steal.Carrying then
-						break
-					end
-					waited += RunService.Heartbeat:Wait()
-				end
-
-				return finish(safeCarry.LastDelivered >= now)
-			end
-
 			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
-				if antiGuard.Enabled and not tbl4.SafeCarry.LineDrop and not tbl4.SafeCarry.SnapSteal then
+				if antiGuard.Enabled and not tbl4.SafeCarry.LineDrop then
 					local slicedn17 = 0
 
 					while not antiGuard.Busy and slicedn17 < 1 and not slicedfn13(arg) do
@@ -8554,10 +8378,6 @@ do
 						str2 = "The egg is gone"
 						return false
 					end
-				end
-
-				if tbl4.SafeCarry.SnapSteal then
-					return tbl4.SafeCarry.SnapStealHome(arg)
 				end
 
 				if tbl4.SafeCarry.Teleport then
@@ -24502,7 +24322,7 @@ do
 
 			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(1, -16, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
 			modeButton.Label.TextSize = 9
-			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn, ["Snap Steal"] = tbl14.Chilli }
+			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn }
 			local guardHandle = { Name = "Normal" }
 
 			function guardHandle:Set(name)
