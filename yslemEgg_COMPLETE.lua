@@ -8298,26 +8298,90 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
-			-- Snap Steal: the very frame the egg lands in the hand, jump back to the activation spot (before the
-			-- delivery code, the guard or the server get a chance to react at the egg)
+			-- Snap Steal: a still copy of your body stays on the spot where the mode was activated (camera follows it)
+			-- while the real character goes for the egg; the frame the egg is in hand the real character jumps back
+			-- onto that spot with the egg and the copy disappears
 			do
 				local wasCarrying = false
+				local decoy = nil
+
+				local function dropDecoy()
+					if not decoy then
+						return
+					end
+					local old = decoy
+					decoy = nil
+
+					pcall(function()
+						local cam = workspace.CurrentCamera
+						local char = localPlayer.Character
+						local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+						if cam and hum then
+							cam.CameraSubject = hum
+						end
+					end)
+					pcall(function()
+						old:Destroy()
+					end)
+				end
+
 				RunService.Heartbeat:Connect(function()
 					local sc = tbl4.SafeCarry
 					local carrying = tbl4.Steal.Carrying == true
+					local anchor = sc.SnapAnchor
+					local character = localPlayer.Character
+					local rootPart = tbl4.Root()
 
-					if sc.SnapSteal and carrying and not wasCarrying and typeof(sc.SnapAnchor) == "CFrame" then
-						local character = localPlayer.Character
-						local rootPart = tbl4.Root()
+					if not sc.SnapSteal or typeof(anchor) ~= "CFrame" or not character or not rootPart then
+						dropDecoy()
+						wasCarrying = carrying
+						return
+					end
 
-						if character and rootPart then
-							pcall(tbl4.CarryCap.On, 30)
-							pcall(function()
-								character:PivotTo(sc.SnapAnchor + Vector3.new(0, 1.5, 0))
-								rootPart.AssemblyLinearVelocity = Vector3.zero
-								rootPart.AssemblyAngularVelocity = Vector3.zero
-							end)
-						end
+					if not decoy and tbl4.Steal.Active and not carrying and (rootPart.Position - anchor.Position).Magnitude < 10 then
+						pcall(function()
+							local was = character.Archivable
+							character.Archivable = true
+							local copy = character:Clone()
+							character.Archivable = was
+
+							for _, d in ipairs(copy:GetDescendants()) do
+								if d:IsA("LuaSourceContainer") or d:IsA("Humanoid") then
+									pcall(function()
+										d:Destroy()
+									end)
+								elseif d:IsA("BasePart") then
+									d.Anchored = true
+									d.CanCollide = false
+									d.CanTouch = false
+									d.CanQuery = false
+								end
+							end
+							copy.Name = "SnapBody"
+							copy:PivotTo(rootPart.CFrame)
+							copy.Parent = workspace
+							decoy = copy
+
+							local cam = workspace.CurrentCamera
+							local copyRoot = copy:FindFirstChild("HumanoidRootPart")
+
+							if cam and copyRoot then
+								cam.CameraSubject = copyRoot
+							end
+						end)
+					end
+
+					if carrying and not wasCarrying then
+						pcall(tbl4.CarryCap.On, 30)
+						pcall(function()
+							character:PivotTo(anchor + Vector3.new(0, 1.5, 0))
+							rootPart.AssemblyLinearVelocity = Vector3.zero
+							rootPart.AssemblyAngularVelocity = Vector3.zero
+						end)
+						dropDecoy()
+					elseif decoy and not tbl4.Steal.Active then
+						dropDecoy()
 					end
 					wasCarrying = carrying
 				end)
