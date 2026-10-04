@@ -8630,24 +8630,6 @@ do
 					sc.DirectMargin = math.max(1.0, (tonumber(sc.DirectMargin) or 1.2) - 0.05)
 				end
 
-				local counter = nil
-
-				if not ok then
-					local detail = string.lower(tostring(str2))
-
-					if rejected then
-						counter = "keep every speed under the cap and wait longer at the line (the margin was raised for the next try)"
-					elseif relocated then
-						counter = "the server pulled you back: stay under the speed cap, turn Anti Guard on, use 3 or more Delivery Steps"
-					elseif string.find(detail, "nest", 1, true) then
-						counter = "the guard sent the egg back to its nest: turn Anti Guard on before grabbing it"
-					elseif string.find(detail, "take the egg back", 1, true) then
-						counter = "the egg could not be picked up again: stay still on the stop or use more Delivery Steps"
-					elseif not cancelled then
-						counter = "the egg was lost: turn Anti Guard on and avoid islands with a fast guard"
-					end
-				end
-				tbl4.LastFail = (not ok) and {Reason = reason, Detail = tostring(str2), Mode = mode, Counter = counter, At = os.clock()} or nil
 				pcall(A.Finish, ok, reason)
 				return ok
 			end
@@ -24407,11 +24389,11 @@ do
 			local bar = Instance.new("Frame")
 			bar.Name = "Bar"
 			bar.BackgroundTransparency = 1
-			bar.Size = UDim2.new(1, 0, 0, 114)
+			bar.Size = UDim2.new(1, 0, 0, 82)
 			bar.Position = UDim2.new(0, 0, 0, 66)
 			bar.Parent = win.content
-			page.Position = UDim2.new(0, 0, 0, 180)
-			page.Size = UDim2.new(1, 0, 1, -180)
+			page.Position = UDim2.new(0, 0, 0, 148)
+			page.Size = UDim2.new(1, 0, 1, -148)
 
 			-- hero card: picture of the strongest egg on the field right now
 			local hero = Instance.new("Frame")
@@ -24656,13 +24638,6 @@ do
 				ticks[i] = tick
 			end
 
-			local failLabel = U.label(bar, "", UDim2.new(1, -16, 0, 30), U.C.RED, Enum.Font.GothamMedium)
-			failLabel.Position = UDim2.new(0, 8, 0, 82)
-			failLabel.TextSize = 8.5
-			failLabel.TextWrapped = true
-			failLabel.TextYAlignment = Enum.TextYAlignment.Top
-			failLabel.Visible = false
-
 			local shownStops = -1
 
 			local function updateStrip()
@@ -24700,15 +24675,6 @@ do
 				end
 
 				phaseText.Text = text
-				local failure = tbl4.LastFail
-
-				if failure and os.clock() - failure.At < 20 then
-					failLabel.Text = "Failed (" .. tostring(failure.Mode) .. "): " .. tostring(failure.Reason)
-						.. (failure.Counter and ("\nFix: " .. failure.Counter) or "")
-					failLabel.Visible = true
-				else
-					failLabel.Visible = false
-				end
 				fill.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
 
 
