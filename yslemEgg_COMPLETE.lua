@@ -4326,11 +4326,41 @@ do
 
 			A.SetQueue = function(text, which)
 				local q = A.Queues[which or "report"]
-				local size = math.max(1, math.ceil(#text / q.N))
+				-- plain ASCII only (a cut in the middle of a multi-byte character makes setclipboard fail),
+				-- parts are cut on line boundaries
+				text = string.gsub(text, "[^\n\32-\126]", "?")
+				local target = math.max(1, math.ceil(#text / q.N))
 				q.Parts = {}
+				local current = {}
+				local size = 0
 
-				for k = 1, q.N do
-					q.Parts[k] = string.sub(text, (k - 1) * size + 1, k * size)
+				for line in string.gmatch(text .. "\n", "([^\n]*)\n") do
+					while #line > target * 2 do
+						current[#current + 1] = string.sub(line, 1, target)
+						line = string.sub(line, target + 1)
+						q.Parts[#q.Parts + 1] = table.concat(current, "\n")
+						current = {}
+						size = 0
+					end
+
+					current[#current + 1] = line
+					size += #line + 1
+
+					if size >= target and #q.Parts < q.N - 1 then
+						q.Parts[#q.Parts + 1] = table.concat(current, "\n")
+						current = {}
+						size = 0
+					end
+				end
+
+				q.Parts[#q.Parts + 1] = table.concat(current, "\n")
+
+				while #q.Parts < q.N do
+					q.Parts[#q.Parts + 1] = "(end)"
+				end
+
+				while #q.Parts > q.N do
+					q.Parts[q.N] = q.Parts[q.N] .. "\n" .. table.remove(q.Parts)
 				end
 
 				q.Next = 1
@@ -4354,7 +4384,7 @@ do
 				local ok = copy(string.format("[%s %d/%d]\n%s", label, k, q.N, q.Parts[k]))
 
 				if not ok then
-					pcall(tbl4.Notify, "Analyzer", "Copy is not available on this executor")
+					pcall(tbl4.Notify, "Analyzer", string.format("%s part %d/%d: copy FAILED, press again", label, k, q.N))
 					return false
 				end
 
