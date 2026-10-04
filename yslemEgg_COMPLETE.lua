@@ -3837,7 +3837,7 @@ do
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
 			Name = "Delivery Stops",
-			Note = "Delivery Stop mode: the teleport hops pause this many times on the way",
+			Note = "Delivery Stop mode: hops, then an Anti Guard teleport at each stop",
 			Min = 0,
 			Max = 6,
 			Default = 3,
@@ -3892,7 +3892,7 @@ do
 				sc.StopMode = name == "Delivery Stop"
 
 				if name == "Delivery Stop" then
-					setGuard(false)
+					setGuard(true)
 					setInstant(true)
 				elseif name == "Instant TP" then
 					setInstant(false)
@@ -6785,11 +6785,17 @@ do
 								str2 = string.format("Delivery stop %d/%d", hopStops, hopStopsWanted)
 								tbl4.Trip = { Phase = "Stop", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops, Stops = hopStopsWanted, At = os.clock() }
 								local held = 0
+								local guardRun = tbl4.AntiGuard
+								local usedGuard = false
 
-								while held < (tonumber(safeCarry.StopTime) or 0.7) and steal.Carrying and not slicedfn13(arg) do
+								if guardRun.Enabled and type(guardRun.Fire) == "function" then
+									usedGuard = select(2, pcall(guardRun.Fire)) == true
+								end
+
+								while (held < (tonumber(safeCarry.StopTime) or 0.7) or (usedGuard and guardRun.Busy and held < 6)) and steal.Carrying and not slicedfn13(arg) do
 									local stopRoot = tbl4.Root()
 
-									if stopRoot then
+									if stopRoot and not (usedGuard and guardRun.Busy) then
 										pcall(function()
 											stopRoot.CFrame = CFrame.new(x2, slicedn19, slicedn17) * CFrame.Angles(0, 1.5707963267948966, 0)
 											stopRoot.AssemblyLinearVelocity = Vector3.zero
