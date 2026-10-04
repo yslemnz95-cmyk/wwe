@@ -113,7 +113,7 @@ C.ACCENT, C.ACCENT2 = C.MOON, C.MOON2
 C.TRACKOFF = C.OFF_BG
 
 -- ---------- themes: one table so the lib block keeps few locals ----------
-local TH = {names = {"Moon", "Neon", "Toxic", "Gold"}, list = {}}
+local TH = {names = {"Gold", "Moon", "Neon", "Toxic"}, list = {}}
 do
 	local function c3(r, g, b) return Color3.fromRGB(r, g, b) end
 	TH.sets = {
@@ -126,7 +126,7 @@ do
 		Gold  = {DEEP1 = c3(18,12,2), DEEP2 = c3(58,40,10), DEEP3 = c3(165,120,30), DEEP4 = c3(255,200,90),  MOON = c3(255,195,80),  MOON2 = c3(255,225,150), ON_BG = c3(80,58,15),
 			SILVER = c3(240,230,208), SILVER2 = c3(210,185,140), HUDA = c3(255,240,215), HUDB = c3(255,210,140)},
 	}
-	TH.current = TH.sets[store["Theme"]] and store["Theme"] or "Moon"
+	TH.current = TH.sets[store["Theme"]] and store["Theme"] or "Gold"
 	TH.apply = function(name)
 		for k, v in pairs(TH.sets[name]) do C[k] = v end
 		C.ACCENT, C.ACCENT2, C.TABIDLE = C.MOON, C.MOON2, C.MOON2
@@ -570,6 +570,50 @@ end
 		end)
 	end
 
+	-- ---------- risk badge: centered, red blinking stroke, gone after a few seconds ----------
+	local riskToken = 0
+	lib.RiskBadge = function(title, text, dur)
+		pcall(function()
+			riskToken = riskToken + 1
+			local mine = riskToken
+			local old = gui:FindFirstChild("MoonEggRisk")
+			if old then old:Destroy() end
+			local f = Instance.new("Frame", gui)
+			f.Name = "MoonEggRisk"
+			f.AnchorPoint = Vector2.new(0.5, 0.5); f.Position = UDim2.new(0.5, 0, 0.5, 0)
+			f.Size = UDim2.new(0, 300, 0, 92)
+			f.BackgroundColor3 = C.BG; f.BackgroundTransparency = 0.25
+			f.BorderSizePixel = 0; f.ZIndex = 930
+			corner(f, 14)
+			local st = Instance.new("UIStroke", f)
+			st.Color = C.RED; st.Thickness = 2.5; st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			local t = label(f, tostring(title or ""), UDim2.new(1, -20, 0, 18), C.RED, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+			t.Position = UDim2.new(0, 10, 0, 8); t.TextSize = 12; t.ZIndex = 931
+			local d = label(f, tostring(text or ""), UDim2.new(1, -24, 0, 56), C.SILVER, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+			d.Position = UDim2.new(0, 12, 0, 28); d.TextSize = 10; d.TextWrapped = true
+			d.TextYAlignment = Enum.TextYAlignment.Top; d.ZIndex = 931
+			local sc = Instance.new("UIScale", f); sc.Scale = 0.85
+			TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+			local endAt = os.clock() + (tonumber(dur) or 10)
+			task.spawn(function()
+				local dim = false
+				while riskToken == mine and f.Parent and os.clock() < endAt do
+					dim = not dim
+					TweenService:Create(st, TweenInfo.new(0.3, Enum.EasingStyle.Sine), {Transparency = dim and 0.85 or 0}):Play()
+					task.wait(0.3)
+				end
+				if riskToken == mine and f.Parent then
+					TweenService:Create(f, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+					TweenService:Create(st, TweenInfo.new(0.3), {Transparency = 1}):Play()
+					TweenService:Create(t, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+					TweenService:Create(d, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+					task.wait(0.35)
+					pcall(function() f:Destroy() end)
+				end
+			end)
+		end)
+	end
+
 	-- ---------- startup splash: what loaded and what did not ----------
 	lib.Splash = function(lines)
 		pcall(function()
@@ -879,7 +923,11 @@ end
 			if old then old:Destroy() end
 
 			if mode == "in" then frame.Visible = true; updateArrow() end
-			local pos, size = frame.AbsolutePosition, frame.AbsoluteSize
+			local scr = gui.AbsoluteSize
+			local fp = frame.Position
+			local margin = 5
+			local pos = Vector2.new(fp.X.Scale * scr.X + fp.X.Offset - margin, fp.Y.Scale * scr.Y + fp.Y.Offset - margin)
+			local size = Vector2.new(cfg.w + margin * 2, fullH + margin * 2)
 
 			if size.X < 20 or size.Y < 20 then
 				frame.Visible = mode == "in"
@@ -4291,7 +4339,14 @@ do
 			Default = 3,
 			Increment = 1,
 			Callback = function(arg)
-				tbl4.SafeCarry.Stops = math.clamp(math.floor(tonumber(arg) or 3), 1, 6)
+				local previous = tbl4.SafeCarry.Stops or 3
+				local v = math.clamp(math.floor(tonumber(arg) or 3), 1, 6)
+				tbl4.SafeCarry.Stops = v
+
+				if v <= 2 and v < previous and MoonLib.ParticlesOn and MoonLib.RiskBadge then
+					MoonLib.RiskBadge("DELIVERY STEPS: " .. v .. " - RISKY",
+						"Fewer stops is faster, but the server can reject the delivery, pull you back, or the guard can send the egg back to its nest. 3 is the safe value.", 10)
+				end
 			end,
 		})
 
@@ -4438,7 +4493,7 @@ do
 			Name = "Delivery Method",
 			Note = "Normal (walk) / Instant TP (Chilli Hub's Instant Steal method: hops home, egg put down at the line and taken back) / Delivery Stop (hops with stops)",
 			Options = tbl4.Method.Names,
-			Default = "Normal",
+			Default = "Delivery Stop",
 			Callback = function(arg)
 				if tbl4.MethodReady and table.find(tbl4.Method.Names, arg) and tbl4.Method.Current() ~= arg then
 					tbl4.Method.Apply(arg)
@@ -25390,7 +25445,7 @@ do
 			flagReady = true
 
 			local methodHandle = tbl4.SafeCarry.MethodHandle
-			local savedMode = methodHandle and type(methodHandle.Get) == "function" and methodHandle.Get() or "Normal"
+			local savedMode = methodHandle and type(methodHandle.Get) == "function" and methodHandle.Get() or "Delivery Stop"
 			tbl4.Method.Apply(savedMode)
 			tbl4.MethodReady = true
 			if sliced18:Get() ~= true then
