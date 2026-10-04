@@ -4067,7 +4067,7 @@ do
 				if t == "number" then
 					return tostring(math.floor(v * 1000 + 0.5) / 1000)
 				elseif t == "string" then
-					return '"' .. v .. '"'
+					return '"' .. (#v > 48 and (string.sub(v, 1, 48) .. '~') or v) .. '"'
 				elseif t == "boolean" or t == "nil" then
 					return tostring(v)
 				elseif t == "Vector3" then
@@ -4078,7 +4078,7 @@ do
 				elseif t == "Instance" then
 					return v.ClassName .. ":" .. v.Name
 				elseif t == "table" then
-					if depth >= 2 then
+					if depth >= 1 then
 						return "{...}"
 					end
 					local parts, n = {}, 0
@@ -4086,7 +4086,7 @@ do
 					for k, val in pairs(v) do
 						n += 1
 
-						if n > 24 then
+						if n > 8 then
 							parts[#parts + 1] = "..."
 							break
 						end
@@ -4110,7 +4110,7 @@ do
 			end
 
 			A.Event = function(name, data)
-				if not A.Active or #A.Events >= 450 then
+				if not A.Active or #A.Events >= 120 then
 					return
 				end
 				A.Events[#A.Events + 1] = string.format("[%6.2f] %s %s", os.clock() - A.T0, name, data ~= nil and ser(data) or "")
@@ -4141,8 +4141,7 @@ do
 
 				local sc = tbl4.SafeCarry
 				local meta = {}
-				meta[#meta + 1] = "time: " .. os.date("%Y-%m-%d %H:%M:%S")
-				meta[#meta + 1] = "place: " .. tostring(game.PlaceId) .. "  job: " .. tostring(game.JobId)
+				meta[#meta + 1] = os.date("%H:%M:%S") .. " place " .. tostring(game.PlaceId)
 				local exName = "?"
 
 				if typeof(identifyexecutor) == "function" then
@@ -4150,36 +4149,33 @@ do
 					exName = okExec and tostring(nameExec) or "?"
 				end
 
-				meta[#meta + 1] = "executor: " .. exName
-				meta[#meta + 1] = "island (egg): " .. A.Island() .. "   player AreaId attr: " .. tostring(localPlayer:GetAttribute("AreaId"))
-				meta[#meta + 1] = "egg: category=" .. tostring(sc.Category) .. " mult=" .. tostring(sc.Mult)
-				meta[#meta + 1] = "method: " .. tostring(method) .. "   ladder: " .. ser(ladder or {})
-				meta[#meta + 1] = string.format("walkspeed: %s   root: %s   home: %s", tostring(tbl4.WalkSpeed()), root and ser(root.Position) or "?", home and ser(home) or "?")
+				meta[#meta + 1] = "exec: " .. exName
+				meta[#meta + 1] = "island: " .. A.Island() .. " / me: " .. tostring(localPlayer:GetAttribute("AreaId"))
+				meta[#meta + 1] = "egg: " .. tostring(sc.Category) .. " x" .. tostring(sc.Mult)
+				meta[#meta + 1] = "method: " .. tostring(method) .. " " .. table.concat(ladder or {}, ">")
+				meta[#meta + 1] = string.format("ws %s root %s home %s", tostring(tbl4.WalkSpeed()), root and ser(root.Position) or "?", home and ser(home) or "?")
 
 				if root and home then
-					meta[#meta + 1] = string.format("distance to home: %.0f", (root.Position - home).Magnitude)
+					meta[#meta + 1] = string.format("dist %.0f", (root.Position - home).Magnitude)
 				end
 
 				local line = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
 				line = line and line:FindFirstChild("Areas")
 				line = line and line:FindFirstChild("SeparationLine")
-				meta[#meta + 1] = "separation line: " .. (line and line:IsA("BasePart") and ser(line.Position) or "not found")
-				meta[#meta + 1] = "antiguard: enabled=" .. tostring(tbl4.AntiGuard.Enabled) .. " profile=" .. tostring(type(tbl4.AntiGuard.ProfileName) == "function" and select(2, pcall(tbl4.AntiGuard.ProfileName)) or "?")
+				meta[#meta + 1] = "line: " .. (line and line:IsA("BasePart") and ser(line.Position) or "none")
+				meta[#meta + 1] = "AG: " .. tostring(tbl4.AntiGuard.Enabled) .. " " .. tostring(type(tbl4.AntiGuard.ProfileName) == "function" and select(2, pcall(tbl4.AntiGuard.ProfileName)) or "?")
 				local guards = tbl.Guards
 				local entry = type(guards) == "table" and type(guards.Directory) == "table" and guards.Directory[tostring(tbl4.Steal.CarryAreaId)] or nil
-				meta[#meta + 1] = "guard data: " .. ser(entry)
+				meta[#meta + 1] = "guard ws: " .. tostring(type(entry) == "table" and entry.WalkSpeed or "?")
 
+				local keys = { "LineDrop", "StopMode", "Smart", "Stops", "Hops", "HopRatio", "HopGap", "HopLift", "DirectBudget", "DirectMargin", "LineWait", "CarryRatio", "Height" }
 				local cfg = {}
 
-				for k, v in pairs(sc) do
-					local t = type(v)
-					if t == "number" or t == "boolean" or t == "string" then
-						cfg[#cfg + 1] = tostring(k) .. "=" .. ser(v)
-					end
+				for _, k in ipairs(keys) do
+					cfg[#cfg + 1] = k .. "=" .. ser(sc[k])
 				end
 
-				table.sort(cfg)
-				meta[#meta + 1] = "safecarry: " .. table.concat(cfg, " ")
+				meta[#meta + 1] = "cfg: " .. table.concat(cfg, " ")
 				A.Meta = meta
 				A.Event("begin", method)
 
@@ -4187,7 +4183,7 @@ do
 					local last = 0
 
 					while A.Active and A.Run == run do
-						task.wait(0.25)
+						task.wait(1)
 						local r = tbl4.Root()
 						local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
 
@@ -4196,21 +4192,29 @@ do
 							pcall(function()
 								ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
 							end)
-							A.Event("pos", string.format("%s v=%.0f st=%s carry=%s ag=%s ping=%d", ser(r.Position), r.AssemblyLinearVelocity.Magnitude, humanoid and tostring(humanoid:GetState()) or "?", tostring(tbl4.Steal.Carrying), tostring(tbl4.AntiGuard.Busy), ping))
+							A.Event("pos", string.format("%s v%.0f %s c=%s ag=%s %dms", ser(r.Position), r.AssemblyLinearVelocity.Magnitude, humanoid and string.gsub(tostring(humanoid:GetState()), "Enum.HumanoidStateType.", "") or "?", tostring(tbl4.Steal.Carrying), tostring(tbl4.AntiGuard.Busy), ping))
 						end
 
-						if os.clock() - last >= 1 then
+						if os.clock() - last >= 2 and r then
 							last = os.clock()
+							local bestName, bestState, bestDist = nil, nil, math.huge
 
 							for _, child in ipairs(workspace:GetChildren()) do
 								if child:IsA("Model") then
 									local state = child:GetAttribute("GuardState")
 
 									if state ~= nil then
-										local pivot = child:GetPivot().Position
-										A.Event("guard", string.format("%s state=%s at %s dist=%.0f", child.Name, tostring(state), ser(pivot), r and (pivot - r.Position).Magnitude or -1))
+										local d = (child:GetPivot().Position - r.Position).Magnitude
+
+										if d < bestDist then
+											bestName, bestState, bestDist = child.Name, state, d
+										end
 									end
 								end
+							end
+
+							if bestName then
+								A.Event("guard", string.format("%s %s %.0f", bestName, tostring(bestState), bestDist))
 							end
 						end
 					end
@@ -4249,34 +4253,31 @@ do
 				end
 				A.Event("end", { ok = ok, reason = reason })
 				A.Active = false
-				local out = { "=== MoonEgg delivery report ===", "result: " .. (ok and "DELIVERED" or "FAILED") .. "  (" .. tostring(reason) .. ")", string.format("duration: %.2fs", os.clock() - A.T0) }
+				local out = { "MoonEgg report: " .. (ok and "DELIVERED" or "FAILED") .. " (" .. tostring(reason) .. ") " .. string.format("%.1fs", os.clock() - A.T0) }
 
 				for _, line in ipairs(A.Meta) do
 					out[#out + 1] = line
 				end
 
-				out[#out + 1] = "--- timeline ---"
+				out[#out + 1] = "--"
 
 				for _, line in ipairs(A.Events) do
 					out[#out + 1] = line
 				end
 
-				out[#out + 1] = "--- method stats (ok/fail per island) ---"
+				local parts = {}
 
 				for island, levels in pairs(tbl4.MethodStats or {}) do
-					local parts = {}
-
 					for level, s in pairs(levels) do
-						parts[#parts + 1] = string.format("%s %d/%d", level, s.Ok, s.Fail)
+						parts[#parts + 1] = string.format("%s/%s %d-%d", island, level, s.Ok, s.Fail)
 					end
-
-					out[#out + 1] = island .. ": " .. table.concat(parts, ", ")
 				end
 
+				out[#out + 1] = "stats: " .. (#parts > 0 and table.concat(parts, ", ") or "-")
 				local text = table.concat(out, "\n")
 
-				if #text > 24000 then
-					text = string.sub(text, 1, 6000) .. "\n...cut...\n" .. string.sub(text, -17000)
+				if #text > 3200 then
+					text = string.sub(text, 1, 1100) .. "\n...\n" .. string.sub(text, -2000)
 				end
 
 				A.Last = text
@@ -4287,16 +4288,16 @@ do
 			end
 
 			A.Scan = function()
-				local out = { "=== MoonEgg game scan ===", "time: " .. os.date("%Y-%m-%d %H:%M:%S"), "place: " .. tostring(game.PlaceId) }
+				local out = { "MoonEgg scan " .. os.date("%H:%M:%S") .. " place " .. tostring(game.PlaceId) }
 				local env = getfenv and getfenv() or _G
-				local names = { "setclipboard", "toclipboard", "fireproximityprompt", "setfpscap", "writefile", "readfile", "isfile", "identifyexecutor", "request", "firesignal", "hookfunction", "setthreadidentity", "queue_on_teleport" }
+				local names = { "setclipboard", "fireproximityprompt", "setfpscap", "writefile", "identifyexecutor", "firesignal" }
 				local caps = {}
 
 				for _, n in ipairs(names) do
 					local ok, f = pcall(function()
 						return env[n]
 					end)
-					caps[#caps + 1] = n .. "=" .. tostring(ok and type(f) == "function")
+					caps[#caps + 1] = n .. (ok and type(f) == "function" and "+" or "-")
 				end
 
 				out[#out + 1] = "executor: " .. table.concat(caps, " ")
@@ -4326,7 +4327,7 @@ do
 						areas[#areas + 1] = child.Name .. (pos and (" @ " .. ser(pos)) or "")
 					end
 
-					out[#out + 1] = "areas folder: " .. table.concat(areas, " | ")
+					out[#out + 1] = "areas: " .. string.sub(table.concat(areas, " | "), 1, 500)
 				end
 
 				if type(tbl4.StealHome) == "function" then
@@ -4338,7 +4339,7 @@ do
 
 				if type(guards) == "table" and type(guards.Directory) == "table" then
 					for id, data in pairs(guards.Directory) do
-						out[#out + 1] = "guard " .. tostring(id) .. ": " .. ser(data)
+						out[#out + 1] = "guard " .. tostring(id) .. " ws " .. tostring(type(data) == "table" and data.WalkSpeed or "?")
 					end
 				end
 
@@ -4349,7 +4350,7 @@ do
 				end
 
 				table.sort(top)
-				out[#out + 1] = "workspace children (" .. #top .. "): " .. string.sub(table.concat(top, ", "), 1, 3500)
+				out[#out + 1] = "workspace children: " .. #top
 
 				pcall(function()
 					local net = game:GetService("ReplicatedStorage").Packages.Networking
@@ -4360,25 +4361,21 @@ do
 					end
 
 					table.sort(remotes)
-					out[#out + 1] = "remotes (" .. #remotes .. "): " .. string.sub(table.concat(remotes, ", "), 1, 6000)
+					out[#out + 1] = "remotes: " .. #remotes
 				end)
 
+				local scanKeys = { "LineDrop", "StopMode", "Smart", "Stops", "Hops", "HopRatio", "HopLift", "DirectBudget", "DirectMargin", "LineWait", "CarryRatio", "Height", "RunSpeed", "CarryScale" }
 				local cfg = {}
 
-				for k, v in pairs(tbl4.SafeCarry) do
-					local t = type(v)
-					if t == "number" or t == "boolean" or t == "string" then
-						cfg[#cfg + 1] = tostring(k) .. "=" .. ser(v)
-					end
+				for _, k in ipairs(scanKeys) do
+					cfg[#cfg + 1] = k .. "=" .. ser(tbl4.SafeCarry[k])
 				end
 
-				table.sort(cfg)
-				out[#out + 1] = "safecarry: " .. table.concat(cfg, " ")
-				out[#out + 1] = "method stats: " .. ser(tbl4.MethodStats or {})
-				local text = table.concat(out, "\n")
+				out[#out + 1] = "cfg: " .. table.concat(cfg, " ")
+								local text = table.concat(out, "\n")
 
-				if #text > 24000 then
-					text = string.sub(text, 1, 24000) .. "\n...cut..."
+				if #text > 3200 then
+					text = string.sub(text, 1, 3200) .. "\n..."
 				end
 
 				A.LastScan = text
