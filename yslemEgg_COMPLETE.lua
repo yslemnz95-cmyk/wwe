@@ -24636,7 +24636,9 @@ do
 					branch.BackgroundTransparency = 0.2
 					branch.BorderSizePixel = 0
 					branch.Position = UDim2.new(0, 8, 0, 126)
-					branch.Size = UDim2.new(1, -16, 0, math.min(total, 220))
+					branch.Size = UDim2.new(1, -16, 0, math.min(total, 180))
+					branch.Active = true
+					branch.ScrollingEnabled = true
 					branch.ZIndex = 60
 					branch.Visible = false
 					U.corner(branch, 8)
@@ -24689,6 +24691,7 @@ do
 				end
 
 				branch.Visible = not branch.Visible
+				page.ScrollingEnabled = not branch.Visible
 				refreshBranch()
 			end)
 
