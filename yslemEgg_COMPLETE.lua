@@ -432,10 +432,45 @@ end
 		frame.ClipsDescendants = true
 		frame.Active = true
 		frame.ZIndex = cfg.z or 20
-		corner(frame, 20)
+		local frameCorner = corner(frame, 20)
 		addLivingStroke(frame, 1.5, true)
 		local winScale = Instance.new("UIScale", frame)
 		w.frame = frame
+		local docked = cfg.dock == "left"
+		local NEON = Color3.fromRGB(70, 225, 255)
+		local dockHandle
+		if docked then
+			frameCorner.CornerRadius = UDim.new(0, 8)
+			frame.AnchorPoint = Vector2.new(0, 0.5)
+			frame.Size = UDim2.new(0, cfg.w + 8, 1, -96)
+			frame.Position = UDim2.new(0, -(cfg.w + 16), 0.5, 0)
+			frame.BackgroundColor3 = Color3.fromRGB(4, 9, 16)
+			frame.BackgroundTransparency = 0.06
+			local lim = Instance.new("UISizeConstraint", frame)
+			lim.MinSize = Vector2.new(0, 220); lim.MaxSize = Vector2.new(9999, 540)
+			local fs = frame:FindFirstChildOfClass("UIStroke")
+			local fg = fs and fs:FindFirstChildOfClass("UIGradient")
+			if fs then fs.Thickness = 1.2 end
+			if fg then
+				fg.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 40, 60)), ColorSequenceKeypoint.new(0.25, NEON),
+					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 40, 60)), ColorSequenceKeypoint.new(0.75, NEON),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 40, 60)),
+				})
+			end
+			-- slim handle glued to the panel's edge: tap to slide the panel in / out
+			dockHandle = Instance.new("TextButton", gui)
+			dockHandle.Name = "MoonEggDockHandle"
+			dockHandle.AnchorPoint = Vector2.new(0, 0.5)
+			dockHandle.Size = UDim2.new(0, 22, 0, 92)
+			dockHandle.Position = UDim2.new(0, 0, 0.5, 0)
+			dockHandle.BackgroundColor3 = Color3.fromRGB(4, 9, 16); dockHandle.BackgroundTransparency = 0.1
+			dockHandle.BorderSizePixel = 0; dockHandle.AutoButtonColor = false
+			dockHandle.Text = "S\nT\nE\nA\nL"; dockHandle.TextSize = 10; dockHandle.Font = Enum.Font.SciFi
+			dockHandle.TextColor3 = NEON; dockHandle.ZIndex = 400
+			corner(dockHandle, 6); stroke(dockHandle, NEON, 1, 0.25)
+			frame.Destroying:Connect(function() pcall(function() dockHandle:Destroy() end) end)
+		end
 
 		local header = Instance.new("Frame", frame)
 		header.Size = UDim2.new(1, 0, 0, 42)
@@ -469,6 +504,21 @@ end
 		local sep = Instance.new("Frame", frame)
 		sep.Size = UDim2.new(1, -24, 0, 1); sep.Position = UDim2.new(0, 12, 0, 42)
 		sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
+		if docked then
+			moon.Visible = false; mini.Visible = false
+			header.BackgroundTransparency = 1
+			title.Position = UDim2.new(0, 24, 0, 2); title.Size = UDim2.new(1, -70, 0, 24)
+			title.Font = Enum.Font.SciFi; title.TextSize = 16; title.Text = string.upper(cfg.title)
+			title.TextColor3 = NEON
+			local sub = label(header, "// TARGET LINK ONLINE", UDim2.new(1, -70, 0, 12), Color3.fromRGB(70, 130, 160), Enum.Font.SciFi)
+			sub.Position = UDim2.new(0, 24, 0, 24); sub.TextSize = 9
+			close.Text = "<"; close.TextColor3 = NEON; close.BackgroundColor3 = Color3.fromRGB(6, 24, 34)
+			close.Position = UDim2.new(1, -30, 0.5, -10)
+			local cc = close:FindFirstChildOfClass("UICorner")
+			if cc then cc.CornerRadius = UDim.new(0, 4) end
+			sep.BackgroundColor3 = NEON; sep.BackgroundTransparency = 0.55
+			sep.Position = UDim2.new(0, 16, 0, 42)
+		end
 
 		local bodyTop = 46
 		local tabBar
@@ -568,9 +618,54 @@ end
 
 		-- minimize / close / drag
 		local minimized, fullH = false, H
-		mini.MouseButton1Click:Connect(function()
-			minimized = not minimized
-			if minimized then
+		local hudFps, hudPing, hudLabel, hudHint = 60, 0, nil, nil
+		if cfg.isMain then
+			local acc, frames = 0, 0
+			RunService.RenderStepped:Connect(function(dt)
+				acc = acc + dt; frames = frames + 1
+				if acc >= 0.5 then hudFps = math.floor(frames / acc + 0.5); acc = 0; frames = 0 end
+			end)
+			hudLabel = label(header, "", UDim2.new(1, 0, 0, 22), Color3.fromRGB(150, 235, 255), Enum.Font.SciFi, Enum.TextXAlignment.Center)
+			hudLabel.Position = UDim2.new(0, 0, 0, 4); hudLabel.TextSize = 14; hudLabel.Visible = false
+			hudHint = label(header, "TAP TO OPEN", UDim2.new(1, 0, 0, 12), Color3.fromRGB(120, 150, 175), Enum.Font.SciFi, Enum.TextXAlignment.Center)
+			hudHint.Position = UDim2.new(0, 0, 0, 25); hudHint.TextSize = 9; hudHint.Visible = false
+			task.spawn(function()
+				while frame.Parent do
+					task.wait(0.5)
+					if minimized then
+						pcall(function()
+							hudPing = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5)
+						end)
+						hudLabel.Text = hudFps .. " FPS  |  " .. hudPing .. " MS"
+					end
+				end
+			end)
+		end
+		local function setMinimized(on)
+			minimized = on
+			if cfg.isMain then
+				if on then
+					content.Visible = false; sep.Visible = false; ov.Visible = false
+					if tabBar then tabBar.Visible = false end
+					title.Visible = false; mini.Visible = false; close.Visible = false; moon.Visible = false
+					hudLabel.Text = hudFps .. " FPS  |  " .. hudPing .. " MS"
+					hudLabel.Visible = true; hudHint.Visible = true
+					header.BackgroundTransparency = 1
+					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
+						Size = UDim2.new(0, 176, 0, 42), BackgroundTransparency = 0.6}):Play()
+				else
+					hudLabel.Visible = false; hudHint.Visible = false
+					title.Visible = true; mini.Visible = true; close.Visible = true; moon.Visible = true
+					header.BackgroundTransparency = 0
+					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
+						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
+					content.Visible = true; sep.Visible = true
+					if tabBar then tabBar.Visible = true end
+					mini.Text = "-"
+				end
+				return
+			end
+			if on then
 				TweenService:Create(frame, TweenInfo.new(0.2), {Size = UDim2.new(0, cfg.w, 0, 42)}):Play()
 				content.Visible = false; sep.Visible = false; ov.Visible = false
 				if tabBar then tabBar.Visible = false end
@@ -581,13 +676,45 @@ end
 				if tabBar then tabBar.Visible = true end
 				mini.Text = "-"
 			end
-		end)
+		end
+		mini.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
+		if cfg.isMain then
+			local tapAt
+			header.InputBegan:Connect(function(inp)
+				if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+					tapAt = inp.Position
+				end
+			end)
+			header.InputEnded:Connect(function(inp)
+				if minimized and tapAt and (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) then
+					if (inp.Position - tapAt).Magnitude < 8 then setMinimized(false) end
+					tapAt = nil
+				end
+			end)
+		end
 		w.OnClose = newSignalList()
 		local closing = 0
 		function w.SetOpen(on)
 			on = on == true
 			closing = closing + 1
 			local mine = closing
+			if docked then
+				local slide = TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+				if on then
+					frame.Visible = true
+					TweenService:Create(frame, slide, {Position = UDim2.new(0, -8, 0.5, 0)}):Play()
+					TweenService:Create(dockHandle, slide, {Position = UDim2.new(0, cfg.w, 0.5, 0)}):Play()
+				else
+					TweenService:Create(frame, slide, {Position = UDim2.new(0, -(cfg.w + 16), 0.5, 0)}):Play()
+					TweenService:Create(dockHandle, slide, {Position = UDim2.new(0, 0, 0.5, 0)}):Play()
+					task.delay(0.34, function()
+						if closing == mine then frame.Visible = false end
+					end)
+				end
+				w.wantOpen = on
+				w.OnClose.Fire(on)
+				return
+			end
 			if on then
 				zTop = zTop + 1; frame.ZIndex = zTop
 				winScale.Scale = 0.9
@@ -611,7 +738,13 @@ end
 				w.SetOpen(false)
 			end
 		end)
-		drag(header, frame)
+		if docked then
+			dockHandle.MouseButton1Click:Connect(function()
+				if cfg.onHandle then cfg.onHandle() else w.SetOpen(not w.IsOpen()) end
+			end)
+		else
+			drag(header, frame)
+		end
 
 		-- tabs
 		function w.AddTab(name, hidden)
@@ -1131,7 +1264,7 @@ end
 	-- ---------- extra tool windows (same look/API as the Events window) ----------
 	lib.NewToolWindow = function(cfg)
 		local win = newWindow({name = cfg.name, frameName = cfg.frameName, title = cfg.title, w = cfg.w or 252, h = cfg.h or 340,
-			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20})
+			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20, dock = cfg.dock, onHandle = cfg.onHandle})
 		local raw = win.AddTab(cfg.tabName or "Tool")
 		local tab = setmetatable(raw, Tab)
 		tab.window = win
@@ -23062,9 +23195,9 @@ do
 			style.Light = strokeColor
 		end
 		-- same look as the hub buttons: blue gradient + light stroke
-		moonStyle(tbl14.Hud, c3(40, 80, 165), c3(90, 150, 255), c3(160, 200, 255))
-		moonStyle(tbl14.Steal, c3(90, 150, 255), c3(40, 80, 165), c3(160, 200, 255))
-		moonStyle(tbl14.Queued, c3(22, 30, 50), c3(10, 15, 28), c3(56, 74, 120))
+		moonStyle(tbl14.Hud, c3(8, 38, 58), c3(16, 92, 124), c3(70, 225, 255))
+		moonStyle(tbl14.Steal, c3(20, 210, 240), c3(0, 100, 140), c3(170, 252, 255))
+		moonStyle(tbl14.Queued, c3(9, 15, 24), c3(5, 9, 16), c3(36, 84, 112))
 		moonStyle(tbl14.PriorityOn, c3(255, 200, 60), c3(200, 120, 30), c3(255, 225, 140))
 		moonStyle(tbl14.Cancel, c3(215, 64, 76), c3(130, 30, 44), c3(255, 130, 130))
 	end
@@ -23829,24 +23962,38 @@ do
 			button.Position = pos or UDim2.new()
 			button.AnchorPoint = anchor or Vector2.new(0, 0)
 			button.ZIndex = 3
-			U.corner(button, 100)
+			U.corner(button, 3)
 			local gradient = Instance.new("UIGradient")
 			gradient.Parent = button
 			local strokeObj = Instance.new("UIStroke")
-			strokeObj.Thickness = 1
-			strokeObj.Transparency = 0.3
+			strokeObj.Thickness = 1.2
+			strokeObj.Transparency = 0.1
 			strokeObj.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			strokeObj.Parent = button
 			local lbl = Instance.new("TextLabel")
 			lbl.Name = "Label"
 			lbl.BackgroundTransparency = 1
 			lbl.Size = UDim2.fromScale(1, 1)
-			lbl.Font = Enum.Font.GothamBold
-			lbl.TextSize = 10
-			lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+			lbl.Font = Enum.Font.SciFi
+			lbl.TextSize = 11
+			lbl.TextColor3 = Color3.fromRGB(225, 250, 255)
 			lbl.Text = text or ""
 			lbl.ZIndex = 4
 			lbl.Parent = button
+			-- HUD-style corner ticks
+			for _, tickDef in ipairs({ { UDim2.new(0, 0, 0, 0), Vector2.new(0, 0) }, { UDim2.new(1, 0, 1, 0), Vector2.new(1, 1) } }) do
+				local tickH = Instance.new("Frame")
+				tickH.BackgroundColor3 = Color3.fromRGB(190, 250, 255)
+				tickH.BorderSizePixel = 0
+				tickH.AnchorPoint = tickDef[2]
+				tickH.Position = tickDef[1]
+				tickH.Size = UDim2.fromOffset(6, 1)
+				tickH.ZIndex = 5
+				tickH.Parent = button
+				local tickV = tickH:Clone()
+				tickV.Size = UDim2.fromOffset(1, 6)
+				tickV.Parent = button
+			end
 			local scale = Instance.new("UIScale")
 			scale.Parent = button
 			button.Parent = parent
@@ -23881,11 +24028,16 @@ do
 			local U = MoonLib.UI
 			local row = Instance.new("Frame")
 			row.Size = UDim2.new(1, 0, 0, 52)
-			row.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-			row.BackgroundTransparency = 0.35
+			row.BackgroundColor3 = Color3.fromRGB(4, 12, 20)
+			row.BackgroundTransparency = 0.2
 			row.BorderSizePixel = 0
-			U.corner(row, 10)
-			U.addLivingStroke(row, 1)
+			U.corner(row, 4)
+			local rowStroke = Instance.new("UIStroke")
+			rowStroke.Color = Color3.fromRGB(34, 110, 140)
+			rowStroke.Thickness = 1
+			rowStroke.Transparency = 0.2
+			rowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			rowStroke.Parent = row
 
 			local rowScale = Instance.new("UIScale")
 			rowScale.Scale = 0.9
@@ -23909,7 +24061,7 @@ do
 			iconHolder.Position = UDim2.new(0, 11, 0.5, -18)
 			iconHolder.Size = UDim2.fromOffset(36, 36)
 			iconHolder.ZIndex = 2
-			U.corner(iconHolder, 9)
+			U.corner(iconHolder, 3)
 			iconHolder.Parent = row
 
 			local icon = Instance.new("ImageLabel")
@@ -23972,7 +24124,7 @@ do
 			badge.Text = "#1"
 			badge.Visible = false
 			badge.ZIndex = 6
-			U.corner(badge, 6)
+			U.corner(badge, 2)
 			local badgeGradient = Instance.new("UIGradient")
 			badgeGradient.Parent = badge
 			badge.Parent = row
@@ -24271,9 +24423,16 @@ do
 				tabName = "StealPanel",
 				frameName = "MoonEggSteal",
 				title = "Steal Panel",
-				w = 232,
+				w = 236,
 				h = 350,
-				pos = UDim2.new(0, 12, 0, 56),
+				dock = "left",
+				onHandle = function()
+					local st = MoonLib.states["Steal Panel Open"]
+
+					if st then
+						st:Set(not st.Get())
+					end
+				end,
 			})
 			local tab = win.tab
 
