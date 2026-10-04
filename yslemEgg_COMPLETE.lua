@@ -8059,7 +8059,8 @@ do
 				local longest = 0
 				local retries = 0
 				tune.Jumped = { Longest = 0 }
-				local height = math.max(root.Position.Y, home.Y) + 42
+				local startY = math.max(root.Position.Y, home.Y)
+				local startCFrame = root.CFrame
 
 				-- solid ground under a point (nil over water / void, so we only ever land on islands)
 				local function groundAt(x, z)
@@ -8067,9 +8068,20 @@ do
 					params.FilterType = Enum.RaycastFilterType.Exclude
 					params.FilterDescendantsInstances = { character, tbl4.StealClone }
 					params.IgnoreWater = true
-					local hit = workspace:Raycast(Vector3.new(x, 2000, z), Vector3.new(0, -4000, 0), params)
+					local top = startY + 90
+					local hit = workspace:Raycast(Vector3.new(x, top, z), Vector3.new(0, -260, 0), params)
 
-					if hit and hit.Material ~= Enum.Material.Water then
+					while hit and (not hit.Instance.CanCollide or hit.Instance.Transparency >= 0.95) do
+						local nextTop = hit.Position.Y - 0.5
+
+						if nextTop < startY - 160 then
+							hit = nil
+							break
+						end
+						hit = workspace:Raycast(Vector3.new(x, nextTop, z), Vector3.new(0, -(nextTop - (startY - 170)), 0), params)
+					end
+
+					if hit and hit.Material ~= Enum.Material.Water and hit.Position.Y <= startY + 60 then
 						return hit.Position.Y
 					end
 					return nil
@@ -8136,7 +8148,10 @@ do
 						tune.JumpCap = math.max(30, tune.JumpCap * 0.6)
 
 						if retries > 8 then
-							break
+							pcall(function()
+								character:PivotTo(startCFrame)
+							end)
+							return false
 						end
 						continue
 					end
@@ -8219,6 +8234,9 @@ do
 							safeHop = math.max(30, safeHop * 0.6)
 
 							if retries > 14 then
+								pcall(function()
+									character:PivotTo(startCFrame)
+								end)
 								return false
 							end
 							continue
