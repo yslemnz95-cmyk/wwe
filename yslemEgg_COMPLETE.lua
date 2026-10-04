@@ -1332,6 +1332,7 @@ end
 		local defs = {
 			{id = "speed", label = "Speed"}, {id = "lock", label = "Lock"},
 			{id = "steal", label = "Steal\nPanel"}, {id = "events", label = "Events"},
+			{id = "mode", label = "Mode"}, {id = "panic", label = "STOP"},
 		}
 		for i, def in ipairs(defs) do
 			local col, rw = (i - 1) % 2, math.floor((i - 1) / 2)
@@ -1386,6 +1387,10 @@ end
 					lib.eventsWindow.SetOpen(not lib.eventsWindow.IsOpen())
 				elseif def.id == "lock" then
 					locked = not locked; setStored("Dock>Locked", locked); mark(locked)
+				elseif def.id == "mode" then
+					if lib.CycleMode then pcall(lib.CycleMode) end
+				elseif def.id == "panic" then
+					if lib.PanicStop then pcall(lib.PanicStop) end
 				end
 			end)
 			if def.id == "speed" then
@@ -1407,6 +1412,18 @@ end
 			elseif def.id == "events" then
 				lib.eventsWindow.OnClose.Connect(mark)
 				mark(lib.eventsWindow.IsOpen())
+			elseif def.id == "mode" then
+				task.spawn(function()
+					while btn.Parent do
+						local cur = lib.CurrentMode and lib.CurrentMode() or "Normal"
+						l.Text = cur == "Instant TP" and "Instant\nTP" or (cur == "Delivery Stop" and "Delivery\nStop" or "Normal")
+						mark(cur ~= "Normal")
+						task.wait(0.4)
+					end
+				end)
+			elseif def.id == "panic" then
+				l.TextColor3 = C.RED
+				glow.Color = C.RED
 			else
 				mark(locked)
 			end
@@ -4043,6 +4060,43 @@ do
 				end
 			end,
 		}
+
+		MoonLib.CurrentMode = function()
+			return tbl4.Method.Current()
+		end
+
+		MoonLib.CycleMode = function()
+			local names = tbl4.Method.Names
+			local at = table.find(names, tbl4.Method.Current()) or 1
+			local nextName = names[at % #names + 1]
+			tbl4.Method.Apply(nextName)
+
+			if MoonLib.Banner then
+				MoonLib.Banner("Mode: " .. nextName, 3)
+			end
+		end
+
+		-- emergency stop: Auto Steal off, delivery cancelled, FPS dip and Speed Boost released
+		MoonLib.PanicStop = function()
+			if sliced5 and type(sliced5.Set) == "function" then
+				pcall(sliced5.Set, sliced5, false)
+			end
+			local uid = tbl4.Steal.CarryUid
+
+			if type(uid) == "string" and type(tbl4.CancelSteal) == "function" then
+				pcall(tbl4.CancelSteal, uid)
+			end
+			pcall(tbl4.CarryCap.Off)
+			local boost = MoonLib.handles and MoonLib.handles["Player>Movement>Speed Boost"]
+
+			if boost and type(boost.Set) == "function" then
+				pcall(boost.Set, boost, false, true)
+			end
+
+			if MoonLib.Banner then
+				MoonLib.Banner("STOP: everything released", 3)
+			end
+		end
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
