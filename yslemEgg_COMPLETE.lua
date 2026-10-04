@@ -3791,24 +3791,6 @@ do
 			end,
 		})
 
-		tbl4.SafeCarry.InstantHandle = sliced8:CreateToggle({
-			Name = "Instant Steal",
-			Note = "Delivers the egg to the safe zone in a few seconds, needs enough Speed",
-			Default = false,
-			Callback = function(arg)
-				if type(arg) ~= "boolean" then
-					arg = tbl4.Toggle(tbl4.SafeCarry.InstantHandle, false)
-				end
-
-				tbl4.SafeCarry.LineDrop = arg ~= false
-				tbl4.SafeCarry.SpeedJitter = tbl4.SafeCarry.LineDrop and 0 or 0.08
-
-				if tbl4.StealPanelSync then
-					pcall(tbl4.StealPanelSync)
-				end
-			end,
-		})
-
 		tbl4.SafeCarry.RunHandle = sliced8:CreateSlider({
 			Name = "Tween Speed",
 			Note = "Over 100% may glitch",
@@ -3836,7 +3818,7 @@ do
 
 		tbl4.SafeCarry.StopsHandle = sliced8:CreateSlider({
 			Name = "Delivery Steps",
-			Note = "Delivery Stop mode: steps; the egg is dropped and taken back at each one",
+			Note = "Delivery Stop / Smart: stops on the way home (1 = straight hop, no stop)",
 			Min = 1,
 			Max = 6,
 			Default = 3,
@@ -3846,16 +3828,19 @@ do
 			end,
 		})
 
-		-- three delivery methods, always derived from the real switches (no hidden state)
+		-- four delivery modes. The mode is the only switch: it sets Smart / Delivery Stop / Anti Guard together,
+		-- so a combination that fights itself (Anti Guard running during the hops) can not exist.
 		tbl4.Method = {
 			Names = { "Normal", "Instant TP", "Delivery Stop", "Smart" },
 			Current = function()
-				if tbl4.SafeCarry.Smart then
+				local sc = tbl4.SafeCarry
+
+				if sc.Smart then
 					return "Smart"
 				end
 
-				if tbl4.SafeCarry.LineDrop then
-					return tbl4.SafeCarry.StopMode and "Delivery Stop" or "Instant Steal"
+				if sc.LineDrop then
+					return "Delivery Stop"
 				end
 
 				if tbl4.AntiGuard.Enabled then
@@ -3867,43 +3852,35 @@ do
 				local sc = tbl4.SafeCarry
 				local ag = tbl4.AntiGuard
 
-				local function setGuard(on)
-					local handle = ag.Handle
-
-					if handle and type(handle.Set) == "function" then
-						pcall(handle.Set, handle, on)
-					end
-					ag.Enabled = on
-
-					if ag.Render and tbl4.UiDefer then
-						tbl4.UiDefer(function()
-							pcall(ag.Render, false)
-						end)
-					end
+				if not table.find(tbl4.Method.Names, name) then
+					name = "Normal"
 				end
 
-				local function setInstant(on)
-					local handle = sc.InstantHandle
-
-					if handle and type(handle.Set) == "function" then
-						pcall(handle.Set, handle, on)
-					end
-					sc.LineDrop = on
-					sc.SpeedJitter = on and 0 or 0.08
-				end
-
-				sc.StopMode = name == "Delivery Stop"
+				tbl4.MethodApplying = true
 				sc.Smart = name == "Smart"
+				sc.StopMode = name == "Delivery Stop"
+				sc.LineDrop = name == "Delivery Stop"
+				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
 
-				if name == "Delivery Stop" then
-					setGuard(false)
-					setInstant(true)
-				elseif name == "Instant TP" or name == "Smart" then
-					setInstant(false)
-					setGuard(true)
-				else
-					setInstant(false)
-					setGuard(false)
+				local guardOn = name == "Instant TP" or name == "Smart"
+				local handle = ag.Handle
+
+				if handle and type(handle.Set) == "function" then
+					pcall(handle.Set, handle, guardOn)
+				end
+				ag.Enabled = guardOn
+
+				local methodHandle = sc.MethodHandle
+
+				if methodHandle and type(methodHandle.Set) == "function" then
+					pcall(methodHandle.Set, methodHandle, name, false)
+				end
+				tbl4.MethodApplying = false
+
+				if ag.Render and tbl4.UiDefer then
+					tbl4.UiDefer(function()
+						pcall(ag.Render, false)
+					end)
 				end
 
 				if tbl4.StealPanelSync then
@@ -3914,7 +3891,7 @@ do
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
-			Note = "Normal / Instant TP / Delivery Stop / Smart (Instant TP, then fallbacks)",
+			Note = "Normal / Instant TP (Anti Guard) / Delivery Stop / Smart (picks the best, falls back)",
 			Options = tbl4.Method.Names,
 			Default = "Normal",
 			Callback = function(arg)
@@ -3969,22 +3946,8 @@ do
 
 		-- FPS dip while the delivery is running (restores the FPS Cap slider value afterwards)
 		tbl4.SafeCarry.CarryFps = 20
-		tbl4.SafeCarry.DipFps = 3
 		tbl4.CarryCap = {
 			Active = false,
-			-- very short dip (Instant Steal): lowest FPS for a moment, then back to normal
-			Dip = function(fps, seconds)
-				local cap = tbl4.CarryCap
-				if cap.Active or type(setfpscap) ~= "function" then
-					return
-				end
-				cap.Active = true
-				cap.At = os.clock()
-				pcall(setfpscap, math.clamp(math.floor(tonumber(fps) or 3), 1, 60))
-				task.delay(tonumber(seconds) or 0.3, function()
-					cap.Off()
-				end)
-			end,
 			On = function()
 				local cap = tbl4.CarryCap
 				if cap.Active or type(setfpscap) ~= "function" then
@@ -4019,22 +3982,9 @@ do
 			end,
 		}
 
-		tbl4.SafeCarry.DipHandle = sliced8:CreateSlider({
-			Name = "Instant FPS Dip",
-			Note = "Instant Steal: lowest FPS for a very short moment (0 = off)",
-			Min = 0,
-			Max = 30,
-			Default = 3,
-			Increment = 1,
-			Unit = " FPS",
-			Callback = function(arg)
-				tbl4.SafeCarry.DipFps = math.clamp(math.floor(tonumber(arg) or 3), 0, 30)
-			end,
-		})
-
 		tbl4.SafeCarry.CarryFpsHandle = sliced8:CreateSlider({
 			Name = "Carry FPS Cap",
-			Note = "Delivery Stop only: FPS dip while the egg is carried",
+			Note = "Delivery Stop / Smart: FPS dip while the egg is carried",
 			Min = 5,
 			Max = 60,
 			Default = 20,
@@ -4232,7 +4182,7 @@ do
 					table.sort(cfg)
 				else
 					if A.Detail == 2 then
-						for _, k in ipairs({ "StopTime", "FarFromLine", "CrossRatio", "CrossSpeed", "PickupSpeed", "HopStep", "HopStop", "DropDelay", "LineApproach", "ReJump", "RunSpeed", "CarryScale", "CarryFps", "DipFps" }) do
+						for _, k in ipairs({ "StopTime", "FarFromLine", "CrossRatio", "CrossSpeed", "PickupSpeed", "HopStep", "HopStop", "DropDelay", "LineApproach", "ReJump", "RunSpeed", "CarryScale", "CarryFps" }) do
 							keys[#keys + 1] = k
 						end
 					end
@@ -4304,6 +4254,8 @@ do
 				if ok then
 					s.Ok += 1
 					s.Streak = 0
+					tbl4.LastOk = tbl4.LastOk or {}
+					tbl4.LastOk[island] = level
 				else
 					s.Fail += 1
 					s.Streak += 1
@@ -4505,19 +4457,23 @@ do
 					local s = tbl4.MethodStats[island] and tbl4.MethodStats[island]["Instant TP"] or nil
 					return s ~= nil and s.Streak >= 2 and os.clock() - s.At < 300
 				end,
-				-- True when the guards on the current steal island are faster than the player's carry speed.
-				-- On those islands the LightDark Anti Guard profile does a large CFrame jump that triggers
-				-- RigSync (CorrectionBegan / Reconcile) → "Delivery failed! The egg was returned to its nest."
-				-- Skipping "Instant TP" for them avoids that failure entirely.
+				-- True when the guards of this island are faster than the carry speed AND the island uses the
+				-- Light Dark Anti Guard profile (big jump -> RigSync -> "Delivery failed"). Instant TP is skipped there.
 				FastGuard = function()
 					local ok, result = pcall(function()
+						if tbl4.AntiGuard.ProfileName() ~= "LightDark" then
+							return false
+						end
+
 						local island = A.Island()
 						local entry = tbl.Guards and tbl.Guards.Directory and tbl.Guards.Directory[island]
 						local guardWS = type(entry) == "table" and tonumber(entry.WalkSpeed) or 0
-						if guardWS <= 0 then return false end
+
+						if guardWS <= 0 then
+							return false
+						end
 						local ws = type(tbl4.WalkSpeed) == "function" and tbl4.WalkSpeed() or 0
-						local ratio = tonumber(tbl4.SafeCarry and tbl4.SafeCarry.CarryRatio) or 0.956
-						return guardWS > ws * ratio
+						return guardWS > ws * (tonumber(tbl4.SafeCarry.CarryRatio) or 0.9)
 					end)
 					return ok and result == true
 				end,
@@ -4526,6 +4482,15 @@ do
 
 					if tbl4.Ladder.FastGuard() or tbl4.Ladder.SkipInstant() then
 						table.remove(plan, 1)
+					end
+
+					-- start with what worked last time on this island
+					local last = tbl4.LastOk and tbl4.LastOk[A.Island()]
+					local at = last and table.find(plan, last)
+
+					if at and at > 1 then
+						table.remove(plan, at)
+						table.insert(plan, 1, last)
 					end
 					return plan
 				end,
@@ -4545,6 +4510,16 @@ do
 				end
 
 				tbl4.AntiGuard.Enabled = arg == true
+
+				if tbl4.MethodReady and not tbl4.MethodApplying then
+					local mode = tbl4.Method.Current()
+
+					if tbl4.AntiGuard.Enabled and (mode == "Normal" or mode == "Delivery Stop") then
+						tbl4.Method.Apply("Instant TP")
+					elseif not tbl4.AntiGuard.Enabled and (mode == "Instant TP" or mode == "Smart") then
+						tbl4.Method.Apply("Normal")
+					end
+				end
 
 				if tbl4.StealPanelSync then
 					pcall(tbl4.StealPanelSync)
@@ -7374,17 +7349,9 @@ do
 						local hopStops = 0
 						local hopStopsWanted = safeCarry.StopMode and math.clamp(math.floor(tonumber(safeCarry.Stops) or 3) - 1, 0, 5) or 0
 
-						if safeCarry.StopMode then
-							-- a clone stays where the egg was taken, the lag starts here
-							pcall(tbl4.PostClone)
-							pcall(tbl4.CarryCap.On)
-						else
-							local dipFps = tonumber(safeCarry.DipFps) or 0
-
-							if dipFps > 0 then
-								pcall(tbl4.CarryCap.Dip, dipFps, 0.3)
-							end
-						end
+						-- a clone stays where the egg was taken, the lag starts here
+						pcall(tbl4.PostClone)
+						pcall(tbl4.CarryCap.On)
 
 						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
 							x2 -= slicedn20
@@ -8268,7 +8235,10 @@ do
 					end
 
 					local rejected = sc.LastFailed >= attemptAt or A.RelocateAt >= attemptAt
-					A.Record(island, smart and level or tbl4.Method.Current(), ok)
+
+					if ok or rejected or not slicedfn13(arg) then
+						A.Record(island, smart and level or tbl4.Method.Current(), ok)
+					end
 
 					if ok then
 						result = true
@@ -23423,13 +23393,6 @@ do
 				tbl16.ToggleHandle:Set(sliced20, false)
 			end
 
-			local instantOn = tbl4.SafeCarry.LineDrop == true
-
-			if tbl16.InstantOn ~= instantOn then
-				tbl16.InstantOn = instantOn
-				tbl16.InstantHandle:Set(instantOn)
-			end
-
 			local method = tbl4.Method.Current()
 
 			if tbl16.Mode ~= method then
@@ -23437,7 +23400,7 @@ do
 				tbl16.GuardHandle:Set(method)
 				local methodHandle = tbl4.SafeCarry.MethodHandle
 
-				if methodHandle and type(methodHandle.Set) == "function" then
+				if tbl4.MethodReady and methodHandle and type(methodHandle.Set) == "function" then
 					pcall(methodHandle.Set, methodHandle, method, false)
 				end
 			end
@@ -24067,24 +24030,9 @@ do
 				tbl4.UiDefer(slicedfn40)
 			end)
 
-			local instantHandle = makeSwitchButton("Instant Steal", UDim2.new(0.5, 3, 0, 4), function(v)
-				local safeCarry = tbl4.SafeCarry
-				local handle = safeCarry.InstantHandle
-
-				if handle and type(handle.Set) == "function" then
-					pcall(handle.Set, handle, v == true)
-				end
-
-				safeCarry.LineDrop = v == true
-				safeCarry.SpeedJitter = v == true and 0 or 0.08
-				safeCarry.StopMode = false
-				safeCarry.Smart = false
-				tbl4.UiDefer(slicedfn40)
-			end)
-
-			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(0.5, -11, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
+			local modeButton = mkBtn(bar, "Mode: Normal", UDim2.new(1, -16, 0, 22), UDim2.new(0, 8, 0, 35), nil, tbl14.Queued)
 			modeButton.Label.TextSize = 9
-			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn, ["Instant Steal"] = tbl14.Hud, Smart = tbl14.Hud }
+			local modeStyles = { Normal = tbl14.Queued, ["Instant TP"] = tbl14.Steal, ["Delivery Stop"] = tbl14.PriorityOn, Smart = tbl14.Hud }
 			local guardHandle = { Name = "Normal" }
 
 			function guardHandle:Set(name)
@@ -24131,7 +24079,7 @@ do
 				end)
 			end
 
-			local sortButton = mkBtn(bar, "Sort: " .. tostring(sliced4), UDim2.new(0.5, -11, 0, 22), UDim2.new(0.5, 3, 0, 35), nil, tbl14.Hud)
+			local sortButton = mkBtn(bar, "Sort: " .. tostring(sliced4), UDim2.new(0.5, -11, 0, 26), UDim2.new(0.5, 3, 0, 4), nil, tbl14.Hud)
 			sortButton.Label.TextSize = 9
 			sortButton.Label.TextTruncate = Enum.TextTruncate.AtEnd
 			sortButton.Button.Activated:Connect(function()
@@ -24338,7 +24286,7 @@ do
 				task.defer(refreshEmpty)
 			end))
 
-			tbl16 = { ToggleHandle = toggleHandle, GuardHandle = guardHandle, InstantHandle = instantHandle, SortHandle = sortHandle }
+			tbl16 = { ToggleHandle = toggleHandle, GuardHandle = guardHandle, SortHandle = sortHandle }
 
 			tbl4.StealPanelSync = function()
 				tbl4.UiDefer(slicedfn40)
@@ -24519,6 +24467,10 @@ do
 
 		tbl4.RestoreStealPanel = function()
 			flagReady = true
+
+			local methodHandle = tbl4.SafeCarry.MethodHandle
+			local savedMode = methodHandle and type(methodHandle.Get) == "function" and methodHandle.Get() or "Normal"
+			tbl4.Method.Apply(savedMode)
 			tbl4.MethodReady = true
 			if sliced18:Get() ~= true then
 				return
