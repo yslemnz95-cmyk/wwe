@@ -4003,6 +4003,7 @@ do
 				Meta = {},
 				T0 = 0,
 				RelocateAt = 0,
+				ImpulseAt = 0,
 				Last = nil,
 				Run = 0,
 			}
@@ -4419,6 +4420,10 @@ do
 
 				if type(first) == "table" and first.Action == "Relocate" then
 					A.RelocateAt = os.clock()
+				end
+
+				if type(first) == "table" and first.Action == "BeginImpulse" then
+					A.ImpulseAt = os.clock()
 				end
 
 				A.Event("rigsync", args)
@@ -7943,9 +7948,11 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
-			-- Instant TP: one jump straight onto the base the moment the egg is in hand
+			-- Instant TP: jump to the edge of the game's own home boost range (HomeImpulseBoostDistanceXZ) so the
+			-- server pushes the egg home itself; if nothing happens, jump straight onto the base
 			tbl4.SafeCarry.InstantHome = function(arg)
 				local safeCarry = tbl4.SafeCarry
+				local A = tbl4.Analyzer
 				local home = stealHome()
 				local root = tbl4.Root()
 
@@ -7959,17 +7966,12 @@ do
 				if humanoid then
 					humanoid.PlatformStand = false
 				end
-				str2 = "Instant TP: jumping onto the base"
-				local target = CFrame.new(home + Vector3.new(0, 3, 0)) * root.CFrame.Rotation
-				local held = 0
 
-				while held < 2 and not slicedfn13(arg) do
-					local current = tbl4.Root()
+				local entry = type(tbl.Guards) == "table" and type(tbl.Guards.Directory) == "table" and tbl.Guards.Directory[tostring(tbl4.Steal.CarryAreaId)] or nil
+				local reach = type(entry) == "table" and tonumber(entry.HomeImpulseBoostDistanceXZ) or 0
 
-					if not current then
-						return false
-					end
-
+				-- returns true (delivered), false (server sent the egg back) or nil (keep going)
+				local function verdict()
 					if safeCarry.LastDelivered >= now then
 						return true
 					end
@@ -7980,25 +7982,85 @@ do
 					end
 
 					if not tbl4.Steal.Carrying then
-						break
+						return false
+					end
+					return nil
+				end
+
+				local function hold(target, seconds, untilImpulse)
+					local held = 0
+					local started = os.clock()
+
+					while held < seconds and not slicedfn13(arg) do
+						local result = verdict()
+
+						if result ~= nil then
+							return result
+						end
+
+						if untilImpulse and A.ImpulseAt >= started then
+							return nil, true
+						end
+						local current = tbl4.Root()
+
+						if not current then
+							return false
+						end
+
+						pcall(function()
+							if (current.Position - target.Position).Magnitude > 4 then
+								character:PivotTo(target)
+							end
+							current.AssemblyLinearVelocity = Vector3.zero
+							current.AssemblyAngularVelocity = Vector3.zero
+						end)
+
+						held += RunService.Heartbeat:Wait()
+					end
+					return nil
+				end
+
+				local rotation = root.CFrame.Rotation
+				local flat = Vector3.new(root.Position.X - home.X, 0, root.Position.Z - home.Z)
+
+				-- stage 1: edge of the home boost range
+				if reach > 0 and flat.Magnitude > reach * 0.9 then
+					str2 = "Instant TP: jumping into the home boost range"
+					local edge = home + flat.Unit * (reach * 0.85)
+					local result, boosted = hold(CFrame.new(edge.X, home.Y + 3, edge.Z) * rotation, 0.8, true)
+
+					if result ~= nil then
+						return result
 					end
 
-					pcall(function()
-						if (current.Position - target.Position).Magnitude > 4 then
-							character:PivotTo(target)
+					if boosted then
+						str2 = "Instant TP: the game is carrying the egg home"
+						local waited = 0
+
+						while waited < 3 and not slicedfn13(arg) do
+							local answer = verdict()
+
+							if answer ~= nil then
+								return answer
+							end
+							waited += RunService.Heartbeat:Wait()
 						end
-						current.AssemblyLinearVelocity = Vector3.zero
-						current.AssemblyAngularVelocity = Vector3.zero
-					end)
+					end
+				end
 
-					held += RunService.Heartbeat:Wait()
+				-- stage 2: straight onto the base, held until the verdict
+				str2 = "Instant TP: jumping onto the base"
+				local result = hold(CFrame.new(home + Vector3.new(0, 3, 0)) * rotation, 1.2, false)
 
-					if held > 0.35 and tbl4.Steal.Carrying then
-						local eggState = tbl.EggState
+				if result ~= nil then
+					return result
+				end
 
-						if type(eggState) == "table" and type(eggState.DropFieldEgg) == "function" then
-							pcall(eggState.DropFieldEgg, "PlayerRequest")
-						end
+				if tbl4.Steal.Carrying then
+					local eggState = tbl.EggState
+
+					if type(eggState) == "table" and type(eggState.DropFieldEgg) == "function" then
+						pcall(eggState.DropFieldEgg, "PlayerRequest")
 					end
 				end
 
