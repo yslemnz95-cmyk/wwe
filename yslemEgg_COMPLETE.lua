@@ -4455,7 +4455,7 @@ do
 			tbl4.MethodStats = {}
 
 			local sc0 = tbl4.SafeCarry
-			local Tune = { Ratio = 1.0, Min = 0.85, Max = 1.3, HopRatio = sc0.HopRatio, HopGap = sc0.HopGap, DefaultHopRatio = sc0.HopRatio, DefaultHopGap = sc0.HopGap }
+			local Tune = { JumpCap = math.huge, JumpGap = 0.15, Jumped = nil, Ratio = 1.0, Min = 0.85, Max = 1.3, HopRatio = sc0.HopRatio, HopGap = sc0.HopGap, DefaultHopRatio = sc0.HopRatio, DefaultHopGap = sc0.HopGap }
 			tbl4.Tune = Tune
 
 			Tune.Apply = function()
@@ -4466,6 +4466,20 @@ do
 			end
 
 			Tune.Learn = function(mode, island, ok, rejected)
+				local jumped = Tune.Jumped
+				Tune.Jumped = nil
+
+				if mode == "Instant TP" and jumped then
+					if ok then
+						Tune.JumpCap = math.min(1e6, math.max(Tune.JumpCap, jumped.Longest) * 1.3)
+					elseif rejected then
+						Tune.JumpCap = math.max(150, math.min(Tune.JumpCap, jumped.Longest) * 0.6)
+						Tune.JumpGap = math.min(0.4, Tune.JumpGap + 0.05)
+						A.Event("tune", string.format("jump cap %d, gap %.2f", Tune.JumpCap, Tune.JumpGap))
+					end
+					return
+				end
+
 				if ok then
 					Tune.Ratio = math.min(Tune.Max, Tune.Ratio + 0.03)
 					Tune.HopRatio = math.min(Tune.DefaultHopRatio, Tune.HopRatio + 0.05)
@@ -8023,11 +8037,23 @@ do
 				local rotation = root.CFrame.Rotation
 				local flat = Vector3.new(root.Position.X - home.X, 0, root.Position.Z - home.Z)
 
-				-- stage 1: edge of the home boost range
-				if reach > 0 and flat.Magnitude > reach * 0.9 then
-					str2 = "Instant TP: jumping into the home boost range"
-					local edge = home + flat.Unit * (reach * 0.85)
-					local result, boosted = hold(CFrame.new(edge.X, home.Y + 3, edge.Z) * rotation, 0.8, true)
+				-- stage 1: jump toward the base, as far as the server has accepted so far in one go (everything at first,
+				-- shorter jumps after a rejection); the last jump lands at the edge of the home boost range
+				local tune = tbl4.Tune
+				local stop = reach > 0 and reach * 0.85 or 0
+				local longest = 0
+				tune.Jumped = { Longest = 0 }
+				local height = math.max(root.Position.Y, home.Y) + 42
+
+				while flat.Magnitude > stop + 8 and not slicedfn13(arg) do
+					local step = math.min(flat.Magnitude - stop, tune.JumpCap)
+					local last = step >= flat.Magnitude - stop - 1
+					local ahead = home + flat.Unit * (flat.Magnitude - step)
+					local landing = last and CFrame.new(ahead.X, home.Y + 3, ahead.Z) * rotation or CFrame.new(ahead.X, height, ahead.Z) * rotation
+					longest = math.max(longest, step)
+					tune.Jumped.Longest = longest
+					str2 = string.format("Instant TP: jumping %d studs", math.floor(step + 0.5))
+					local result, boosted = hold(landing, last and 0.8 or tune.JumpGap, last)
 
 					if result ~= nil then
 						return result
@@ -8045,6 +8071,18 @@ do
 							end
 							waited += RunService.Heartbeat:Wait()
 						end
+						break
+					end
+
+					local here = tbl4.Root()
+
+					if not here then
+						return false
+					end
+					flat = Vector3.new(here.Position.X - home.X, 0, here.Position.Z - home.Z)
+
+					if last then
+						break
 					end
 				end
 
