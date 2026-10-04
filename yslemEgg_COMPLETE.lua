@@ -4365,8 +4365,12 @@ do
 			-- two separate queues: the delivery report and the game scan never overwrite each other
 			A.Queues = { report = { Parts = {}, Next = 1, N = 4 }, scan = { Parts = {}, Next = 1, N = 5 } }
 
-			A.SetQueue = function(text, which)
+			A.SetQueue = function(text, which, forcedParts)
 				local q = A.Queues[which or "report"]
+
+				if which == "scan" then
+					q.N = forcedParts or 5
+				end
 				-- plain ASCII only (a cut in the middle of a multi-byte character makes setclipboard fail),
 				-- parts are cut on line boundaries
 				text = string.gsub(text, "[^\n\32-\126]", "?")
@@ -4440,7 +4444,7 @@ do
 			end
 
 			-- ===== game scan: a full read-only picture of the game (data the client already has) =====
-			A.Scan = function()
+			A.Scan = function(mode)
 				local out = {}
 				local previousDetail = A.Detail
 				A.Detail = 3
@@ -4973,10 +4977,37 @@ do
 				end)
 
 				A.Detail = previousDetail
-				local text = table.concat(out, "\n")
 
-				if #text > 60000 then
-					text = string.sub(text, 1, 60000) .. "\n...cut..."
+				if mode == "missing" then
+					-- only what is still unknown: key zones, guards, guard motion, events
+					local keep = {
+						["## KEY ZONES (children, positions, sizes)"] = true,
+						["## GUARDS (live objects)"] = true,
+						["## GUARD MOTION (6 s sample)"] = true,
+						["## EVENTS (objects in the world and event remotes)"] = true,
+					}
+					local filtered = {}
+					local active = true
+
+					for _, line in ipairs(out) do
+						if string.sub(line, 1, 3) == "## " then
+							active = keep[line] == true
+						end
+
+						if active then
+							filtered[#filtered + 1] = #line > 230 and (string.sub(line, 1, 230) .. "~") or line
+						end
+					end
+
+					out = filtered
+					out[#out + 1] = "player area: " .. tostring(localPlayer:GetAttribute("AreaId")) .. " carrying: " .. tostring(tbl4.Steal.Carrying)
+				end
+
+				local text = table.concat(out, "\n")
+				local limit = mode == "missing" and 6500 or 60000
+
+				if #text > limit then
+					text = string.sub(text, 1, limit) .. "\n...cut..."
 				end
 
 				A.LastScan = text
@@ -30355,15 +30386,27 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Game scan: next part",
-		Note = "Say how many parts it has when copying; first press builds it (about 8 s)",
+		Name = "Scan: missing data only (1 part)",
+		Note = "Zones, guards, guard motion, events. Press it while carrying an egg near a guard",
+		ButtonText = "Scan",
+		Callback = function()
+			local A = tbl4.Analyzer
+			pcall(tbl4.Notify, "Analyzer", "Scanning, about 8 seconds...")
+			A.SetQueue(A.Scan("missing"), "scan", 1)
+			A.CopyNext("scan")
+		end,
+	})
+
+	analyzerSection:CreateButton({
+		Name = "Full game scan (5 parts): next part",
+		Note = "First press builds it (about 8 s)",
 		ButtonText = "Next",
 		Callback = function()
 			local A = tbl4.Analyzer
 
-			if #A.Queues.scan.Parts == 0 then
+			if #A.Queues.scan.Parts == 0 or A.Queues.scan.N == 1 then
 				pcall(tbl4.Notify, "Analyzer", "Scanning the game, about 8 seconds...")
-				A.SetQueue(A.Scan(), "scan")
+				A.SetQueue(A.Scan("full"), "scan")
 			end
 
 			A.CopyNext("scan")
@@ -30371,12 +30414,12 @@ do
 	})
 
 	analyzerSection:CreateButton({
-		Name = "Game scan: rebuild (about 8 s)",
+		Name = "Full game scan: rebuild",
 		ButtonText = "Rescan",
 		Callback = function()
 			local A = tbl4.Analyzer
 			pcall(tbl4.Notify, "Analyzer", "Scanning the game, about 8 seconds...")
-			A.SetQueue(A.Scan(), "scan")
+			A.SetQueue(A.Scan("full"), "scan")
 			A.CopyNext("scan")
 		end,
 	})
