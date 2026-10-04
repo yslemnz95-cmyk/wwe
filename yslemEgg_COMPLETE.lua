@@ -516,106 +516,6 @@ end
 		end)
 	end
 
-	-- ---------- global panel transparency ----------
-	lib.PanelAlpha = 0
-	lib.SetPanelAlpha = function(t)
-		t = math.clamp(tonumber(t) or 0, 0, 0.6)
-		lib.PanelAlpha = t
-		for _, w in ipairs(lib.windows or {}) do
-			if w.IsMinimized and not w.IsMinimized() then
-				w.frame.BackgroundTransparency = t
-				if w.header then w.header.BackgroundTransparency = t end
-			end
-		end
-	end
-
-	-- ---------- intro: an orb grows, shows the name, then flies up to the top bar ----------
-	lib.Intro = function()
-		task.spawn(function()
-			pcall(function()
-				local orb = Instance.new("Frame", gui)
-				orb.Name = "MoonEggIntro"
-				orb.AnchorPoint = Vector2.new(0.5, 0.5); orb.Position = UDim2.new(0.5, 0, 0.5, 0)
-				orb.Size = UDim2.fromOffset(0, 0); orb.BackgroundColor3 = C.WHITE
-				orb.BorderSizePixel = 0; orb.ZIndex = 980
-				corner(orb, 100); addLivingStroke(orb, 2.5, true)
-				local og = Instance.new("UIGradient", orb)
-				og.Rotation = 45; og.Color = ColorSequence.new(C.WHITE, C.MOON)
-				local name = label(gui, "MoonEgg", UDim2.fromOffset(200, 26), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-				name.AnchorPoint = Vector2.new(0.5, 0); name.Position = UDim2.new(0.5, 0, 0.5, 62)
-				name.TextSize = 20; name.TextTransparency = 1; name.ZIndex = 981
-				liveGrad(name, true)
-				TweenService:Create(orb, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(96, 96)}):Play()
-				task.wait(0.25)
-				TweenService:Create(name, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
-				task.wait(1)
-				TweenService:Create(name, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
-				TweenService:Create(orb, TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-					Size = UDim2.fromOffset(10, 10), Position = UDim2.new(0.5, 0, 0, 18), BackgroundTransparency = 1}):Play()
-				task.wait(0.6)
-				orb:Destroy(); name:Destroy()
-			end)
-		end)
-	end
-
-	-- ---------- compact mode: the whole hub folds into one thin bar ----------
-	local barGui
-	lib.Compact = function(on)
-		if on then
-			if not barGui then
-				barGui = Instance.new("ScreenGui")
-				barGui.Name = "MoonEggCompact"; barGui.ResetOnSpawn = false
-				barGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; barGui.IgnoreGuiInset = true
-				barGui.Parent = gui.Parent
-				local bar = Instance.new("Frame", barGui)
-				bar.AnchorPoint = Vector2.new(0.5, 0); bar.Position = UDim2.new(0.5, 0, 0, 8)
-				bar.Size = UDim2.new(0, 0, 0, 36); bar.AutomaticSize = Enum.AutomaticSize.X
-				bar.BackgroundColor3 = C.BG; bar.BackgroundTransparency = 0.3; bar.BorderSizePixel = 0
-				corner(bar, 18); addLivingStroke(bar, 1.5, true)
-				local lay = Instance.new("UIListLayout", bar)
-				lay.FillDirection = Enum.FillDirection.Horizontal; lay.Padding = UDim.new(0, 6)
-				lay.VerticalAlignment = Enum.VerticalAlignment.Center
-				local pad = Instance.new("UIPadding", bar)
-				pad.PaddingLeft = UDim.new(0, 8); pad.PaddingRight = UDim.new(0, 8)
-				local function mk(text, color, order)
-					local b = Instance.new("TextButton", bar)
-					b.Size = UDim2.new(0, 0, 0, 26); b.AutomaticSize = Enum.AutomaticSize.X
-					b.BackgroundColor3 = C.ROW; b.BackgroundTransparency = 0.35; b.BorderSizePixel = 0
-					b.AutoButtonColor = false; b.Text = text; b.Font = Enum.Font.GothamBold; b.TextSize = 10
-					b.TextColor3 = color or C.WHITE; b.LayoutOrder = order
-					local bp = Instance.new("UIPadding", b)
-					bp.PaddingLeft = UDim.new(0, 10); bp.PaddingRight = UDim.new(0, 10)
-					corner(b, 13); addLivingStroke(b, 1); pressFx(b)
-					return b
-				end
-				local steal = mk("Steal: OFF", C.WHITE, 1)
-				local mode = mk("Mode: Normal", C.WHITE, 2)
-				local stop = mk("STOP", C.RED, 3)
-				local open = mk("OPEN", C.MOON2, 4)
-				steal.MouseButton1Click:Connect(function()
-					if lib.SetAutoSteal and lib.GetAutoSteal then pcall(lib.SetAutoSteal, not lib.GetAutoSteal()) end
-				end)
-				mode.MouseButton1Click:Connect(function() if lib.CycleMode then pcall(lib.CycleMode) end end)
-				stop.MouseButton1Click:Connect(function() if lib.PanicStop then pcall(lib.PanicStop) end end)
-				open.MouseButton1Click:Connect(function() lib.Compact(false) end)
-				task.spawn(function()
-					while barGui and barGui.Parent do
-						local sOn = lib.GetAutoSteal and lib.GetAutoSteal() or false
-						steal.Text = "Steal: " .. (sOn and "ON" or "OFF")
-						steal.TextColor3 = sOn and C.GREEN or C.WHITE
-						mode.Text = "Mode: " .. tostring(lib.CurrentMode and lib.CurrentMode() or "Normal")
-						task.wait(0.4)
-					end
-				end)
-			end
-			barGui.Enabled = true
-			gui.Enabled = false
-		else
-			if barGui then barGui.Enabled = false end
-			gui.Enabled = true
-		end
-	end
-
 	-- ---------- startup splash: what loaded and what did not ----------
 	lib.Splash = function(lines)
 		pcall(function()
@@ -658,7 +558,7 @@ end
 
 	-- ---------- window ----------
 	local windows = {}
-	lib.windows = windows
+	
 	local function newWindow(cfg)
 		local w = {tabs = {}, order = {}, current = nil, name = cfg.name}
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
@@ -913,9 +813,9 @@ end
 				else
 					hudLabel.Visible = false; hudHint.Visible = false
 					title.Visible = true; mini.Visible = true; close.Visible = true
-					header.BackgroundTransparency = lib.PanelAlpha
+					header.BackgroundTransparency = 0
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = lib.PanelAlpha}):Play()
+						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
 					content.Visible = true; sep.Visible = true
 					if tabBar then tabBar.Visible = true end
 					mini.Text = "-"
@@ -935,7 +835,7 @@ end
 			end
 		end
 		w.SetMinimized = setMinimized
-		w.IsMinimized = function() return minimized end
+		
 		mini.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
 		do
 			local tapAt
@@ -1017,16 +917,18 @@ end
 		function w.Select(name)
 			local target = w.tabs[name]
 			if not target then return end
+			local firstSelect = w.current == nil
 			w.current = name
 			for n, t in pairs(w.tabs) do
 				local on = n == name
-				if on and not t.page.Visible then
+				if on and not t.page.Visible and not firstSelect then
 					t.basePos = t.basePos or t.page.Position
 					t.page.Position = t.basePos + UDim2.fromOffset(18, 0)
 					t.page.Visible = true
 					TweenService:Create(t.page, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = t.basePos}):Play()
 				else
 					t.page.Visible = on
+					if not on and t.basePos then t.page.Position = t.basePos end
 				end
 				if t.btn then
 					TweenService:Create(t.btn, TweenInfo.new(0.15), {
@@ -1574,8 +1476,7 @@ end
 		local defs = {
 			{id = "speed", label = "Speed"}, {id = "lock", label = "Lock"},
 			{id = "steal", label = "Steal\nPanel"}, {id = "events", label = "Events"},
-			{id = "mode", label = "Mode"}, {id = "panic", label = "STOP"},
-			{id = "compact", label = "Compact"},
+			
 		}
 		for i, def in ipairs(defs) do
 			local col, rw = (i - 1) % 2, math.floor((i - 1) / 2)
@@ -1630,12 +1531,6 @@ end
 					lib.eventsWindow.SetOpen(not lib.eventsWindow.IsOpen())
 				elseif def.id == "lock" then
 					locked = not locked; setStored("Dock>Locked", locked); mark(locked)
-				elseif def.id == "mode" then
-					if lib.CycleMode then pcall(lib.CycleMode) end
-				elseif def.id == "panic" then
-					if lib.PanicStop then pcall(lib.PanicStop) end
-				elseif def.id == "compact" then
-					lib.Compact(true)
 				end
 			end)
 			if def.id == "speed" then
@@ -1657,18 +1552,6 @@ end
 			elseif def.id == "events" then
 				lib.eventsWindow.OnClose.Connect(mark)
 				mark(lib.eventsWindow.IsOpen())
-			elseif def.id == "mode" then
-				task.spawn(function()
-					while btn.Parent do
-						local cur = lib.CurrentMode and lib.CurrentMode() or "Normal"
-						l.Text = cur == "Instant TP" and "Instant\nTP" or (cur == "Delivery Stop" and "Delivery\nStop" or "Normal")
-						mark(cur ~= "Normal")
-						task.wait(0.4)
-					end
-				end)
-			elseif def.id == "panic" then
-				l.TextColor3 = C.RED
-				glow.Color = C.RED
 			else
 				mark(locked)
 			end
@@ -1680,7 +1563,7 @@ end
 		main.Select((cfg and cfg.MainTab and cfg.MainTab.name) or main.order[1])
 		main.frame.Visible = true
 		buildDock()
-		task.delay(0.3, function() if lib.IntroOn ~= false and lib.Intro then lib.Intro() end end)
+		
 		task.delay(3, function() lib.ParticlesOn = true end)
 		UIS.InputBegan:Connect(function(inp, gp)
 			if gp then return end
@@ -4308,31 +4191,6 @@ do
 			end,
 		}
 
-		MoonLib.CurrentMode = function()
-			return tbl4.Method.Current()
-		end
-
-		MoonLib.CycleMode = function()
-			local names = tbl4.Method.Names
-			local at = table.find(names, tbl4.Method.Current()) or 1
-			local nextName = names[at % #names + 1]
-			tbl4.Method.Apply(nextName)
-
-			if MoonLib.Banner then
-				MoonLib.Banner("Mode: " .. nextName, 3)
-			end
-		end
-
-		MoonLib.GetAutoSteal = function()
-			return sliced5 ~= nil and tbl4.Toggle(sliced5, false) == true
-		end
-
-		MoonLib.SetAutoSteal = function(v)
-			if sliced5 and type(sliced5.Set) == "function" then
-				pcall(sliced5.Set, sliced5, v == true)
-			end
-		end
-
 		MoonLib.TripStatus = function()
 			local now = os.clock()
 			local sc = tbl4.SafeCarry
@@ -4354,28 +4212,6 @@ do
 				return 0.03, "run"
 			end
 			return nil
-		end
-
-		-- emergency stop: Auto Steal off, delivery cancelled, FPS dip and Speed Boost released
-		MoonLib.PanicStop = function()
-			if sliced5 and type(sliced5.Set) == "function" then
-				pcall(sliced5.Set, sliced5, false)
-			end
-			local uid = tbl4.Steal.CarryUid
-
-			if type(uid) == "string" and type(tbl4.CancelSteal) == "function" then
-				pcall(tbl4.CancelSteal, uid)
-			end
-			pcall(tbl4.CarryCap.Off)
-			local boost = MoonLib.handles and MoonLib.handles["Player>Movement>Speed Boost"]
-
-			if boost and type(boost.Set) == "function" then
-				pcall(boost.Set, boost, false, true)
-			end
-
-			if MoonLib.Banner then
-				MoonLib.Banner("STOP: everything released", 3)
-			end
 		end
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
@@ -24454,9 +24290,7 @@ do
 				if hero and hero.Name and hero.Name.Parent then
 					hero.Name.Text = sliced21 and tostring(sliced21.Style.Name) or "None"
 
-					if hero.Grad and sliced21 and typeof(sliced21.Style.GradientColor) == "ColorSequence" then
-						hero.Grad.Color = sliced21.Style.GradientColor
-					end
+					
 					hero.Value.Text = sliced21 and slicedfn21(sliced21.Value) or ""
 				end
 
@@ -24589,7 +24423,7 @@ do
 			heroValue.Position = UDim2.new(0, 64, 0, 38)
 			heroValue.TextSize = 11
 			imageLabel = heroIcon
-			tbl4.Hero = { Name = heroName, Value = heroValue, Grad = U.liveGrad(heroName, true) }
+			tbl4.Hero = { Name = heroName, Value = heroValue }
 
 			local function makeSwitchButton(text, pos, onChange)
 				local btn = mkBtn(bar, text .. ": OFF", UDim2.new(0.5, -11, 0, 26), pos, nil, tbl14.Queued)
@@ -28226,33 +28060,9 @@ do
 		end,
 	})
 
-	sliced14:CreateSlider({
-		Name = "Panel Transparency",
-		Note = "Makes every panel more or less see-through",
-		Min = 0,
-		Max = 60,
-		Default = 0,
-		Increment = 1,
-		Unit = "%",
-		Callback = function(arg)
-			if MoonLib.SetPanelAlpha then
-				MoonLib.SetPanelAlpha((tonumber(arg) or 0) / 100)
-			end
-		end,
-	})
+	
 
-	local introToggle
-	introToggle = sliced14:CreateToggle({
-		Name = "Intro Animation",
-		Note = "The orb animation at startup",
-		Default = true,
-		Callback = function(arg)
-			if type(arg) ~= "boolean" then
-				arg = tbl4.Toggle(introToggle, true)
-			end
-			MoonLib.IntroOn = arg == true
-		end,
-	})
+	
 
 	tbl4.FpsCapHandle = sliced14:CreateSlider({
 		Name = "FPS Cap",
