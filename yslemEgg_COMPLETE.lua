@@ -8298,6 +8298,31 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
+			-- Snap Steal: the very frame the egg lands in the hand, jump back to the activation spot (before the
+			-- delivery code, the guard or the server get a chance to react at the egg)
+			do
+				local wasCarrying = false
+				RunService.Heartbeat:Connect(function()
+					local sc = tbl4.SafeCarry
+					local carrying = tbl4.Steal.Carrying == true
+
+					if sc.SnapSteal and carrying and not wasCarrying and typeof(sc.SnapAnchor) == "CFrame" then
+						local character = localPlayer.Character
+						local rootPart = tbl4.Root()
+
+						if character and rootPart then
+							pcall(tbl4.CarryCap.On, 30)
+							pcall(function()
+								character:PivotTo(sc.SnapAnchor + Vector3.new(0, 1.5, 0))
+								rootPart.AssemblyLinearVelocity = Vector3.zero
+								rootPart.AssemblyAngularVelocity = Vector3.zero
+							end)
+						end
+					end
+					wasCarrying = carrying
+				end)
+			end
+
 			-- Snap Steal: the moment the egg is in hand, one direct TP back to the spot where the mode was last activated
 			-- (falls back to the base marker). FPS is dipped to 30 for the trip. Compatible with Anti Guard.
 			tbl4.SafeCarry.SnapStealHome = function(arg)
@@ -8348,6 +8373,15 @@ do
 
 				local waited = 0
 				while waited < 2 and safeCarry.LastDelivered < now and not slicedfn13(arg) do
+					local here = tbl4.Root()
+
+					if waited < 0.6 and here and (here.Position - snapCF.Position).Magnitude > 6 and tbl4.Analyzer.RelocateAt < now then
+						pcall(function()
+							character:PivotTo(snapCF)
+							here.AssemblyLinearVelocity = Vector3.zero
+						end)
+					end
+
 					if safeCarry.LastFailed >= now then
 						str2 = "Snap Steal: server rejected"
 						return finish(false)
