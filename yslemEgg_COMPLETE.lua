@@ -4556,16 +4556,16 @@ do
 		tbl4.SafeCarry.CarryFps = 35
 		tbl4.CarryCap = {
 			Active = false,
-			On = function()
+			On = function(fps)
 				local cap = tbl4.CarryCap
 				if cap.Active or type(setfpscap) ~= "function" then
 					return
 				end
 				cap.Active = true
 				cap.At = os.clock()
-				pcall(setfpscap, math.clamp(math.floor(tonumber(tbl4.SafeCarry.CarryFps) or 35), 5, 240))
-				task.delay(30, function()
-					if cap.Active and os.clock() - cap.At >= 29 then
+				pcall(setfpscap, math.clamp(math.floor(tonumber(fps) or tonumber(tbl4.SafeCarry.CarryFps) or 35), 5, 240))
+				task.delay(60, function()
+					if cap.Active and os.clock() - cap.At >= 59 then
 						cap.Off()
 					end
 				end)
@@ -9095,6 +9095,17 @@ do
 			local function slicedfn57()
 				local sliced19 = slicedn5
 				tbl4.Steal.Active = true
+
+				-- Instant TP: 30 FPS from the very start of the steal, released when the steal is over
+				if tbl4.SafeCarry.Teleport then
+					pcall(tbl4.CarryCap.On, 30)
+					task.spawn(function()
+						while tbl4.Steal.Active do
+							task.wait(0.25)
+						end
+						pcall(tbl4.CarryCap.Off)
+					end)
+				end
 				tbl4.Steal.Carrying = tbl4.Steal.Carrying == true
 
 				if not tbl4.Steal.Carrying then
