@@ -836,7 +836,7 @@ end
 local gui = make("ScreenGui", { Name = "yslemEgg", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true })
 gui.Parent = parentGui()
 
-local W, H, HEADER = 188, 212, 22
+local W, H, HEADER = 158, 188, 20
 local window = make("Frame", { Size = UDim2.fromOffset(W, H), Position = UDim2.new(0.5, -W / 2, 0.5, -H / 2), BackgroundColor3 = BG, BorderSizePixel = 0, ClipsDescendants = false })
 window.Parent = gui
 corner(window, 8)
@@ -867,26 +867,26 @@ do
 	living[#living + 1] = g
 end
 text(header, {
-	Size = UDim2.new(1, -44, 1, 0), Position = UDim2.fromOffset(6, 0), Font = Enum.Font.GothamBlack, TextSize = 11,
+	Size = UDim2.new(1, -44, 1, 0), Position = UDim2.fromOffset(6, 0), Font = Enum.Font.GothamBlack, TextSize = 10,
 	TextColor3 = Color3.new(0, 0, 0), TextXAlignment = Enum.TextXAlignment.Left, Text = "yslemEgg", Living = false,
 })
 
 local function headerButton(label, offset)
-	local b = make("TextButton", { Size = UDim2.fromOffset(14, 12), Position = UDim2.new(1, offset, 0.5, -6), BackgroundColor3 = BG, Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
+	local b = make("TextButton", { Size = UDim2.fromOffset(17, 14), Position = UDim2.new(1, offset, 0.5, -7), BackgroundColor3 = BG, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
 	b.Parent = header
 	corner(b, 4)
 	livingStroke(b, 1, true)
 	livingText(b)
 	return b
 end
-local minimize = headerButton("-", -34)
-local close = headerButton("x", -18)
+local minimize = headerButton("-", -39)
+local close = headerButton("x", -20)
 
 local body = make("Frame", { Size = UDim2.new(1, -10, 1, -(HEADER + 8)), Position = UDim2.fromOffset(5, HEADER + 4), BackgroundTransparency = 1 })
 body.Parent = window
 
 local list = make("ScrollingFrame", {
-	Size = UDim2.new(1, 0, 1, -48), BackgroundColor3 = BG, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = SILVER,
+	Size = UDim2.new(1, 0, 1, -58), BackgroundColor3 = BG, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = SILVER,
 	CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 })
 list.Parent = body
@@ -896,7 +896,7 @@ make("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.Layo
 make("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 4) }).Parent = list
 
 local statusLabel = text(body, {
-	Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -44), Font = Enum.Font.Gotham, TextSize = 9,
+	Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -52), Font = Enum.Font.Gotham, TextSize = 9,
 	TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = "Pick a pet",
 })
 
@@ -914,15 +914,15 @@ status = function(msg)
 end
 
 local function bigButton(label, position, size)
-	local b = make("TextButton", { Size = size, Position = position, BackgroundColor3 = BG, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
+	local b = make("TextButton", { Size = size, Position = position, BackgroundColor3 = BG, Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
 	b.Parent = body
-	corner(b, 6)
-	livingStroke(b, 1, true)
+	corner(b, 8)
+	livingStroke(b, 1.2, true)
 	livingText(b)
 	return b
 end
-local refreshButton = bigButton("Refresh", UDim2.new(0, 0, 1, -28), UDim2.new(0.34, -2, 0, 24))
-local stealButton = bigButton("Steal", UDim2.new(0.34, 2, 1, -28), UDim2.new(0.66, -2, 0, 24))
+local refreshButton = bigButton("Refresh", UDim2.new(0, 0, 1, -34), UDim2.new(0.4, -2, 0, 34))
+local stealButton = bigButton("Steal", UDim2.new(0.4, 2, 1, -34), UDim2.new(0.6, -2, 0, 34))
 
 local selectedUid = nil
 local rows = {}
@@ -959,19 +959,19 @@ local function rebuild()
 	local still = false
 	for index, info in ipairs(infos) do
 		still = still or info.Uid == selectedUid
-		local frame = make("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = BG, LayoutOrder = index, Text = "", AutoButtonColor = true })
+		local frame = make("TextButton", { Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = BG, LayoutOrder = index, Text = "", AutoButtonColor = true })
 		frame.Parent = list
 		corner(frame, 5)
 		local rowStroke, rowGradient = livingStroke(frame, 1, false)
 
-		make("ImageLabel", { Size = UDim2.fromOffset(24, 24), Position = UDim2.fromOffset(3, 3), BackgroundTransparency = 1, Image = info.Icon, ScaleType = Enum.ScaleType.Fit }).Parent = frame
+		make("ImageLabel", { Size = UDim2.fromOffset(22, 22), Position = UDim2.fromOffset(3, 3), BackgroundTransparency = 1, Image = info.Icon, ScaleType = Enum.ScaleType.Fit }).Parent = frame
 		text(frame, {
-			Size = UDim2.new(1, -34, 0, 14), Position = UDim2.fromOffset(31, 2), Font = Enum.Font.GothamBold, TextSize = 10,
+			Size = UDim2.new(1, -30, 0, 13), Position = UDim2.fromOffset(28, 2), Font = Enum.Font.GothamBold, TextSize = 10,
 			TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = info.Name,
 			TextColor3 = RARITY_COLORS[math.clamp(info.Rarity, 1, #RARITY_COLORS)] or WHITE,
 		})
 		text(frame, {
-			Size = UDim2.new(1, -34, 0, 12), Position = UDim2.fromOffset(31, 16), Font = Enum.Font.GothamMedium, TextSize = 9,
+			Size = UDim2.new(1, -30, 0, 11), Position = UDim2.fromOffset(28, 15), Font = Enum.Font.GothamMedium, TextSize = 9,
 			TextXAlignment = Enum.TextXAlignment.Left, Text = money(info.Value),
 		})
 
