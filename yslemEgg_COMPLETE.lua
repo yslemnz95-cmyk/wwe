@@ -8720,6 +8720,10 @@ do
 					local flag3 = safeCarry.CarryStyle == "Walk"
 					local slicedn22 = flag3 and 0 or math.max(0, safeCarry.Height)
 					local sliced24, sliced25 = sliced21.Step(slicedn21, slicedn22 <= 0.5 and humanoid or nil, humanoid and humanoid.FloorMaterial ~= Enum.Material.Air)
+					if safeCarry.Teleport and not tbl4.AntiGuard.Enabled then
+						-- Instant TP without Anti Guard: straight line at full carry speed, no human slow-downs or zigzag
+						sliced24, sliced25 = 1, 0
+					end
 					local slicedn23 = math.clamp(slicedn19 + sliced25, -425, -300)
 					local vector = sliced23.Position.X > slicedn17 + 2 and Vector3.new(slicedn17, sliced23.Position.Y, slicedn23) or sliced19
 					local sliced26, sliced27 = safeCarry.Avoid(sliced23.Position, vector)
