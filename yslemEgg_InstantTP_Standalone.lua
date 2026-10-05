@@ -63,7 +63,7 @@ local function walkSpeed()
 		return stat and util.SpeedPowerToWalkSpeed(stat.Value) or nil
 	end)
 	if ok and type(result) == "number" and result > 0 then
-		speed = math.max(speed, result)
+		speed = math.min(speed, result)
 	end
 	return speed
 end
@@ -124,6 +124,9 @@ local function fireNearestPrompt(radius)
 		if child.Name == "SmartPromptPart" and child:IsA("BasePart") and (child.Position - r.Position).Magnitude <= radius then
 			local prompt = child:FindFirstChild("CarryAreaEgg")
 			if prompt and prompt:IsA("ProximityPrompt") then
+				pcall(function()
+					prompt.HoldDuration = 0
+				end)
 				pcall(fireproximityprompt, prompt)
 			end
 		end
@@ -241,6 +244,47 @@ local function fpsOff()
 	fpsGen += 1
 	if typeof(setfpscap) == "function" then
 		pcall(setfpscap, 240)
+	end
+end
+
+-- a still copy of the player stays where the egg was taken during the flight; removed on arrival
+local stealClone = nil
+local function dropClone()
+	local copy = stealClone
+	stealClone = nil
+	if copy then
+		pcall(function()
+			copy:Destroy()
+		end)
+	end
+end
+
+local function postClone()
+	dropClone()
+	local character = localPlayer.Character
+	if not character then
+		return
+	end
+	local was = character.Archivable
+	character.Archivable = true
+	local copy = character:Clone()
+	character.Archivable = was
+	if copy then
+		for _, d in ipairs(copy:GetDescendants()) do
+			if d:IsA("LuaSourceContainer") or d:IsA("Humanoid") then
+				pcall(function()
+					d:Destroy()
+				end)
+			elseif d:IsA("BasePart") then
+				d.Anchored = true
+				d.CanCollide = false
+				d.CanTouch = false
+				d.CanQuery = false
+			end
+		end
+		copy.Name = "Clone"
+		copy.Parent = workspace
+		stealClone = copy
 	end
 end
 
@@ -508,10 +552,16 @@ end
 
 -- safe zone: same route as the Normal mode: checkpoint 7 studs past the line, then the base.
 -- Speed = the hub's carry plan (never above 115% of the walk speed), the run starts above the base and comes down.
-local function carrySpeed()
+local function carrySpeed(distance)
 	local ws = walkSpeed()
 	local base = ws * math.min(CFG.CarryRatio, CFG.SpeedCap) * state.Mult
-	return math.max(base, math.min(base * CFG.EasyRatio, ws * CFG.SpeedCap))
+	local fast = base * 1.5 -- SpeedRatio
+	local excess = 5.5 * base -- ExcessSeconds
+	local limit = fast
+	if distance and distance > excess then
+		limit = math.min(fast, base * distance / (distance - excess))
+	end
+	return math.min(math.max(math.min(base * CFG.EasyRatio, limit), base), math.max(ws * CFG.SpeedCap, base))
 end
 
 local function runHome(lineX, laneZ)
@@ -523,6 +573,9 @@ local function runHome(lineX, laneZ)
 	local descent = height * math.sqrt(1 - share * share) / share
 	local character = localPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.PlatformStand = false
+	end
 
 	-- rise above the base first (no horizontal move), like the hub
 	local r = root()
@@ -533,6 +586,10 @@ local function runHome(lineX, laneZ)
 			r.AssemblyAngularVelocity = Vector3.zero
 		end)
 	end
+
+	-- the speed is planned once, at the start, from the distance still to go (the hub does the same)
+	local start = root()
+	local speed = carrySpeed(start and (Vector3.new(start.Position.X - home.X, 0, start.Position.Z - home.Z).Magnitude + math.max(0, height) * 2) or nil)
 
 	local last = os.clock()
 	local timeout = 0
@@ -549,12 +606,11 @@ local function runHome(lineX, laneZ)
 
 		local toHome = r.Position.X <= checkpoint + 2
 		local target = toHome and home or Vector3.new(checkpoint, home.Y, laneZ)
-		local flat = Vector3.new(target.X - r.Position.X, 0, target.Z - r.Position.Z)
-		if toHome and flat.Magnitude < 2 then
+		if toHome and Vector3.new(home.X - r.Position.X, 0, home.Z - r.Position.Z).Magnitude < 2 then
 			break
 		end
-
-		local speed = carrySpeed()
+		local aim = avoid(r.Position, target)
+		local flat = Vector3.new(aim.X - r.Position.X, 0, aim.Z - r.Position.Z)
 		local remaining = toHome and 0 or math.max(0, r.Position.X - checkpoint)
 		local wantY = home.Y + height
 		if toHome or remaining <= descent then
@@ -607,6 +663,8 @@ local function instantTP(uid)
 	local x = r.Position.X
 	local retries = 0
 	local releaseCamera = frozenCamera()
+	state.ReleaseCamera = releaseCamera
+	pcall(postClone)
 	fpsOn()
 
 	while x - hopStep > landing.X and not state.Cancel do
@@ -679,7 +737,7 @@ local function instantTP(uid)
 			break
 		end
 	end
-	releaseCamera()
+	dropClone()
 
 	-- drop at the line, take it back
 	if state.Carrying and not state.Cancel then
@@ -700,13 +758,18 @@ local function instantTP(uid)
 				current.AssemblyAngularVelocity = Vector3.zero
 			end)
 		end
+		-- egg is down: let go of the camera and the copy, then take it back
+		releaseCamera()
+		dropClone()
 		status("Instant TP: taking the egg back")
 		if not grab(uid, 3) and not regrab(uid) then
 			fpsOff()
 			status("Could not take the egg back")
 			return false
 		end
+		dropClone()
 	end
+	releaseCamera()
 
 	-- straight to the safe zone
 	local ok = false
@@ -731,6 +794,13 @@ local function stealAndDeliver(uid)
 				status("That egg is gone")
 				return
 			end
+			if state.Carrying and state.Uid ~= uid then
+				dropEgg()
+				local waited = 0
+				while state.Carrying and waited < 1 do
+					waited += RunService.Heartbeat:Wait()
+				end
+			end
 			fpsOn()
 			status("Going to the egg")
 			if not runToEgg(uid, egg) then
@@ -748,6 +818,11 @@ local function stealAndDeliver(uid)
 			status(delivered and "Delivered" or "Delivery failed")
 		end)
 		fpsOff()
+		dropClone()
+		if state.ReleaseCamera then
+			pcall(state.ReleaseCamera)
+			state.ReleaseCamera = nil
+		end
 		if not ok then
 			status("Error: " .. tostring(err))
 		end
