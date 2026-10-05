@@ -22,7 +22,6 @@ local CFG = {
 	LandSettle = 0.08,
 	DropDelay = 0.05,
 	GrabInterval = 0.03,
-	ApproachSpeed = 400, -- studs/s towards the egg
 	RegrabFar = 40, -- egg further than this: teleport onto it, otherwise run to it
 	Height = 70, -- the safe-zone run starts above the base and comes down (same as the hub)
 	ClimbShare = 0.5,
@@ -282,27 +281,188 @@ local function place(position)
 	end)
 end
 
--- fast approach to the egg (position stepping), used before the first grab
-local function approach(target)
-	local timeout = 0
-	while timeout < 25 and not state.Cancel do
-		local r = root()
+-- portals / arenas / teleporters are walked around (same list as the hub)
+local dangerCache, dangerAt = {}, 0
+local function dangers()
+	if os.clock() - dangerAt < 1 then
+		return dangerCache
+	end
+	dangerAt = os.clock()
+	local list = {}
+	local function add(inst)
+		local ok, cf, size = pcall(function()
+			if inst:IsA("Model") then
+				return inst:GetBoundingBox()
+			elseif inst:IsA("BasePart") then
+				return inst.CFrame, inst.Size
+			end
+		end)
+		if ok and cf and size then
+			local half = Vector3.new(math.abs(size.X), 0, math.abs(size.Z)) * 0.5
+			local rot = (cf - cf.Position):VectorToWorldSpace(half)
+			local rx = math.max(math.abs(rot.X), half.X, half.Z)
+			local rz = math.max(math.abs(rot.Z), half.X, half.Z)
+			list[#list + 1] = { MinX = cf.Position.X - rx, MaxX = cf.Position.X + rx, MinZ = cf.Position.Z - rz, MaxZ = cf.Position.Z + rz }
+		end
+	end
+	local function bad(name)
+		if name == "ScrambleLocalVisuals" or name == "DrScrambleEvent" then
+			return false
+		end
+		name = string.lower(name)
+		return string.find(name, "portal", 1, true) or string.find(name, "teleport", 1, true) or string.find(name, "mech", 1, true) or string.find(name, "arena", 1, true) or string.find(name, "scramble", 1, true)
+	end
+	for _, child in ipairs(workspace:GetChildren()) do
+		if (child:IsA("Model") or child:IsA("BasePart") or child:IsA("Folder")) and bad(child.Name) then
+			if child:IsA("Folder") then
+				for _, inner in ipairs(child:GetChildren()) do
+					add(inner)
+				end
+			else
+				add(child)
+			end
+		end
+	end
+	local build = workspace:FindFirstChild("World")
+	build = build and build:FindFirstChild("Build")
+	if build then
+		for _, child in ipairs(build:GetChildren()) do
+			if bad(child.Name) then
+				for _, inner in ipairs(child:GetChildren()) do
+					add(inner)
+				end
+			end
+		end
+	end
+	dangerCache = list
+	return list
+end
+
+-- if the straight line crosses a danger zone, aim at the corner of it instead
+local function avoid(from, to)
+	for _, d in ipairs(dangers()) do
+		local x0, x1, z0, z1 = d.MinX - 12, d.MaxX + 12, d.MinZ - 12, d.MaxZ + 12
+		local inside = from.X >= x0 and from.X <= x1 and from.Z >= z0 and from.Z <= z1
+		if not inside then
+			local t0, t1, hit = 0, 1, true
+			for _, axis in ipairs({ { from.X, to.X - from.X, x0, x1 }, { from.Z, to.Z - from.Z, z0, z1 } }) do
+				local pos, delta, lo, hi = axis[1], axis[2], axis[3], axis[4]
+				if math.abs(delta) < 1e-6 then
+					if pos < lo or pos > hi then
+						hit = false
+					end
+				else
+					local ta, tb = (lo - pos) / delta, (hi - pos) / delta
+					if ta > tb then
+						ta, tb = tb, ta
+					end
+					t0, t1 = math.max(t0, ta), math.min(t1, tb)
+					if t0 > t1 then
+						hit = false
+					end
+				end
+			end
+			if hit then
+				local zLow, zHigh = z0 - 2, z1 + 2
+				local z = math.abs(from.Z - zLow) <= math.abs(from.Z - zHigh) and zLow or zHigh
+				if z < -440 or z > -290 then
+					z = z == zLow and zHigh or zLow
+				end
+				local x = math.abs(from.X - x0) <= math.abs(from.X - x1) and x0 or x1
+				if math.abs(from.Z - z) < 3 then
+					x = math.abs(to.X - x0) <= math.abs(to.X - x1) and x0 or x1
+				end
+				return Vector3.new(x, to.Y, z)
+			end
+		end
+	end
+	return to
+end
+
+-- the hub's "Run" way to the egg: straight on the ground at 115% of the walk speed (never faster).
+-- From the base side it first walks out to the safe-zone point, like the hub does.
+local function runToEgg(uid, egg)
+	local lineX = lineInfo()
+	local home = homePoint()
+	local character = localPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.PlatformStand = false
+		if character:FindFirstChildWhichIsA("Tool") then
+			pcall(function()
+				humanoid:UnequipTools()
+			end)
+		end
+	end
+
+	local r = root()
+	if not r then
+		return false
+	end
+	local stage = "field"
+	if r.Position.X < lineX - 2 and Vector3.new(r.Position.X - home.X, 0, r.Position.Z - home.Z).Magnitude > 20 then
+		stage = "safe"
+	end
+
+	local started, lastCheck, lastPos, lastTake = os.clock(), os.clock(), r.Position, 0
+	while os.clock() - started < 120 and not state.Cancel do
+		r = root()
 		if not r then
 			return false
 		end
-		local delta = target - r.Position
-		if delta.Magnitude <= 4 then
-			return true
+		local flatEgg = Vector3.new(egg.X - r.Position.X, 0, egg.Z - r.Position.Z)
+		if stage == "field" and flatEgg.Magnitude <= 2.5 then
+			break
 		end
-		local dt = RunService.Heartbeat:Wait()
-		timeout += dt
-		local step = math.min(CFG.ApproachSpeed * dt, delta.Magnitude)
+		local target = egg
+		if stage == "safe" then
+			if Vector3.new(home.X - r.Position.X, 0, home.Z - r.Position.Z).Magnitude <= 6 then
+				stage = "field"
+			else
+				target = home
+			end
+		end
+
+		local waypoint = avoid(r.Position, target)
+		local flat = Vector3.new(waypoint.X - r.Position.X, 0, waypoint.Z - r.Position.Z)
+		local unit = flat.Magnitude > 0.01 and flat.Unit or Vector3.zero
+		local speed = math.max(walkSpeed() * CFG.SpeedCap, 8)
+		local v = unit * math.min(speed, flat.Magnitude / 0.05)
 		pcall(function()
-			r.CFrame = CFrame.new(r.Position + delta.Unit * step) * r.CFrame.Rotation
-			r.AssemblyLinearVelocity = Vector3.zero
+			r.AssemblyLinearVelocity = Vector3.new(v.X, r.AssemblyLinearVelocity.Y, v.Z)
+			if humanoid and unit.Magnitude > 0 then
+				humanoid:Move(unit, false)
+			end
+		end)
+
+		-- stuck on something: jump
+		if os.clock() - lastCheck >= 1.5 then
+			if (r.Position - lastPos).Magnitude < 3 and humanoid and flatEgg.Magnitude > 15 then
+				pcall(function()
+					humanoid.Jump = true
+				end)
+			end
+			lastPos, lastCheck = r.Position, os.clock()
+		end
+
+		-- close enough for the prompt: ask for the egg while arriving
+		if stage == "field" and flatEgg.Magnitude <= 9 and os.clock() - lastTake > 0.1 then
+			lastTake = os.clock()
+			takeEgg(uid)
+		end
+		RunService.Heartbeat:Wait()
+	end
+
+	r = root()
+	if r then
+		pcall(function()
+			r.AssemblyLinearVelocity = Vector3.new(0, r.AssemblyLinearVelocity.Y, 0)
+			if humanoid then
+				humanoid:Move(Vector3.zero, false)
+			end
 		end)
 	end
-	return false
+	return state.Carrying or (r ~= nil and Vector3.new(egg.X - r.Position.X, 0, egg.Z - r.Position.Z).Magnitude <= 6)
 end
 
 -- take the egg that lies next to us (also used to take it back after the drop)
@@ -573,7 +733,7 @@ local function stealAndDeliver(uid)
 			end
 			fpsOn()
 			status("Going to the egg")
-			if not approach(egg + Vector3.new(0, 3, 0)) then
+			if not runToEgg(uid, egg) then
 				fpsOff()
 				status("Could not reach the egg")
 				return
@@ -595,12 +755,12 @@ local function stealAndDeliver(uid)
 	end)
 end
 
------------------------------------------------------------------- UI (full black, pulsing white strokes)
-local GOLD = Color3.fromRGB(255, 255, 255) -- main accent (white)
-local GOLD_DARK = Color3.fromRGB(90, 90, 90) -- resting stroke
+------------------------------------------------------------------ UI: full black + yslemStyle
+-- yslemStyle = the hub's living effect: gradient bands that keep turning on every stroke and every text.
+local WHITE = Color3.fromRGB(255, 255, 255)
+local SILVER = Color3.fromRGB(150, 150, 156)
+local STEEL = Color3.fromRGB(70, 70, 76)
 local BG = Color3.fromRGB(0, 0, 0)
-local CARD = Color3.fromRGB(0, 0, 0)
-local MUTED = Color3.fromRGB(150, 150, 150)
 local RARITY_COLORS = {
 	Color3.fromRGB(190, 190, 190), Color3.fromRGB(110, 210, 110), Color3.fromRGB(90, 160, 255),
 	Color3.fromRGB(190, 110, 255), Color3.fromRGB(255, 170, 50), Color3.fromRGB(255, 80, 80),
@@ -625,18 +785,47 @@ local function make(class, props)
 	return inst
 end
 
--- strokes: white, the active ones pulse (their transparency breathes)
-local shines = {}
-local function stroke(parent, thickness, shining)
-	local s = make("UIStroke", { Thickness = thickness or 1, Color = shining and Color3.new(1, 1, 1) or GOLD_DARK, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
-	s.Parent = parent
-	local entry = { Stroke = s, On = shining == true }
-	shines[#shines + 1] = entry
-	return s, entry
-end
-
 local function corner(parent, radius)
 	make("UICorner", { CornerRadius = UDim.new(0, radius or 6) }).Parent = parent
+end
+
+local living = {}
+local function bands(a, b)
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(0.25, b), ColorSequenceKeypoint.new(0.5, a),
+		ColorSequenceKeypoint.new(0.75, b), ColorSequenceKeypoint.new(1, a),
+	})
+end
+
+-- living stroke (bands turning around the border)
+local function livingStroke(parent, thickness, bright)
+	local s = make("UIStroke", { Thickness = thickness or 1, Color = WHITE, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+	s.Parent = parent
+	local g = make("UIGradient", { Rotation = 45, Color = bands(bright and WHITE or SILVER, STEEL) })
+	g.Parent = s
+	living[#living + 1] = g
+	return s, g
+end
+
+-- living text (bands moving through the letters)
+local function livingText(label)
+	local g = make("UIGradient", { Color = bands(WHITE, SILVER) })
+	g.Parent = label
+	living[#living + 1] = g
+	return g
+end
+
+local function text(parent, props)
+	local alive = props.Living ~= false
+	props.Living = nil
+	props.BackgroundTransparency = 1
+	props.TextColor3 = props.TextColor3 or WHITE
+	local l = make("TextLabel", props)
+	l.Parent = parent
+	if alive then
+		livingText(l)
+	end
+	return l
 end
 
 local old = parentGui():FindFirstChild("yslemEgg")
@@ -647,85 +836,93 @@ end
 local gui = make("ScreenGui", { Name = "yslemEgg", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true })
 gui.Parent = parentGui()
 
-local W, H, HEADER = 190, 214, 22
-local window = make("Frame", { Size = UDim2.fromOffset(W, H), Position = UDim2.new(0.5, -W / 2, 0.5, -H / 2), BackgroundColor3 = BG, BorderSizePixel = 0 })
+local W, H, HEADER = 188, 212, 22
+local window = make("Frame", { Size = UDim2.fromOffset(W, H), Position = UDim2.new(0.5, -W / 2, 0.5, -H / 2), BackgroundColor3 = BG, BorderSizePixel = 0, ClipsDescendants = false })
 window.Parent = gui
 corner(window, 8)
-stroke(window, 1.5, true)
+livingStroke(window, 1.5, true)
 
-local clock = 0
+local rotation = 0
+local tick = 0
 local shineConnection = RunService.Heartbeat:Connect(function(dt)
-	clock += dt
-	local pulse = 0.5 + 0.5 * math.sin(clock * 3)
-	for _, entry in ipairs(shines) do
-		if entry.On then
-			entry.Stroke.Transparency = 0.7 * pulse
-		else
-			entry.Stroke.Transparency = 0
+	tick += 1
+	if tick % 2 ~= 0 then
+		return
+	end
+	rotation = (rotation + dt * 72) % 360
+	for _, g in ipairs(living) do
+		if g.Parent then
+			g.Rotation = g.Parent:IsA("UIStroke") and (45 + rotation) % 360 or rotation
 		end
 	end
 end)
 
-local header = make("Frame", { Size = UDim2.new(1, 0, 0, HEADER), BackgroundTransparency = 1 })
+-- header: living light bar, the title is black
+local header = make("Frame", { Size = UDim2.new(1, -8, 0, HEADER - 4), Position = UDim2.fromOffset(4, 4), BackgroundColor3 = WHITE, BorderSizePixel = 0 })
 header.Parent = window
-make("TextLabel", {
-	Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1,
-	Font = Enum.Font.GothamBlack, TextSize = 11, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, Text = "yslemEgg",
-}).Parent = header
+corner(header, 5)
+do
+	local g = make("UIGradient", { Color = bands(WHITE, SILVER) })
+	g.Parent = header
+	living[#living + 1] = g
+end
+text(header, {
+	Size = UDim2.new(1, -44, 1, 0), Position = UDim2.fromOffset(6, 0), Font = Enum.Font.GothamBlack, TextSize = 11,
+	TextColor3 = Color3.new(0, 0, 0), TextXAlignment = Enum.TextXAlignment.Left, Text = "yslemEgg", Living = false,
+})
 
-local function headerButton(text, offset)
-	local b = make("TextButton", { Size = UDim2.fromOffset(16, 14), Position = UDim2.new(1, offset, 0.5, -7), BackgroundColor3 = CARD, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = GOLD, Text = text, AutoButtonColor = true })
+local function headerButton(label, offset)
+	local b = make("TextButton", { Size = UDim2.fromOffset(14, 12), Position = UDim2.new(1, offset, 0.5, -6), BackgroundColor3 = BG, Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
 	b.Parent = header
 	corner(b, 4)
-	stroke(b, 1, true)
+	livingStroke(b, 1, true)
+	livingText(b)
 	return b
 end
-local minimize = headerButton("-", -38)
-local close = headerButton("x", -20)
+local minimize = headerButton("-", -34)
+local close = headerButton("x", -18)
 
-local body = make("Frame", { Size = UDim2.new(1, -10, 1, -(HEADER + 6)), Position = UDim2.fromOffset(5, HEADER + 2), BackgroundTransparency = 1 })
+local body = make("Frame", { Size = UDim2.new(1, -10, 1, -(HEADER + 8)), Position = UDim2.fromOffset(5, HEADER + 4), BackgroundTransparency = 1 })
 body.Parent = window
 
 local list = make("ScrollingFrame", {
-	Size = UDim2.new(1, 0, 1, -50), BackgroundColor3 = CARD, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = GOLD,
+	Size = UDim2.new(1, 0, 1, -48), BackgroundColor3 = BG, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = SILVER,
 	CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 })
 list.Parent = body
 corner(list, 6)
-stroke(list, 1, false)
+livingStroke(list, 1, false)
 make("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }).Parent = list
 make("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 4) }).Parent = list
 
-local statusLabel = make("TextLabel", {
-	Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -46), BackgroundTransparency = 1,
-	Font = Enum.Font.Gotham, TextSize = 9, TextColor3 = MUTED, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = "Pick a pet",
+local statusLabel = text(body, {
+	Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -44), Font = Enum.Font.Gotham, TextSize = 9,
+	TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = "Pick a pet",
 })
-statusLabel.Parent = body
 
 -- the panel only shows what happens to the egg, never timings or internals
 local PUBLIC = { ["Pick a pet"] = true, ["Looking for the egg"] = true, ["Going to the egg"] = true, ["Taking the egg"] = true, ["Delivered"] = true, ["Delivery failed"] = true, ["That egg is gone"] = true, ["Could not reach the egg"] = true, ["The egg would not come free"] = true, ["Cancelling"] = true }
-status = function(text)
-	text = tostring(text)
-	if PUBLIC[text] then
-		statusLabel.Text = text
-	elseif string.sub(text, 1, 9) == "Selected:" then
-		statusLabel.Text = text
-	elseif string.sub(text, 1, 5) == "Error" then
+status = function(msg)
+	msg = tostring(msg)
+	if PUBLIC[msg] or string.sub(msg, 1, 9) == "Selected:" then
+		statusLabel.Text = msg
+	elseif string.sub(msg, 1, 5) == "Error" then
 		statusLabel.Text = "Something went wrong"
 	elseif state.Busy then
 		statusLabel.Text = "Delivering"
 	end
 end
 
-local function bigButton(text, position, size)
-	local b = make("TextButton", { Size = size, Position = position, BackgroundColor3 = CARD, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = GOLD, Text = text, AutoButtonColor = true })
+local function bigButton(label, position, size)
+	local b = make("TextButton", { Size = size, Position = position, BackgroundColor3 = BG, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
 	b.Parent = body
 	corner(b, 6)
-	stroke(b, 1, true)
+	livingStroke(b, 1, true)
+	livingText(b)
 	return b
 end
-local refreshButton = bigButton("Refresh", UDim2.new(0, 0, 1, -30), UDim2.new(0.34, -2, 0, 24))
-local stealButton = bigButton("Steal", UDim2.new(0.34, 2, 1, -30), UDim2.new(0.66, -2, 0, 24))
+local refreshButton = bigButton("Refresh", UDim2.new(0, 0, 1, -28), UDim2.new(0.34, -2, 0, 24))
+local stealButton = bigButton("Steal", UDim2.new(0.34, 2, 1, -28), UDim2.new(0.66, -2, 0, 24))
 
 local selectedUid = nil
 local rows = {}
@@ -734,9 +931,8 @@ local function setSelected(uid)
 	selectedUid = uid
 	for rowUid, row in pairs(rows) do
 		local on = rowUid == uid
-		row.Gradient.On = on
-		row.Stroke.Color = on and Color3.new(1, 1, 1) or GOLD_DARK
-		row.Stroke.Thickness = on and 1.5 or 1
+		row.Stroke.Thickness = on and 1.6 or 1
+		row.Gradient.Color = on and bands(WHITE, STEEL) or bands(STEEL, Color3.fromRGB(30, 30, 34))
 	end
 end
 
@@ -745,6 +941,12 @@ local function rebuild()
 		row.Frame:Destroy()
 	end
 	table.clear(rows)
+	-- drop gradients whose parents are gone
+	for i = #living, 1, -1 do
+		if not living[i].Parent then
+			table.remove(living, i)
+		end
+	end
 
 	local infos = {}
 	for _, record in ipairs(snapshot()) do
@@ -760,17 +962,18 @@ local function rebuild()
 		local frame = make("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = BG, LayoutOrder = index, Text = "", AutoButtonColor = true })
 		frame.Parent = list
 		corner(frame, 5)
-		local rowStroke, rowGradient = stroke(frame, 1, false)
+		local rowStroke, rowGradient = livingStroke(frame, 1, false)
 
 		make("ImageLabel", { Size = UDim2.fromOffset(24, 24), Position = UDim2.fromOffset(3, 3), BackgroundTransparency = 1, Image = info.Icon, ScaleType = Enum.ScaleType.Fit }).Parent = frame
-		make("TextLabel", {
-			Size = UDim2.new(1, -34, 0, 14), Position = UDim2.fromOffset(31, 2), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 10,
-			TextColor3 = RARITY_COLORS[math.clamp(info.Rarity, 1, #RARITY_COLORS)] or GOLD, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = info.Name,
-		}).Parent = frame
-		make("TextLabel", {
-			Size = UDim2.new(1, -34, 0, 12), Position = UDim2.fromOffset(31, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 9,
-			TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, Text = money(info.Value),
-		}).Parent = frame
+		text(frame, {
+			Size = UDim2.new(1, -34, 0, 14), Position = UDim2.fromOffset(31, 2), Font = Enum.Font.GothamBold, TextSize = 10,
+			TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = info.Name,
+			TextColor3 = RARITY_COLORS[math.clamp(info.Rarity, 1, #RARITY_COLORS)] or WHITE,
+		})
+		text(frame, {
+			Size = UDim2.new(1, -34, 0, 12), Position = UDim2.fromOffset(31, 16), Font = Enum.Font.GothamMedium, TextSize = 9,
+			TextXAlignment = Enum.TextXAlignment.Left, Text = money(info.Value),
+		})
 
 		rows[info.Uid] = { Frame = frame, Stroke = rowStroke, Gradient = rowGradient }
 		frame.MouseButton1Click:Connect(function()
@@ -836,7 +1039,7 @@ local minimized = false
 minimize.MouseButton1Click:Connect(function()
 	minimized = not minimized
 	body.Visible = not minimized
-	window.Size = minimized and UDim2.fromOffset(W, HEADER) or UDim2.fromOffset(W, H)
+	window.Size = minimized and UDim2.fromOffset(W, HEADER + 4) or UDim2.fromOffset(W, H)
 end)
 
 close.MouseButton1Click:Connect(function()
