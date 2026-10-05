@@ -8781,34 +8781,15 @@ do
 
 				if not tbl4.Steal.Carrying then
 					str2 = "The egg is gone, staying to look for it"
-					local retaken = slicedfn50(arg)
-
-					-- hop modes: the egg usually lies right where Anti Guard left us, jump onto it and keep taking it,
-					-- going back to it whenever the server pulls us away
-					if not retaken and tbl4.SafeCarry.LineDrop and type(tbl4.Steal.CarryUid) == "string" then
-						local uid = tbl4.Steal.CarryUid
-						local spent = 0
-
-						while spent < 6 and not tbl4.Steal.Carrying and not slicedfn13(arg) do
-							str2 = "Retaking the egg"
-							local eggPos = slicedfn48(uid)
-							local me = tbl4.Root()
-
-							if eggPos and me and Vector3.new(me.Position.X - eggPos.X, 0, me.Position.Z - eggPos.Z).Magnitude > 3 then
-								pcall(function()
-									me.CFrame = CFrame.new(eggPos + Vector3.new(0, 3, 0)) * me.CFrame.Rotation
-									me.AssemblyLinearVelocity = Vector3.zero
-								end)
-							end
-							task.spawn(slicedfn28, uid)
-							spent += task.wait(0.1)
-						end
-						retaken = tbl4.Steal.Carrying == true
-					end
-
-					if not retaken then
+					if not slicedfn50(arg) then
 						str2 = "The egg is gone"
 						return false
+					end
+
+					-- the egg was left on the ground (Anti Guard) and we walked back to it, so finish like the Normal mode does
+					if tbl4.SafeCarry.LineDrop then
+						str2 = "Egg retaken, carrying it home"
+						return tbl4.SafeCarry.Home(arg)
 					end
 				end
 
