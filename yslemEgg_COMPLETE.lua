@@ -6768,6 +6768,12 @@ do
 							local slicedn22 = vector + (slicedn16 - sliced27.Position) / math.max(0.08, slicedn21)
 							local enabled = tbl4.SafeCarry.Enabled and tbl4.SafeCarry.Pace() or slicedn4 + vector.Magnitude
 
+							-- Instant TP: going back to the egg after a pull-back runs at 1500%; once it is in hand this
+							-- connection stops and the carry goes back to the normal capped speed
+							if tbl4.SafeCarry.Teleport then
+								enabled = math.max(enabled, math.max(tbl4.WalkSpeed(), 16) * 15)
+							end
+
 							if slicedn22.Magnitude > enabled then
 								slicedn22 = slicedn22.Unit * enabled
 							end
