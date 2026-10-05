@@ -4479,8 +4479,8 @@ do
 
 		tbl4.SafeCarry.TpFpsCap = true
 		tbl4.SafeCarry.TpFpsHandle = sliced8:CreateToggle({
-			Name = "Instant TP FPS Cap",
-			Note = "Instant TP: cap the game at 30 FPS from the start of the steal until it is over",
+			Name = "Instant TP FPS Cap (60 / 35)",
+			Note = "Instant TP: the FPS cap flips between 60 and 35 from the start of the steal until it is over",
 			Default = true,
 			Callback = function(arg)
 				if type(arg) ~= "boolean" then
@@ -4580,7 +4580,23 @@ do
 				end
 				cap.Active = true
 				cap.At = os.clock()
-				pcall(setfpscap, math.clamp(math.floor(tonumber(fps) or tonumber(tbl4.SafeCarry.CarryFps) or 35), 5, 240))
+				if fps == "pulse" then
+					-- 60 / 35 FPS battle: the cap keeps flipping between the two values while it is on
+					cap.Gen = (cap.Gen or 0) + 1
+					local mine = cap.Gen
+
+					task.spawn(function()
+						local high = true
+
+						while cap.Active and cap.Gen == mine do
+							pcall(setfpscap, high and 60 or 35)
+							high = not high
+							task.wait(0.15)
+						end
+					end)
+				else
+					pcall(setfpscap, math.clamp(math.floor(tonumber(fps) or tonumber(tbl4.SafeCarry.CarryFps) or 35), 5, 240))
+				end
 				task.delay(60, function()
 					if cap.Active and os.clock() - cap.At >= 59 then
 						cap.Off()
@@ -9146,9 +9162,9 @@ do
 				local sliced19 = slicedn5
 				tbl4.Steal.Active = true
 
-				-- Instant TP: 30 FPS from the very start of the steal, released when the steal is over
+				-- Instant TP: the 60 / 35 FPS battle from the very start of the steal, released when the steal is over
 				if tbl4.SafeCarry.Teleport and tbl4.SafeCarry.TpFpsCap ~= false then
-					pcall(tbl4.CarryCap.On, 30)
+					pcall(tbl4.CarryCap.On, "pulse")
 					task.spawn(function()
 						while tbl4.Steal.Active do
 							task.wait(0.25)
