@@ -52,10 +52,17 @@ local function root()
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
+-- "Humanoid Swap" (the hub's default shield, always on in the hub): the character runs on a copy of its humanoid,
+-- the original is kept out of the character while we steal. Same code path as the hub.
+local shield = { Original = nil, Clone = nil, Links = {}, Connection = nil, Added = nil }
+
 local function walkSpeed()
 	local character = localPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local speed = humanoid and humanoid.WalkSpeed or 16
+	if shield.Original and shield.Original.Health > 0 then
+		speed = math.min(speed, shield.Original.WalkSpeed)
+	end
 	local ok, result = pcall(function()
 		local stat = localPlayer:FindFirstChild("leaderstats")
 		stat = stat and stat:FindFirstChild("Speed")
@@ -66,6 +73,178 @@ local function walkSpeed()
 		speed = math.min(speed, result)
 	end
 	return speed
+end
+
+local function shieldControls(humanoid)
+	pcall(function()
+		local scripts = localPlayer:FindFirstChild("PlayerScripts")
+		local module = scripts and scripts:FindFirstChild("PlayerModule")
+		if module then
+			local controls = require(module):GetControls()
+			if type(controls) == "table" then
+				controls.humanoid = humanoid
+			end
+		end
+	end)
+end
+
+local function shieldAnimate(character)
+	local animate = character and character:FindFirstChild("Animate")
+	if animate and animate:IsA("LocalScript") then
+		task.spawn(function()
+			animate.Enabled = false
+			task.wait()
+			animate.Enabled = true
+		end)
+	end
+end
+
+local function shieldUnlink()
+	for _, link in ipairs(shield.Links) do
+		pcall(function()
+			link:Disconnect()
+		end)
+	end
+	table.clear(shield.Links)
+end
+
+local groundedStates = {
+	[Enum.HumanoidStateType.Running] = true,
+	[Enum.HumanoidStateType.RunningNoPhysics] = true,
+	[Enum.HumanoidStateType.Landed] = true,
+}
+
+local function grounded(humanoid)
+	if not humanoid or humanoid.Health <= 0 or humanoid.FloorMaterial == Enum.Material.Air then
+		return false
+	end
+	return groundedStates[humanoid:GetState()] == true
+end
+
+local function shieldSwap()
+	local character = localPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	if shield.Clone and shield.Clone.Parent == character then
+		return
+	end
+	if not grounded(humanoid) then
+		return
+	end
+
+	local clone = humanoid:Clone()
+	humanoid.Parent = nil
+	clone.Parent = character
+	workspace.CurrentCamera.CameraSubject = clone
+	shieldControls(clone)
+	shieldAnimate(character)
+	shield.Original = humanoid
+	shield.Clone = clone
+
+	table.insert(shield.Links, humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+		if clone.Parent ~= nil then
+			clone.WalkSpeed = humanoid.WalkSpeed
+		end
+	end))
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	local animator2 = clone:FindFirstChildOfClass("Animator")
+	if animator and animator2 then
+		table.insert(shield.Links, animator.AnimationPlayed:Connect(function(played)
+			local animation = played.Animation
+			if not animation or clone.Parent == nil then
+				return
+			end
+			local ok, track = pcall(function()
+				return animator2:LoadAnimation(animation)
+			end)
+			if not ok or not track then
+				return
+			end
+			pcall(function()
+				track.Priority = played.Priority
+				track.Looped = played.Looped
+				track:Play(0.05, math.max(played.WeightTarget, 0.01), played.Speed)
+			end)
+			local stopped
+			stopped = played.Stopped:Connect(function()
+				stopped:Disconnect()
+				pcall(function()
+					track:Stop(0.1)
+				end)
+			end)
+		end))
+	end
+
+	table.insert(shield.Links, clone.Died:Connect(function()
+		shieldUnlink()
+		shield.Original, shield.Clone = nil, nil
+		local current = localPlayer.Character
+		if current and humanoid.Parent == nil then
+			humanoid.Parent = current
+			workspace.CurrentCamera.CameraSubject = humanoid
+			shieldControls(humanoid)
+		end
+		pcall(function()
+			clone:Destroy()
+		end)
+		humanoid.Health = 0
+	end))
+end
+
+local function shieldUndo()
+	shieldUnlink()
+	local character = localPlayer.Character
+	local original, clone = shield.Original, shield.Clone
+	shield.Original, shield.Clone = nil, nil
+	if original and clone and character and original.Parent == nil and clone.Parent == character then
+		original.Parent = character
+		workspace.CurrentCamera.CameraSubject = original
+		shieldControls(original)
+		pcall(function()
+			clone:Destroy()
+		end)
+		shieldAnimate(character)
+	end
+end
+
+local function shieldStart()
+	shieldSwap()
+	local n = 0
+	shield.Connection = RunService.Heartbeat:Connect(function(dt)
+		n += dt
+		local character = localPlayer.Character
+		local missing = not (shield.Clone and character and shield.Clone.Parent == character)
+		if (missing and 0.25 or 3) <= n then
+			n = 0
+			shieldSwap()
+		end
+	end)
+	shield.Added = localPlayer.CharacterAdded:Connect(function(character)
+		shieldUnlink()
+		shield.Original, shield.Clone = nil, nil
+		task.spawn(function()
+			character:WaitForChild("Humanoid", 10)
+			task.wait(1)
+			if shield.Connection and localPlayer.Character == character then
+				shieldSwap()
+			end
+		end)
+	end)
+end
+
+local function shieldStop()
+	if shield.Connection then
+		shield.Connection:Disconnect()
+		shield.Connection = nil
+	end
+	if shield.Added then
+		shield.Added:Disconnect()
+		shield.Added = nil
+	end
+	shieldUndo()
 end
 
 ------------------------------------------------------------------ carry / delivery state
@@ -1219,6 +1398,7 @@ end)
 close.MouseButton1Click:Connect(function()
 	state.Cancel = true
 	fpsOff()
+	shieldStop()
 	shineConnection:Disconnect()
 	gui:Destroy()
 end)
@@ -1232,3 +1412,5 @@ task.spawn(function()
 		end
 	end
 end)
+
+shieldStart()
