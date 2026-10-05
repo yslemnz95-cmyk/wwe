@@ -4477,6 +4477,23 @@ do
 			return nil
 		end
 
+		tbl4.SafeCarry.TpFpsCap = true
+		tbl4.SafeCarry.TpFpsHandle = sliced8:CreateToggle({
+			Name = "Instant TP FPS Cap",
+			Note = "Instant TP: cap the game at 30 FPS from the start of the steal until it is over",
+			Default = true,
+			Callback = function(arg)
+				if type(arg) ~= "boolean" then
+					arg = tbl4.Toggle(tbl4.SafeCarry.TpFpsHandle, true)
+				end
+				tbl4.SafeCarry.TpFpsCap = arg == true
+
+				if not tbl4.SafeCarry.TpFpsCap then
+					pcall(tbl4.CarryCap.Off)
+				end
+			end,
+		})
+
 		tbl4.SafeCarry.GoHandle = sliced8:CreateDropdown({
 			Name = "Go Method",
 			Note = "How you reach the egg: Run (on the ground) or Fly (above the ground)",
@@ -7983,6 +8000,14 @@ do
 						return
 					end
 
+					-- Instant TP: never jump backwards, if we are already closer to the line than the landing spot, stay
+					if safeCarry.Teleport and sliced22.Position.X <= vector.X + 1 and sliced22.Position.Y > vector.Y - 25 then
+						pcall(function()
+							sliced22.AssemblyLinearVelocity = Vector3.zero
+						end)
+						return
+					end
+
 					pcall(function()
 						sliced22.CFrame = CFrame.new(vector) * CFrame.Angles(0, 1.5707963267948966, 0)
 						sliced22.AssemblyLinearVelocity = Vector3.zero
@@ -8012,7 +8037,11 @@ do
 
 						-- a clone stays where the egg was taken, the lag starts here
 						pcall(tbl4.PostClone)
-						pcall(tbl4.CarryCap.On)
+
+						if not (safeCarry.Teleport and safeCarry.TpFpsCap == false) then
+							pcall(tbl4.CarryCap.On)
+						end
+
 
 						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
 							x2 -= slicedn20
@@ -8214,7 +8243,7 @@ do
 					end
 					local landed = tbl4.Root()
 
-					if steal.Carrying and landed and (Vector3.new(landed.Position.X - vector.X, 0, landed.Position.Z - vector.Z).Magnitude > 12 or landed.Position.Y < vector.Y - 25) then
+					if steal.Carrying and landed and ((safeCarry.Teleport and landed.Position.X - vector.X > 12) or (not safeCarry.Teleport and Vector3.new(landed.Position.X - vector.X, 0, landed.Position.Z - vector.Z).Magnitude > 12) or landed.Position.Y < vector.Y - 25) then
 						str2 = "Line Drop: landing retry " .. attempt
 						slicedfn59()
 					else
@@ -9097,7 +9126,7 @@ do
 				tbl4.Steal.Active = true
 
 				-- Instant TP: 30 FPS from the very start of the steal, released when the steal is over
-				if tbl4.SafeCarry.Teleport then
+				if tbl4.SafeCarry.Teleport and tbl4.SafeCarry.TpFpsCap ~= false then
 					pcall(tbl4.CarryCap.On, 30)
 					task.spawn(function()
 						while tbl4.Steal.Active do
