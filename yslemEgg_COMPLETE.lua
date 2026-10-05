@@ -7901,6 +7901,29 @@ do
 					end
 				end
 
+				-- Anti Guard already put us in the safe zone (past the line): do not jump back in front of it
+				if sliced20.Position.X < x - 2 then
+					str2 = "Already in the safe zone"
+
+					if not steal.Carrying then
+						slicedfn50(arg, carryUid)
+					end
+
+					if steal.Carrying and safeCarry.LastDelivered < now and not slicedfn13(arg) then
+						crossLine(safeCarry.Cap(safeCarry.CrossRatio), function()
+							return safeCarry.LastDelivered >= now or not steal.Carrying
+						end)
+					end
+					local settle = 0
+
+					while settle < 2 and safeCarry.LastDelivered < now and steal.Carrying and not slicedfn13(arg) do
+						settle += RunService.Heartbeat:Wait()
+					end
+					slicedfn56()
+					return safeCarry.LastDelivered >= now
+				end
+
+
 
 				local function slicedfn58()
 					local rfEggWorldAskFieldEggSnapshot = networking:FindFirstChild("RF/EggWorld/AskFieldEggSnapshot")
@@ -30208,10 +30231,10 @@ do
 		local sliced10 = slicedfn31()
 		local options = antiGuard.Options
 
-		-- Instant TP / Delivery Stop: Anti Guard stops in front of the line instead of going back to the base,
+		-- Instant TP / Delivery Stop: Anti Guard lands in the safe zone and stays there (no return to the start),
 		-- then the delivery takes over from there
 		if tbl4.SafeCarry.LineDrop then
-			options = { Destination = "Next To Line", Stay = true, LineOffset = 14 }
+			options = { Destination = "Safe Zone", Stay = true }
 		end
 		if type(options) ~= "table" or options.Destination == "Safe Zone" and not options.Stay then
 			return sliced10
