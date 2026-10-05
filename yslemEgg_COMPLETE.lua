@@ -47,7 +47,7 @@ end
 local getconnections, queue_on_teleport, queueonteleport, loadstring, WebSocket, syn, fluxus = nil, nil, nil, nil, nil, nil, nil
 
 -- ============================================================
--- MOON LIBRARY — the UI layer. It exposes the same API the Chilli Hub logic
+-- MOON LIBRARY — the UI layer. It exposes the same API the yslemEgg logic
 -- was written against (CreateWindow / CreateTab / CreateSection / CreateToggle /
 -- CreateSlider / CreateDropdown / CreateMultiDropdown / CreateText /
 -- CreateButton / CreateInput / CreateState / CreateExclusiveGroup / Notify /
@@ -307,7 +307,7 @@ local function makeDivider(page)
 end
 
 -- Section header — visual grouping for a block of rows, collapsible
--- like Chilli Hub's own CreateSection({Expanded=...}). With as many
+-- like the hub's own CreateSection({Expanded=...}). With as many
 -- widgets as the full filter set now has per tab, an accordion is
 -- what keeps the panel scannable instead of one long scroll.
 -- Members are collected via page.ChildAdded from the moment a header
@@ -429,7 +429,7 @@ end
 	gui.ResetOnSpawn = false
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.IgnoreGuiInset = true
-	gui:SetAttribute("ChilliLibraryOwned", nil)
+	gui:SetAttribute("YslemLibraryOwned", nil)
 	pcall(function() gui.Parent = guiParent() end)
 	if not gui.Parent then gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
 	lib.Gui = gui
@@ -1818,8 +1818,8 @@ do
 		fn = function(arg)
 			local genv = typeof(getgenv) == "function" and getgenv() or _G
 
-			if type(genv.ChilliDebugPrint) == "function" then
-				pcall(genv.ChilliDebugPrint, arg)
+			if type(genv.YslemDebugPrint) == "function" then
+				pcall(genv.YslemDebugPrint, arg)
 			end
 		end
 
@@ -1832,7 +1832,7 @@ do
 			LeftCenterHidden = true,
 		}
 
-		sliced2 = v:CreateWindow({ Name = "Chilli Hub - Steal An Egg", DefaultTab = "Farm" })
+		sliced2 = v:CreateWindow({ Name = "yslemEgg - Steal An Egg", DefaultTab = "Farm" })
 		defaultTab = sliced2:GetDefaultTab()
 		Players = game:GetService("Players")
 		RunService = game:GetService("RunService")
@@ -2169,13 +2169,13 @@ do
 			end
 
 			local genv = typeof(getgenv) == "function" and getgenv() or _G
-			local chilliHubSaeCleanup = genv.ChilliHubSaeCleanup
+			local yslemHubSaeCleanup = genv.YslemHubSaeCleanup
 
-			if type(chilliHubSaeCleanup) == "function" then
-				pcall(chilliHubSaeCleanup)
+			if type(yslemHubSaeCleanup) == "function" then
+				pcall(yslemHubSaeCleanup)
 			end
 
-			genv.ChilliHubSaeCleanup = function()
+			genv.YslemHubSaeCleanup = function()
 				for i = #tbl10, 1, -1 do
 					pcall(tbl10[i])
 				end
@@ -2231,7 +2231,7 @@ do
 				table.clear(tbl10)
 			end
 
-			local function chilliToolKeeper()
+			local function yslemToolKeeper()
 				slicedfn12()
 
 				for _, sliced8 in ipairs({
@@ -2296,8 +2296,8 @@ do
 					end
 				end)
 			end
-			;(typeof(getgenv) == "function" and getgenv() or _G).ChilliToolKeeper = chilliToolKeeper
-			task.defer(chilliToolKeeper)
+			;(typeof(getgenv) == "function" and getgenv() or _G).YslemToolKeeper = yslemToolKeeper
+			task.defer(yslemToolKeeper)
 			slicedfn4(slicedfn12)
 		end
 
@@ -4352,7 +4352,7 @@ do
 
 		-- three delivery modes. The mode is the only switch for the hops: Instant TP hops home the moment the egg is
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
-		-- Go Method: how the character reaches the egg (Fly = Chilli's tween above the ground, Run = on the ground)
+		-- Go Method: how the character reaches the egg (Fly = the hub's tween above the ground, Run = on the ground)
 		tbl4.GoMethod = {
 			Names = { "Run", "Fly" },
 			Current = function()
@@ -4499,7 +4499,7 @@ do
 
 		tbl4.SafeCarry.MethodHandle = sliced8:CreateDropdown({
 			Name = "Delivery Method",
-			Note = "Normal (walk) / Instant TP (Chilli Hub's Instant Steal method: hops home, egg put down at the line and taken back) / Delivery Stop (hops with stops)",
+			Note = "Normal (walk) / Instant TP (the hub's Instant Steal method: hops home, egg put down at the line and taken back) / Delivery Stop (hops with stops)",
 			Options = tbl4.Method.Names,
 			Default = "Delivery Stop",
 			Callback = function(arg)
@@ -8857,7 +8857,7 @@ do
 				return safeCarry.LastDelivered >= now
 			end
 
-			-- Instant TP is Chilli Hub's own method (its "Instant Steal"): hop home, put the egg down at the line, take it back, cross
+			-- Instant TP is the hub's own method (its "Instant Steal"): hop home, put the egg down at the line, take it back, cross
 			tbl4.SafeCarry.InstantHome = function(arg)
 				return tbl4.SafeCarry.LineDropHome(arg)
 			end
@@ -18685,10 +18685,10 @@ do
 			parent:SetAttribute("InvisApplied", true)
 
 			task.delay(1, function()
-				local chilliToolKeeper = (typeof(getgenv) == "function" and getgenv() or _G).ChilliToolKeeper
+				local yslemToolKeeper = (typeof(getgenv) == "function" and getgenv() or _G).YslemToolKeeper
 
-				if parent.Parent and type(chilliToolKeeper) == "function" then
-					pcall(chilliToolKeeper)
+				if parent.Parent and type(yslemToolKeeper) == "function" then
+					pcall(yslemToolKeeper)
 				end
 			end)
 
@@ -20855,7 +20855,7 @@ do
 		end
 
 		tbl20.Row = sliced12:CreateText({ Name = "Hit Status", Text = "Idle" })
-		local sliced13 = sliced2:CreateExclusiveGroup({ Name = "Chilli Combat Targets", MaxActive = 1 })
+		local sliced13 = sliced2:CreateExclusiveGroup({ Name = "yslemEgg Combat Targets", MaxActive = 1 })
 
 		for i, sliced14 in ipairs({ "Auto Hit Nearest Player", "Auto Hit Egg Holders", "Auto Hit Specific Player" }) do
 			local sliced15 = nil
@@ -23665,7 +23665,7 @@ do
 	end
 
 	do
-		local chilli = {}
+		local yslem = {}
 		local tbl15 = {}
 		local tbl16 = { 0, color3(132, 74, 255) }
 		local tbl17 = { 0.34, color3(178, 74, 255) }
@@ -23677,11 +23677,11 @@ do
 		tbl15[3] = tbl18
 		tbl15[4] = tbl19
 		tbl15[5] = tbl20
-		chilli.Color = slicedfn18(tbl15)
-		chilli.Rotation = -115
-		chilli.Stroke = color3(44, 10, 80)
-		chilli.Light = color3(226, 178, 255)
-		tbl14.Chilli = chilli
+		yslem.Color = slicedfn18(tbl15)
+		yslem.Rotation = -115
+		yslem.Stroke = color3(44, 10, 80)
+		yslem.Light = color3(226, 178, 255)
+		tbl14.Yslem = yslem
 	end
 
 	do
@@ -26835,7 +26835,7 @@ do
 	end
 end
 
-local slicedfn18, TweenService, GuiService, StarterGui, antiGuard, tbl14, chilliAntiGuard
+local slicedfn18, TweenService, GuiService, StarterGui, antiGuard, tbl14, yslemAntiGuard
 
 do
 	local function slicedfn19()
@@ -26934,7 +26934,7 @@ do
 	tbl7.RequestEggRefresh = requestEggRefresh
 
 	if not tbl7.Ready then
-		sliced7:CreateText({ Name = "Egg Predictor", Text = "Update the Chilli Library to use the predictor canvas." })
+		sliced7:CreateText({ Name = "Egg Predictor", Text = "Update the yslemEgg library to use the predictor canvas." })
 	else
 		sliced7:CreateDropdown({
 			Name = "Sort By",
@@ -27775,7 +27775,7 @@ do
 		if not tbl7.Ready then
 			sliced8:CreateText({
 				Name = "Fuse Predictor",
-				Text = "Update the Chilli Library to use the predictor canvas.",
+				Text = "Update the yslemEgg library to use the predictor canvas.",
 			})
 		else
 			local sliced12 = sliced8:CreateCanvas({
@@ -28177,7 +28177,7 @@ do
 
 		local function slicedfn21(arg)
 			pcall(function()
-				TeleportService:SetTeleportSetting("__ChilliAutoLoadScriptEnabled", arg)
+				TeleportService:SetTeleportSetting("__YslemAutoLoadScriptEnabled", arg)
 			end)
 
 			if not arg then
@@ -29560,11 +29560,11 @@ do
 		}
 	end
 
-	chilliAntiGuard = { LightDark = tbl14, Default = slicedfn20(25, 0, 0.05, 1.27, 1.52, 2.5) }
+	yslemAntiGuard = { LightDark = tbl14, Default = slicedfn20(25, 0, 0.05, 1.27, 1.52, 2.5) }
 end
 
 pcall(function()
-	getgenv().ChilliAntiGuard = chilliAntiGuard
+	getgenv().YslemAntiGuard = yslemAntiGuard
 end)
 
 local tbl15
@@ -30383,7 +30383,7 @@ do
 
 	local function slicedfn31()
 		local ok, result = pcall(function()
-			return getgenv().ChilliAntiGuard
+			return getgenv().YslemAntiGuard
 		end)
 
 		if ok and type(result) == "table" then
@@ -30396,7 +30396,7 @@ do
 			end
 		end
 
-		return chilliAntiGuard[slicedfn30(slicedfn29())] or tbl14
+		return yslemAntiGuard[slicedfn30(slicedfn29())] or tbl14
 	end
 
 	local function slicedfn32()
