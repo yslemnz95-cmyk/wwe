@@ -8645,7 +8645,7 @@ do
 				local slicedn19 = math.clamp((sliced22 and sliced22.Position.Z or sliced19.Z) + sliced21.Lane, -425, -300)
 				local now2 = os.clock()
 
-				if safeCarry.CarryReact > 0 then
+				if safeCarry.CarryReact > 0 and not (safeCarry.Teleport and not tbl4.AntiGuard.Enabled) then
 					local slicedn20 = os.clock() + safeCarry.React(0, safeCarry.CarryReact)
 
 					while os.clock() < slicedn20 and not slicedfn13(arg) do
@@ -8669,7 +8669,7 @@ do
 						if now <= safeCarry.LastDelivered then
 							return true
 						end
-						task.wait(0.1)
+						task.wait(safeCarry.Teleport and 0.03 or 0.1)
 						if now <= safeCarry.LastDelivered then
 							return true
 						end
