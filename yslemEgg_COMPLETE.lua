@@ -4468,6 +4468,19 @@ do
 			return nil
 		end
 
+		tbl4.SafeCarry.AGDestination = "Line"
+		tbl4.SafeCarry.AGDestHandle = sliced8:CreateDropdown({
+			Name = "Anti Guard Destination",
+			Note = "Instant TP: where Anti Guard leaves you. Line = in front of the line (then the delivery crosses it). Base = inside the base, line already crossed (test)",
+			Options = { "Line", "Base" },
+			Default = "Line",
+			Callback = function(arg)
+				if arg == "Line" or arg == "Base" then
+					tbl4.SafeCarry.AGDestination = arg
+				end
+			end,
+		})
+
 		tbl4.SafeCarry.GoHandle = sliced8:CreateDropdown({
 			Name = "Go Method",
 			Note = "How you reach the egg: Run (on the ground) or Fly (above the ground)",
@@ -7890,6 +7903,22 @@ do
 				slicedfn22()
 				local slicedn17 = math.clamp(sliced20.Position.Z, -425, -300)
 				local vector = Vector3.new(x + (safeCarry.Hops and safeCarry.HopStop or safeCarry.LineGap), y + 3.35, slicedn17)
+
+				-- Anti Guard stayed in the base (Destination: Base): the line is already crossed, only retake the egg there
+				if safeCarry.Teleport and safeCarry.AGDestination == "Base" and sliced20.Position.X < x - 2 then
+					if not steal.Carrying then
+						str2 = "Instant TP: retaking the egg in the base"
+						slicedfn50(arg, carryUid)
+					end
+					local baseWait = 0
+
+					while baseWait < 3 and safeCarry.LastDelivered < now and not slicedfn13(arg) do
+						baseWait += RunService.Heartbeat:Wait()
+					end
+					slicedfn56()
+					return safeCarry.LastDelivered >= now
+				end
+
 
 				local function slicedfn58()
 					local rfEggWorldAskFieldEggSnapshot = networking:FindFirstChild("RF/EggWorld/AskFieldEggSnapshot")
@@ -30194,7 +30223,11 @@ do
 		-- Instant TP / Delivery Stop: Anti Guard stops in front of the line instead of going back to the base,
 		-- then the delivery takes over from there
 		if tbl4.SafeCarry.LineDrop then
-			options = { Destination = "Next To Line", Stay = true, LineOffset = 14 }
+			if tbl4.SafeCarry.Teleport and tbl4.SafeCarry.AGDestination == "Base" then
+				options = { Destination = "Safe Zone", Stay = true }
+			else
+				options = { Destination = "Next To Line", Stay = true, LineOffset = 14 }
+			end
 		end
 		if type(options) ~= "table" or options.Destination == "Safe Zone" and not options.Stay then
 			return sliced10
