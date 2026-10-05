@@ -69,13 +69,17 @@ local function walkSpeed()
 end
 
 ------------------------------------------------------------------ carry / delivery state
-local state = { Carrying = false, Uid = nil, Delivered = 0, Busy = false, Cancel = false, Mult = 1, PulledAt = 0 }
+local state = { Carrying = false, Uid = nil, Delivered = 0, Busy = false, Cancel = false, Mult = 1, PulledAt = 0, HeldSeen = 0, GuessedDrop = false }
 
 if type(EggState) == "table" and type(EggState.CarryChanged) == "table" and type(EggState.CarryChanged.Connect) == "function" then
 	EggState.CarryChanged:Connect(function(arg)
 		local carrying = type(arg) == "table" and arg.IsCarrying == true
 		if carrying and arg.GuardDisabled == true then
 			carrying = false
+		end
+		state.GuessedDrop = false
+		if carrying then
+			state.HeldSeen = os.clock()
 		end
 		if carrying and type(arg.Uid) == "string" then
 			state.Uid = arg.Uid
@@ -115,23 +119,60 @@ local function dropEgg()
 	end
 end
 
-local function fireNearestPrompt(radius)
-	local r = root()
-	if not r or typeof(fireproximityprompt) ~= "function" then
-		return
-	end
+-- the prompt of the egg itself (nearest egg prompt to the egg's position), never one of another egg
+local function promptNear(position, radius)
+	local best, bestDistance = nil, radius
 	for _, child in ipairs(workspace:GetChildren()) do
-		if child.Name == "SmartPromptPart" and child:IsA("BasePart") and (child.Position - r.Position).Magnitude <= radius then
+		if child.Name == "SmartPromptPart" and child:IsA("BasePart") then
 			local prompt = child:FindFirstChild("CarryAreaEgg")
 			if prompt and prompt:IsA("ProximityPrompt") then
-				pcall(function()
-					prompt.HoldDuration = 0
-				end)
-				pcall(fireproximityprompt, prompt)
+				local distance = (child.Position - position).Magnitude
+				if distance < bestDistance then
+					best, bestDistance = prompt, distance
+				end
 			end
 		end
 	end
+	return best
 end
+
+-- the carried egg is welded to the character: used to catch a missed carry signal (same check as the hub)
+local function heldByMe(uid)
+	local character = localPlayer.Character
+	if type(uid) ~= "string" or not character then
+		return false
+	end
+	local egg = workspace:FindFirstChild(uid)
+	if not egg then
+		return false
+	end
+	for _, d in ipairs(egg:GetDescendants()) do
+		if d:IsA("WeldConstraint") or d:IsA("JointInstance") then
+			local ok, a, b = pcall(function()
+				return d.Part0, d.Part1
+			end)
+			if ok and ((a and a:IsDescendantOf(character)) or (b and b:IsDescendantOf(character))) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		if not state.Carrying then
+			if state.GuessedDrop and heldByMe(state.Uid) then
+				state.GuessedDrop, state.Carrying, state.HeldSeen = false, true, os.clock()
+			end
+		elseif heldByMe(state.Uid) then
+			state.HeldSeen = os.clock()
+		elseif os.clock() - state.HeldSeen > 0.8 then
+			state.Carrying, state.GuessedDrop = false, true
+		end
+	end
+end)
 
 local function snapshot()
 	local list = {}
@@ -509,13 +550,71 @@ local function runToEgg(uid, egg)
 	return state.Carrying or (r ~= nil and Vector3.new(egg.X - r.Position.X, 0, egg.Z - r.Position.Z).Magnitude <= 6)
 end
 
--- take the egg that lies next to us (also used to take it back after the drop)
+-- current position of an egg lying in the world (cheap), with the snapshot as fallback
+local function eggNow(uid, cache)
+	local node = workspace:FindFirstChild(uid)
+	local slots = workspace:FindFirstChild("AreaEggSlotsClient")
+	node = node or (slots and slots:FindFirstChild(uid))
+	if node then
+		local ok, pos = pcall(function()
+			return node:GetPivot().Position
+		end)
+		if ok and pos then
+			cache.Pos, cache.At = pos, os.clock()
+			return pos
+		end
+	end
+	if os.clock() - cache.At >= 0.5 then
+		cache.At = os.clock()
+		cache.Pos = eggPosition(uid) or cache.Pos
+	end
+	return cache.Pos
+end
+
+-- take the egg that lies next to us (also used to take it back after the drop): follow it, fire its prompt and send the request
 local function grab(uid, timeout)
-	local waited = 0
+	local cache = { At = 0 }
+	local waited, since = 0, 1
 	while not state.Carrying and waited < timeout and not state.Cancel do
-		takeEgg(uid)
-		fireNearestPrompt(10)
-		waited += task.wait(CFG.GrabInterval)
+		local r = root()
+		local egg = eggNow(uid, cache)
+		local dt = math.max(RunService.Heartbeat:Wait(), 1 / 240)
+		waited += dt
+		since += dt
+		if r and egg then
+			local delta = egg - r.Position
+			if delta.Magnitude > 2 then
+				local pace = math.max(walkSpeed() * CFG.SpeedCap, 16)
+				local v = delta / math.max(0.08, dt)
+				if v.Magnitude > pace then
+					v = v.Unit * pace
+				end
+				pcall(function()
+					r.AssemblyLinearVelocity = v + Vector3.new(0, workspace.Gravity * dt * 0.5, 0)
+					r.AssemblyAngularVelocity = Vector3.zero
+				end)
+			end
+			if since >= CFG.GrabInterval then
+				since = 0
+				local prompt = promptNear(egg - Vector3.new(0, 3, 0), 10)
+				if prompt and typeof(fireproximityprompt) == "function" then
+					pcall(function()
+						prompt.HoldDuration = 0
+					end)
+					pcall(fireproximityprompt, prompt)
+				end
+				task.spawn(takeEgg, uid)
+			end
+		elseif since >= CFG.GrabInterval then
+			since = 0
+			task.spawn(takeEgg, uid)
+		end
+	end
+	local r = root()
+	if r then
+		pcall(function()
+			r.AssemblyLinearVelocity = Vector3.zero
+		end)
 	end
 	return state.Carrying and state.Uid == uid
 end
