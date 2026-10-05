@@ -28,6 +28,7 @@ local CFG = {
 	Stops = 3, -- total number of steps (editable): stops - 1 stops on the way + the drop at the line
 	StopPause = 0.12, -- seconds spent on the ground before the egg is put down at a stop (editable)
 	StopHold = 0.3, -- pause where nothing solid is below (no drop there)
+	GoFly = true, -- way to the egg: Fly (hub default) or Run (editable)
 	Height = 70, -- the safe-zone run starts above the base and comes down (same as the hub)
 	ClimbShare = 0.5,
 	CarryRatio = 0.9,
@@ -617,13 +618,33 @@ local function avoid(from, to)
 	return to
 end
 
--- the hub's "Run" way to the egg: straight on the ground at 115% of the walk speed (never faster).
--- From the base side it first walks out to the safe-zone point, like the hub does.
+-- snap the body to a height (the hub's way of going up / down while flying), only for small differences
+local function snapY(y)
+	local r = root()
+	local character = localPlayer.Character
+	if not r or not character then
+		return false
+	end
+	local diff = math.abs(r.Position.Y - y)
+	if diff < 1 or diff > 90 then
+		return false
+	end
+	pcall(function()
+		character:PivotTo(CFrame.new(Vector3.new(r.Position.X, y, r.Position.Z)) * r.CFrame.Rotation)
+		r.AssemblyLinearVelocity = Vector3.new(r.AssemblyLinearVelocity.X, 0, r.AssemblyLinearVelocity.Z)
+	end)
+	return true
+end
+
+-- the hub's go method to the egg at 115% of the walk speed (never faster): "Fly" (hub default) goes 50 studs above
+-- the egg and comes down on it, "Run" stays on the ground. From the base side it first walks out to the safe-zone point.
 local function runToEgg(uid, egg)
 	local lineX = lineInfo()
 	local home = homePoint()
 	local character = localPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local runHeight = CFG.GoFly and 50 or 0
+	local eggY = egg.Y + 3
 	if humanoid then
 		humanoid.PlatformStand = false
 		if character:FindFirstChildWhichIsA("Tool") then
@@ -641,7 +662,11 @@ local function runToEgg(uid, egg)
 	if r.Position.X < lineX - 2 and Vector3.new(r.Position.X - home.X, 0, r.Position.Z - home.Z).Magnitude > 20 then
 		stage = "safe"
 	end
+	if stage == "field" and runHeight > 0.5 then
+		snapY(eggY + runHeight)
+	end
 
+	local share = math.clamp(CFG.ClimbShare, 0.1, 0.9)
 	local started, lastCheck, lastPos, lastTake = os.clock(), os.clock(), r.Position, 0
 	while os.clock() - started < 120 and not state.Cancel do
 		r = root()
@@ -649,13 +674,16 @@ local function runToEgg(uid, egg)
 			return false
 		end
 		local flatEgg = Vector3.new(egg.X - r.Position.X, 0, egg.Z - r.Position.Z)
-		if stage == "field" and flatEgg.Magnitude <= 2.5 then
+		if stage == "field" and flatEgg.Magnitude <= 2.5 and (runHeight <= 0.5 or r.Position.Y - eggY < 4) then
 			break
 		end
 		local target = egg
 		if stage == "safe" then
 			if Vector3.new(home.X - r.Position.X, 0, home.Z - r.Position.Z).Magnitude <= 6 then
 				stage = "field"
+				if runHeight > 0.5 then
+					snapY(eggY + runHeight)
+				end
 			else
 				target = home
 			end
@@ -665,13 +693,36 @@ local function runToEgg(uid, egg)
 		local flat = Vector3.new(waypoint.X - r.Position.X, 0, waypoint.Z - r.Position.Z)
 		local unit = flat.Magnitude > 0.01 and flat.Unit or Vector3.zero
 		local speed = math.max(walkSpeed() * CFG.SpeedCap, 8)
-		local v = unit * math.min(speed, flat.Magnitude / 0.05)
-		pcall(function()
-			r.AssemblyLinearVelocity = Vector3.new(v.X, r.AssemblyLinearVelocity.Y, v.Z)
-			if humanoid and unit.Magnitude > 0 then
-				humanoid:Move(unit, false)
+
+		if runHeight > 0.5 and stage == "field" then
+			-- flying: height follows the egg, the last 3 studs drop onto it
+			local snapped = false
+			if flatEgg.Magnitude <= 3 then
+				snapped = snapY(eggY)
 			end
-		end)
+			if not snapped then
+				local wantY = flatEgg.Magnitude <= 3 and eggY or eggY + runHeight
+				if math.abs(wantY - r.Position.Y) > 2 and snapY(wantY) then
+					snapped = true
+				end
+				if not snapped then
+					local vy = math.clamp((wantY - r.Position.Y) / 0.12, -speed * share, speed * share)
+					local horizontal = math.sqrt(math.max(speed * speed - vy * vy, 0))
+					local v = unit * math.min(horizontal, flat.Magnitude / 0.05)
+					pcall(function()
+						r.AssemblyLinearVelocity = Vector3.new(v.X, vy, v.Z)
+					end)
+				end
+			end
+		else
+			local v = unit * math.min(speed, flat.Magnitude / 0.05)
+			pcall(function()
+				r.AssemblyLinearVelocity = Vector3.new(v.X, r.AssemblyLinearVelocity.Y, v.Z)
+				if humanoid and unit.Magnitude > 0 then
+					humanoid:Move(unit, false)
+				end
+			end)
+		end
 
 		-- stuck on something: jump
 		if os.clock() - lastCheck >= 1.5 then
@@ -694,7 +745,7 @@ local function runToEgg(uid, egg)
 	r = root()
 	if r then
 		pcall(function()
-			r.AssemblyLinearVelocity = Vector3.new(0, r.AssemblyLinearVelocity.Y, 0)
+			r.AssemblyLinearVelocity = Vector3.new(0, runHeight > 0.5 and 0 or r.AssemblyLinearVelocity.Y, 0)
 			if humanoid then
 				humanoid:Move(Vector3.zero, false)
 			end
@@ -725,7 +776,7 @@ local function eggNow(uid, cache)
 end
 
 -- take the egg that lies next to us (also used to take it back after the drop): follow it, fire its prompt and send the request
-local function grab(uid, timeout)
+local function grab(uid, timeout, radius)
 	local cache = { At = 0 }
 	local waited, since = 0, 1
 	while not state.Carrying and waited < timeout and not state.Cancel do
@@ -749,7 +800,7 @@ local function grab(uid, timeout)
 			end
 			if since >= CFG.GrabInterval then
 				since = 0
-				local prompt = promptNear(egg - Vector3.new(0, 3, 0), CFG.GrabRadius)
+				local prompt = promptNear(egg - Vector3.new(0, 3, 0), radius or CFG.GrabRadius)
 				if prompt and typeof(fireproximityprompt) == "function" then
 					pcall(function()
 						prompt.HoldDuration = 0
@@ -1077,21 +1128,30 @@ local function deliveryStop(uid)
 		end
 	end
 
-	-- get up, walk back to the egg and take it
-	local ragdollWait = 0
-	local function ragdolled()
-		local num = tonumber(localPlayer:GetAttribute("RagdollEndTime"))
-		return num ~= nil and num > workspace:GetServerTimeNow()
-	end
-	while ragdolled() and ragdollWait < 6 and not state.Cancel do
-		ragdollWait += RunService.Heartbeat:Wait()
-	end
+	-- get up (the hub keeps the body out of a ragdoll for 1.5 s), then walk back to the egg and take it
+	task.spawn(function()
+		local waited = 0
+		while waited < 1.5 do
+			local character = localPlayer.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				pcall(function()
+					humanoid.PlatformStand = false
+					local st = humanoid:GetState()
+					if st == Enum.HumanoidStateType.Physics or st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown then
+						humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+					end
+				end)
+			end
+			waited += RunService.Heartbeat:Wait()
+		end
+	end)
 
 	for _ = 1, 6 do
 		if state.Carrying or state.Cancel then
 			break
 		end
-		local egg = eggNow(uid, { At = 0 })
+		local egg = eggPosition(uid)
 		if not egg then
 			status("The egg is gone")
 			return false
@@ -1100,10 +1160,12 @@ local function deliveryStop(uid)
 			return nestStop()
 		end
 		status("Delivery Stop: picking the egg up at the line")
-		runFlat(egg, math.max(walkSpeed() * math.min(CFG.PickupRatio, CFG.SpeedCap), 8), 5, function()
-			return state.Carrying
-		end)
-		grab(uid, 2.5)
+		runFlat(egg, walkSpeed() * math.min(CFG.PickupRatio, CFG.SpeedCap), 5, nil)
+		local waited = 0
+		while not state.Carrying and waited < 2.5 and not state.Cancel do
+			task.spawn(takeEgg, uid)
+			waited += task.wait(0.15)
+		end
 	end
 	if not state.Carrying then
 		status("Could not take the egg back")
@@ -1160,7 +1222,6 @@ local function stealAndDeliver(uid)
 					waited += RunService.Heartbeat:Wait()
 				end
 			end
-			fpsOn()
 			status("Going to the egg")
 			if not runToEgg(uid, egg) then
 				fpsOff()
@@ -1168,7 +1229,7 @@ local function stealAndDeliver(uid)
 				return
 			end
 			status("Taking the egg")
-			if not grab(uid, 4) then
+			if not grab(uid, 4, 14) then
 				fpsOff()
 				status("The egg would not come free")
 				return
@@ -1266,7 +1327,7 @@ end
 local gui = make("ScreenGui", { Name = "yslemEggStop", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true })
 gui.Parent = parentGui()
 
-local W, H, HEADER = 158, 250, 20
+local W, H, HEADER = 158, 270, 20
 local window = make("Frame", { Size = UDim2.fromOffset(W, H), Position = UDim2.new(0.5, -W / 2, 0.5, -H / 2), BackgroundColor3 = BG, BorderSizePixel = 0, ClipsDescendants = false })
 window.Parent = gui
 corner(window, 18)
@@ -1316,7 +1377,7 @@ local body = make("Frame", { Size = UDim2.new(1, -10, 1, -(HEADER + 8)), Positio
 body.Parent = window
 
 local list = make("ScrollingFrame", {
-	Size = UDim2.new(1, 0, 1, -118), BackgroundColor3 = BG, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = SILVER,
+	Size = UDim2.new(1, 0, 1, -138), BackgroundColor3 = BG, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = SILVER,
 	CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 })
 list.Parent = body
@@ -1364,6 +1425,22 @@ end
 stepper("Stops", -112, function() return CFG.Stops end, function(v) CFG.Stops = math.floor(v + 0.5) end, 1, 1, 6, function(v) return tostring(v) end)
 stepper("Pause", -92, function() return CFG.StopPause end, function(v) CFG.StopPause = math.floor(v * 100 + 0.5) / 100 end, 0.05, 0.05, 1, function(v) return string.format("%.2fs", v) end)
 stepper("Distance", -72, function() return CFG.LandOffset end, function(v) CFG.LandOffset = math.floor(v + 0.5) end, 4, 20, 90, function(v) return tostring(v) end)
+
+-- way to the egg: Fly (hub default) / Run
+do
+	local row = make("Frame", { Size = UDim2.new(1, 0, 0, 18), Position = UDim2.new(0, 0, 1, -132), BackgroundTransparency = 1 })
+	row.Parent = body
+	text(row, { Size = UDim2.new(0.42, 0, 1, 0), Font = Enum.Font.GothamBold, TextSize = 9, TextXAlignment = Enum.TextXAlignment.Left, Text = "Go" })
+	local b = make("TextButton", { Size = UDim2.new(0.58, 0, 0, 16), Position = UDim2.new(0.42, 0, 0.5, -8), BackgroundColor3 = BG, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = WHITE, Text = "Fly", AutoButtonColor = true })
+	b.Parent = row
+	corner(b, 8)
+	livingStroke(b, 1, true)
+	livingText(b)
+	b.MouseButton1Click:Connect(function()
+		CFG.GoFly = not CFG.GoFly
+		b.Text = CFG.GoFly and "Fly" or "Run"
+	end)
+end
 
 local statusLabel = text(body, {
 	Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -52), Font = Enum.Font.Gotham, TextSize = 9,
