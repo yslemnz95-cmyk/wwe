@@ -4524,6 +4524,14 @@ do
 			end
 		end
 
+		-- removes every client-side copy of the player (Anti Guard's copy and the one left at the egg)
+		tbl4.ClearClones = function()
+			if MoonLib.ReleaseCamera then
+				pcall(MoonLib.ReleaseCamera)
+			end
+			pcall(tbl4.DropClone)
+		end
+
 		tbl4.DropClone = function()
 			local copy = tbl4.StealClone
 			tbl4.StealClone = nil
@@ -7909,6 +7917,10 @@ do
 						slicedfn50(arg, carryUid)
 					end
 
+					if steal.Carrying then
+						tbl4.ClearClones()
+					end
+
 					if steal.Carrying and safeCarry.LastDelivered < now and not slicedfn13(arg) then
 						crossLine(safeCarry.Cap(safeCarry.CrossRatio), function()
 							return safeCarry.LastDelivered >= now or not steal.Carrying
@@ -8810,10 +8822,16 @@ do
 					end
 
 					-- the egg was left on the ground (Anti Guard) and we walked back to it, so finish like the Normal mode does
+					tbl4.ClearClones()
+
 					if tbl4.SafeCarry.LineDrop then
 						str2 = "Egg retaken, carrying it home"
 						return tbl4.SafeCarry.Home(arg)
 					end
+				end
+
+				if tbl4.Steal.Carrying then
+					tbl4.ClearClones()
 				end
 
 				if tbl4.SafeCarry.Teleport then
