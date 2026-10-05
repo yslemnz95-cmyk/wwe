@@ -839,8 +839,8 @@ gui.Parent = parentGui()
 local W, H, HEADER = 158, 188, 20
 local window = make("Frame", { Size = UDim2.fromOffset(W, H), Position = UDim2.new(0.5, -W / 2, 0.5, -H / 2), BackgroundColor3 = BG, BorderSizePixel = 0, ClipsDescendants = false })
 window.Parent = gui
-corner(window, 8)
-livingStroke(window, 1.5, true)
+corner(window, 18)
+livingStroke(window, 1, true)
 
 local rotation = 0
 local tick = 0
@@ -860,7 +860,7 @@ end)
 -- header: living light bar, the title is black
 local header = make("Frame", { Size = UDim2.new(1, -8, 0, HEADER - 4), Position = UDim2.fromOffset(4, 4), BackgroundColor3 = WHITE, BorderSizePixel = 0 })
 header.Parent = window
-corner(header, 5)
+corner(header, 10)
 do
 	local g = make("UIGradient", { Color = bands(WHITE, SILVER) })
 	g.Parent = header
@@ -874,7 +874,7 @@ text(header, {
 local function headerButton(label, offset)
 	local b = make("TextButton", { Size = UDim2.fromOffset(17, 14), Position = UDim2.new(1, offset, 0.5, -7), BackgroundColor3 = BG, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
 	b.Parent = header
-	corner(b, 4)
+	corner(b, 7)
 	livingStroke(b, 1, true)
 	livingText(b)
 	return b
@@ -890,10 +890,10 @@ local list = make("ScrollingFrame", {
 	CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 })
 list.Parent = body
-corner(list, 6)
+corner(list, 12)
 livingStroke(list, 1, false)
 make("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }).Parent = list
-make("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 4) }).Parent = list
+make("UIPadding", { PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 6) }).Parent = list
 
 local statusLabel = text(body, {
 	Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -52), Font = Enum.Font.Gotham, TextSize = 9,
@@ -916,8 +916,8 @@ end
 local function bigButton(label, position, size)
 	local b = make("TextButton", { Size = size, Position = position, BackgroundColor3 = BG, Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = WHITE, Text = label, AutoButtonColor = true })
 	b.Parent = body
-	corner(b, 8)
-	livingStroke(b, 1.2, true)
+	corner(b, 17)
+	livingStroke(b, 1, true)
 	livingText(b)
 	return b
 end
@@ -931,7 +931,7 @@ local function setSelected(uid)
 	selectedUid = uid
 	for rowUid, row in pairs(rows) do
 		local on = rowUid == uid
-		row.Stroke.Thickness = on and 1.6 or 1
+		row.Stroke.Thickness = on and 1.5 or 1
 		row.Gradient.Color = on and bands(WHITE, STEEL) or bands(STEEL, Color3.fromRGB(30, 30, 34))
 	end
 end
@@ -961,7 +961,7 @@ local function rebuild()
 		still = still or info.Uid == selectedUid
 		local frame = make("TextButton", { Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = BG, LayoutOrder = index, Text = "", AutoButtonColor = true })
 		frame.Parent = list
-		corner(frame, 5)
+		corner(frame, 10)
 		local rowStroke, rowGradient = livingStroke(frame, 1, false)
 
 		make("ImageLabel", { Size = UDim2.fromOffset(22, 22), Position = UDim2.fromOffset(3, 3), BackgroundTransparency = 1, Image = info.Icon, ScaleType = Enum.ScaleType.Fit }).Parent = frame
