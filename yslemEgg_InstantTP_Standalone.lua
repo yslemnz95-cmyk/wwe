@@ -1,21 +1,22 @@
--- MoonEgg | Instant TP standalone
--- Pick a pet (icon + value) in the small panel, press Steal: the egg is taken and delivered with the Instant TP logic only.
--- No Anti Guard, no Delivery Stop, no external requests.
+-- yslemEgg | Instant TP
+-- Pick a pet (icon + value), press Steal: taken and delivered with the Instant TP logic only.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local localPlayer = Players.LocalPlayer
 
 ------------------------------------------------------------------ settings (same values as the hub)
 local CFG = {
-	SpeedCap = 1.15, -- no speed above 115%
+	SpeedCap = 1.15, -- never above 115% of the walk speed
 	HopRatio = 1.515, -- hop distance = walk speed * ratio (a distance, not a speed)
 	HopMin = 40,
-	HopGap = 0.06, -- seconds between two hops
+	HopGap = 0.06, -- seconds between two hops (learned: grows after a pull-back, shrinks after a clean hop)
+	HopGapMin = 0.06,
+	HopGapMax = 0.2,
+	HopRetries = 6,
 	HopLift = 42, -- height of the hops above the start
 	LandOffset = 14, -- landing spot in front of the line
 	LandSettle = 0.08,
@@ -23,10 +24,12 @@ local CFG = {
 	GrabInterval = 0.03,
 	ApproachSpeed = 400, -- studs/s towards the egg
 	RegrabFar = 40, -- egg further than this: teleport onto it, otherwise run to it
-	FpsHigh = 60,
-	FpsLow = 30,
-	FpsFlip = 0.15,
+	Height = 70, -- the safe-zone run starts above the base and comes down (same as the hub)
+	ClimbShare = 0.5,
+	CarryRatio = 0.9,
+	EasyRatio = 1.3,
 }
+local FPS = { 60, 30, 0.15 }
 
 ------------------------------------------------------------------ game handles
 local function safeRequire(getter)
@@ -67,7 +70,7 @@ local function walkSpeed()
 end
 
 ------------------------------------------------------------------ carry / delivery state
-local state = { Carrying = false, Uid = nil, Delivered = 0, Busy = false, Cancel = false }
+local state = { Carrying = false, Uid = nil, Delivered = 0, Busy = false, Cancel = false, Mult = 1, PulledAt = 0 }
 
 if type(EggState) == "table" and type(EggState.CarryChanged) == "table" and type(EggState.CarryChanged.Connect) == "function" then
 	EggState.CarryChanged:Connect(function(arg)
@@ -77,6 +80,10 @@ if type(EggState) == "table" and type(EggState.CarryChanged) == "table" and type
 		end
 		if carrying and type(arg.Uid) == "string" then
 			state.Uid = arg.Uid
+			local mult = tonumber(arg.SpeedMultiplier)
+			if mult and mult > 0 then
+				state.Mult = mult
+			end
 		end
 		state.Carrying = carrying
 	end)
@@ -85,6 +92,15 @@ end
 pcall(function()
 	remote("RE/EggWorld/FieldEggRedeemVerdict").OnClientEvent:Connect(function()
 		state.Delivered = os.clock()
+	end)
+end)
+
+-- the server pulling us back ("Relocate") is noted so the hop is simply repeated
+pcall(function()
+	remote("RE/RigSync/Refresh").OnClientEvent:Connect(function(arg)
+		if type(arg) == "table" and arg.Action == "Relocate" then
+			state.PulledAt = os.clock()
+		end
 	end)
 end)
 
@@ -204,7 +220,6 @@ local function frozenCamera()
 	end
 end
 
--- 60 / 30 FPS flip while the steal runs
 local fpsGen = 0
 local function fpsOn()
 	if typeof(setfpscap) ~= "function" then
@@ -216,9 +231,9 @@ local function fpsOn()
 		local high = true
 		local started = os.clock()
 		while fpsGen == mine and os.clock() - started < 60 do
-			pcall(setfpscap, high and CFG.FpsHigh or CFG.FpsLow)
+			pcall(setfpscap, high and FPS[1] or FPS[2])
 			high = not high
-			task.wait(CFG.FpsFlip)
+			task.wait(FPS[3])
 		end
 	end)
 end
@@ -265,30 +280,6 @@ local function place(position)
 		r.AssemblyLinearVelocity = Vector3.zero
 		r.AssemblyAngularVelocity = Vector3.zero
 	end)
-end
-
--- run in a straight line at `speed` (velocity based) until close or `stop()` is true
-local function runTo(target, speed, timeout, stop)
-	local elapsed = 0
-	while elapsed < timeout and not state.Cancel do
-		local r = root()
-		if not r then
-			return false
-		end
-		if stop and stop() then
-			return true
-		end
-		local flat = Vector3.new(target.X - r.Position.X, 0, target.Z - r.Position.Z)
-		if flat.Magnitude < 2.5 then
-			return true
-		end
-		local v = flat.Unit * math.min(speed, flat.Magnitude / 0.05)
-		pcall(function()
-			r.AssemblyLinearVelocity = Vector3.new(v.X, r.AssemblyLinearVelocity.Y, v.Z)
-		end)
-		elapsed += RunService.Heartbeat:Wait()
-	end
-	return false
 end
 
 -- fast approach to the egg (position stepping), used before the first grab
@@ -355,30 +346,87 @@ local function groundY(position, fallback)
 	return y
 end
 
--- safe zone: checkpoint 7 studs past the line, then the base
+-- safe zone: same route as the Normal mode: checkpoint 7 studs past the line, then the base.
+-- Speed = the hub's carry plan (never above 115% of the walk speed), the run starts above the base and comes down.
+local function carrySpeed()
+	local ws = walkSpeed()
+	local base = ws * math.min(CFG.CarryRatio, CFG.SpeedCap) * state.Mult
+	return math.max(base, math.min(base * CFG.EasyRatio, ws * CFG.SpeedCap))
+end
+
 local function runHome(lineX, laneZ)
-	local ratio = math.min(CFG.SpeedCap, 1)
 	local started = os.clock()
 	local home = homePoint()
-	local speed = walkSpeed() * ratio
-	local function done()
-		return state.Delivered >= started or not state.Carrying
+	local checkpoint = lineX - 7
+	local height = CFG.Height
+	local share = math.clamp(CFG.ClimbShare, 0.1, 0.9)
+	local descent = height * math.sqrt(1 - share * share) / share
+	local character = localPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+	-- rise above the base first (no horizontal move), like the hub
+	local r = root()
+	if r and character and height > 0.5 and home.Y + height - 2 > r.Position.Y then
+		pcall(function()
+			character:PivotTo(CFrame.new(Vector3.new(r.Position.X, home.Y + height, r.Position.Z)) * r.CFrame.Rotation)
+			r.AssemblyLinearVelocity = Vector3.zero
+			r.AssemblyAngularVelocity = Vector3.zero
+		end)
 	end
-	status("Safe zone: checkpoint")
-	runTo(Vector3.new(lineX - 7, home.Y, laneZ), speed, 6, done)
-	if state.Carrying and state.Delivered < started then
-		status("Safe zone: home")
-		runTo(home, walkSpeed() * ratio, 6, done)
+
+	local last = os.clock()
+	local timeout = 0
+	status("Safe zone")
+	while state.Carrying and state.Delivered < started and not state.Cancel and timeout < 25 do
+		r = root()
+		if not r then
+			return false
+		end
+		local now = os.clock()
+		local dt = math.max(now - last, 1 / 240)
+		last = now
+		timeout += dt
+
+		local toHome = r.Position.X <= checkpoint + 2
+		local target = toHome and home or Vector3.new(checkpoint, home.Y, laneZ)
+		local flat = Vector3.new(target.X - r.Position.X, 0, target.Z - r.Position.Z)
+		if toHome and flat.Magnitude < 2 then
+			break
+		end
+
+		local speed = carrySpeed()
+		local remaining = toHome and 0 or math.max(0, r.Position.X - checkpoint)
+		local wantY = home.Y + height
+		if toHome or remaining <= descent then
+			wantY = home.Y + height * math.clamp(remaining / math.max(descent, 1), 0, 1)
+		end
+		local vy = math.clamp((wantY - r.Position.Y) / 0.12, -speed * share, speed * share)
+		local horizontal = math.sqrt(math.max(speed * speed - vy * vy, 0))
+		local v = flat.Magnitude > 0.01 and flat.Unit * math.min(horizontal, flat.Magnitude / 0.05) or Vector3.zero
+		pcall(function()
+			r.AssemblyLinearVelocity = Vector3.new(v.X, vy, v.Z)
+		end)
+		RunService.Heartbeat:Wait()
 	end
+
+	if humanoid then
+		pcall(function()
+			humanoid:Move(Vector3.zero, false)
+		end)
+	end
+
 	local settle = 0
 	while settle < 2 and state.Delivered < started and state.Carrying and not state.Cancel do
 		settle += RunService.Heartbeat:Wait()
 	end
-	local r = root()
-	if r then
-		pcall(function()
-			r.AssemblyLinearVelocity = Vector3.zero
-		end)
+	-- still in the hands at home: put it down so the base takes it
+	if state.Carrying and state.Delivered < started and not state.Cancel then
+		task.wait(0.2)
+		dropEgg()
+		local waited = 0
+		while state.Delivered < started and waited < 1 do
+			waited += RunService.Heartbeat:Wait()
+		end
 	end
 	return state.Delivered >= started
 end
@@ -393,22 +441,16 @@ local function instantTP(uid)
 	local laneZ = math.clamp(r.Position.Z, -425, -300)
 	local landing = Vector3.new(lineX + CFG.LandOffset, lineY + 3.35, laneZ)
 
-	-- hops towards the line
+	-- hops towards the line; a pull-back repeats the same hop with a longer pause (the pause is learned)
 	local hopStep = math.max(walkSpeed() * CFG.HopRatio, CFG.HopMin)
 	local hopY = r.Position.Y + CFG.HopLift
 	local x = r.Position.X
+	local retries = 0
 	local releaseCamera = frozenCamera()
 	fpsOn()
 
-	while x - hopStep > landing.X and state.Carrying and not state.Cancel do
-		x -= hopStep
-		status(string.format("Instant TP: hopping home, X %d", math.floor(x)))
-		local held = 0
-		while held < CFG.HopGap do
-			place(Vector3.new(x, hopY, laneZ))
-			held += RunService.Heartbeat:Wait()
-		end
-		if not state.Carrying and not state.Cancel then
+	while x - hopStep > landing.X and not state.Cancel do
+		if not state.Carrying then
 			-- the server let go of the egg on the way: take it back right away
 			if not regrab(uid) then
 				break
@@ -417,13 +459,53 @@ local function instantTP(uid)
 			if current then
 				x = math.min(x, current.Position.X)
 			end
+			continue
+		end
+
+		local nextX = x - hopStep
+		status(string.format("Instant TP: hopping home, X %d", math.floor(nextX)))
+		local pulledBefore = state.PulledAt
+		local held = 0
+		while held < CFG.HopGap do
+			place(Vector3.new(nextX, hopY, laneZ))
+			held += RunService.Heartbeat:Wait()
+		end
+
+		local check = root()
+		local pulled = state.PulledAt > pulledBefore or (check ~= nil and (check.Position.X - nextX > 10 or check.AssemblyLinearVelocity.Magnitude > 150))
+		if pulled and state.Carrying and not state.Cancel then
+			retries += 1
+			CFG.HopGap = math.min(CFG.HopGapMax, CFG.HopGap + 0.02)
+			if retries > CFG.HopRetries then
+				break
+			end
+			status(string.format("Instant TP: pulled back, retry %d/%d", retries, CFG.HopRetries))
+			local settle = 0
+			while settle < 0.12 and not state.Cancel do
+				place(Vector3.new(x, hopY, laneZ))
+				settle += RunService.Heartbeat:Wait()
+			end
+		else
+			x = nextX
+			CFG.HopGap = math.max(CFG.HopGapMin, CFG.HopGap - 0.01)
 		end
 	end
 
 	-- landing in front of the line
 	status("Instant TP: landing next to the line")
 	landing = Vector3.new(landing.X, groundY(landing, landing.Y), landing.Z)
-	place(landing)
+	local function land()
+		local current = root()
+		-- never jump backwards: if we are already closer to the line than the landing spot, stay
+		if current and current.Position.X <= landing.X + 1 and current.Position.Y > landing.Y - 25 then
+			pcall(function()
+				current.AssemblyLinearVelocity = Vector3.zero
+			end)
+			return
+		end
+		place(landing)
+	end
+	land()
 	for attempt = 1, 3 do
 		local settle = 0
 		while settle < CFG.LandSettle and not state.Cancel do
@@ -432,7 +514,7 @@ local function instantTP(uid)
 		local landed = root()
 		if state.Carrying and landed and (landed.Position.X - landing.X > 12 or landed.Position.Y < landing.Y - 25) then
 			status("Instant TP: landing retry " .. attempt)
-			place(landing)
+			land()
 		else
 			break
 		end
@@ -455,6 +537,7 @@ local function instantTP(uid)
 		if current then
 			pcall(function()
 				current.AssemblyLinearVelocity = Vector3.zero
+				current.AssemblyAngularVelocity = Vector3.zero
 			end)
 		end
 		status("Instant TP: taking the egg back")
@@ -512,12 +595,12 @@ local function stealAndDeliver(uid)
 	end)
 end
 
------------------------------------------------------------------- UI (gold, with strokes)
+------------------------------------------------------------------ UI (gold, shining strokes)
 local GOLD = Color3.fromRGB(255, 196, 61)
-local GOLD_DARK = Color3.fromRGB(176, 118, 24)
+local GOLD_DARK = Color3.fromRGB(150, 100, 20)
+local SHINE = Color3.fromRGB(255, 244, 200)
 local BG = Color3.fromRGB(16, 14, 10)
 local CARD = Color3.fromRGB(27, 23, 15)
-local TEXT = Color3.fromRGB(246, 238, 220)
 local MUTED = Color3.fromRGB(170, 158, 132)
 local RARITY_COLORS = {
 	Color3.fromRGB(190, 190, 190), Color3.fromRGB(110, 210, 110), Color3.fromRGB(90, 160, 255),
@@ -535,107 +618,135 @@ local function parentGui()
 	return CoreGui
 end
 
-local function make(class, props, children)
+local function make(class, props)
 	local inst = Instance.new(class)
 	for k, v in pairs(props or {}) do
 		inst[k] = v
 	end
-	for _, child in ipairs(children or {}) do
-		child.Parent = inst
-	end
 	return inst
 end
 
-local function stroke(parent, thickness, color)
-	local s = make("UIStroke", { Thickness = thickness or 1.5, Color = color or GOLD, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+-- every stroke gets a bright band that keeps sweeping around it
+local shines = {}
+local function stroke(parent, thickness, shining)
+	local s = make("UIStroke", { Thickness = thickness or 1, Color = shining and Color3.new(1, 1, 1) or GOLD_DARK, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
 	s.Parent = parent
-	return s
+	local g = make("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, GOLD_DARK),
+			ColorSequenceKeypoint.new(0.42, GOLD),
+			ColorSequenceKeypoint.new(0.5, SHINE),
+			ColorSequenceKeypoint.new(0.58, GOLD),
+			ColorSequenceKeypoint.new(1, GOLD_DARK),
+		}),
+		Enabled = shining == true,
+	})
+	g.Parent = s
+	shines[#shines + 1] = g
+	return s, g
 end
 
 local function corner(parent, radius)
-	make("UICorner", { CornerRadius = UDim.new(0, radius or 8) }).Parent = parent
+	make("UICorner", { CornerRadius = UDim.new(0, radius or 6) }).Parent = parent
 end
 
-local old = parentGui():FindFirstChild("MoonEggInstantTP")
+local old = parentGui():FindFirstChild("yslemEgg")
 if old then
 	old:Destroy()
 end
 
-local gui = make("ScreenGui", { Name = "MoonEggInstantTP", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true })
+local gui = make("ScreenGui", { Name = "yslemEgg", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true })
 gui.Parent = parentGui()
 
-local window = make("Frame", { Size = UDim2.fromOffset(300, 380), Position = UDim2.new(0.5, -150, 0.5, -190), BackgroundColor3 = BG, BorderSizePixel = 0 })
+local W, H, HEADER = 190, 214, 22
+local window = make("Frame", { Size = UDim2.fromOffset(W, H), Position = UDim2.new(0.5, -W / 2, 0.5, -H / 2), BackgroundColor3 = BG, BorderSizePixel = 0 })
 window.Parent = gui
-corner(window, 12)
-local windowStroke = stroke(window, 2, GOLD)
-make("UIGradient", { Color = ColorSequence.new(GOLD, GOLD_DARK), Rotation = 45 }).Parent = windowStroke
+corner(window, 8)
+stroke(window, 1.5, true)
 
--- the stroke slowly breathes
-task.spawn(function()
-	while gui.Parent do
-		TweenService:Create(windowStroke, TweenInfo.new(1.4, Enum.EasingStyle.Sine), { Transparency = 0.45 }):Play()
-		task.wait(1.4)
-		TweenService:Create(windowStroke, TweenInfo.new(1.4, Enum.EasingStyle.Sine), { Transparency = 0 }):Play()
-		task.wait(1.4)
+local angle = 0
+local shineConnection = RunService.Heartbeat:Connect(function(dt)
+	angle = (angle + dt * 120) % 360
+	for _, g in ipairs(shines) do
+		if g.Enabled then
+			g.Rotation = angle
+		end
 	end
 end)
 
-local header = make("Frame", { Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1 })
+local header = make("Frame", { Size = UDim2.new(1, 0, 0, HEADER), BackgroundTransparency = 1 })
 header.Parent = window
 make("TextLabel", {
-	Size = UDim2.new(1, -70, 1, 0), Position = UDim2.fromOffset(12, 0), BackgroundTransparency = 1,
-	Font = Enum.Font.GothamBlack, TextSize = 14, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, Text = "MoonEgg  |  Instant TP",
+	Size = UDim2.new(1, -50, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1,
+	Font = Enum.Font.GothamBlack, TextSize = 11, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, Text = "yslemEgg",
 }).Parent = header
 
 local function headerButton(text, offset)
-	local b = make("TextButton", { Size = UDim2.fromOffset(24, 22), Position = UDim2.new(1, offset, 0.5, -11), BackgroundColor3 = CARD, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = GOLD, Text = text, AutoButtonColor = true })
+	local b = make("TextButton", { Size = UDim2.fromOffset(16, 14), Position = UDim2.new(1, offset, 0.5, -7), BackgroundColor3 = CARD, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = GOLD, Text = text, AutoButtonColor = true })
 	b.Parent = header
-	corner(b, 6)
-	stroke(b, 1, GOLD_DARK)
+	corner(b, 4)
+	stroke(b, 1, true)
 	return b
 end
-local minimize = headerButton("-", -56)
-local close = headerButton("x", -28)
+local minimize = headerButton("-", -38)
+local close = headerButton("x", -20)
 
-local body = make("Frame", { Size = UDim2.new(1, -16, 1, -44), Position = UDim2.fromOffset(8, 38), BackgroundTransparency = 1 })
+local body = make("Frame", { Size = UDim2.new(1, -10, 1, -(HEADER + 6)), Position = UDim2.fromOffset(5, HEADER + 2), BackgroundTransparency = 1 })
 body.Parent = window
 
 local list = make("ScrollingFrame", {
-	Size = UDim2.new(1, 0, 1, -78), BackgroundColor3 = CARD, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = GOLD,
+	Size = UDim2.new(1, 0, 1, -50), BackgroundColor3 = CARD, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = GOLD,
 	CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 })
 list.Parent = body
-corner(list, 8)
-stroke(list, 1, GOLD_DARK)
-make("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }).Parent = list
-make("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 6) }).Parent = list
+corner(list, 6)
+stroke(list, 1, false)
+make("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }).Parent = list
+make("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 4) }).Parent = list
 
 local statusLabel = make("TextLabel", {
-	Size = UDim2.new(1, 0, 0, 18), Position = UDim2.new(0, 0, 1, -72), BackgroundTransparency = 1,
-	Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = MUTED, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = "Pick a pet",
+	Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -46), BackgroundTransparency = 1,
+	Font = Enum.Font.Gotham, TextSize = 9, TextColor3 = MUTED, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = "Pick a pet",
 })
 statusLabel.Parent = body
+
+-- the panel only shows what happens to the egg, never timings or internals
+local PUBLIC = { ["Pick a pet"] = true, ["Looking for the egg"] = true, ["Going to the egg"] = true, ["Taking the egg"] = true, ["Delivered"] = true, ["Delivery failed"] = true, ["That egg is gone"] = true, ["Could not reach the egg"] = true, ["The egg would not come free"] = true, ["Cancelling"] = true }
 status = function(text)
-	statusLabel.Text = tostring(text)
+	text = tostring(text)
+	if PUBLIC[text] then
+		statusLabel.Text = text
+	elseif string.sub(text, 1, 9) == "Selected:" then
+		statusLabel.Text = text
+	elseif string.sub(text, 1, 5) == "Error" then
+		statusLabel.Text = "Something went wrong"
+	elseif state.Busy then
+		statusLabel.Text = "Delivering"
+	end
 end
 
 local function bigButton(text, position, size)
-	local b = make("TextButton", { Size = size, Position = position, BackgroundColor3 = CARD, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = GOLD, Text = text, AutoButtonColor = true })
+	local b = make("TextButton", { Size = size, Position = position, BackgroundColor3 = CARD, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = GOLD, Text = text, AutoButtonColor = true })
 	b.Parent = body
-	corner(b, 8)
-	stroke(b, 1.5, GOLD)
+	corner(b, 6)
+	stroke(b, 1, true)
 	return b
 end
-local refreshButton = bigButton("Refresh", UDim2.new(0, 0, 1, -48), UDim2.new(0.32, -3, 0, 32))
-local stealButton = bigButton("Steal Selected", UDim2.new(0.32, 3, 1, -48), UDim2.new(0.68, -3, 0, 32))
-local hint = make("TextLabel", {
-	Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 1, -14), BackgroundTransparency = 1,
-	Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = MUTED, Text = "Instant TP only  -  max 115%  -  60 / 30 FPS flip",
-})
-hint.Parent = body
+local refreshButton = bigButton("Refresh", UDim2.new(0, 0, 1, -30), UDim2.new(0.34, -2, 0, 24))
+local stealButton = bigButton("Steal", UDim2.new(0.34, 2, 1, -30), UDim2.new(0.66, -2, 0, 24))
 
 local selectedUid = nil
 local rows = {}
+
+local function setSelected(uid)
+	selectedUid = uid
+	for rowUid, row in pairs(rows) do
+		local on = rowUid == uid
+		row.Gradient.Enabled = on
+		row.Stroke.Color = on and Color3.new(1, 1, 1) or GOLD_DARK
+		row.Stroke.Thickness = on and 1.5 or 1
+	end
+end
 
 local function rebuild()
 	for _, row in pairs(rows) do
@@ -651,50 +762,34 @@ local function rebuild()
 		return a.Value > b.Value
 	end)
 
-	if selectedUid then
-		local still = false
-		for _, info in ipairs(infos) do
-			still = still or info.Uid == selectedUid
-		end
-		if not still then
-			selectedUid = nil
-		end
-	end
-
+	local still = false
 	for index, info in ipairs(infos) do
-		local frame = make("TextButton", { Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = BG, LayoutOrder = index, Text = "", AutoButtonColor = true })
+		still = still or info.Uid == selectedUid
+		local frame = make("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = BG, LayoutOrder = index, Text = "", AutoButtonColor = true })
 		frame.Parent = list
-		corner(frame, 8)
-		local rowStroke = stroke(frame, 1.5, GOLD_DARK)
+		corner(frame, 5)
+		local rowStroke, rowGradient = stroke(frame, 1, false)
 
-		local icon = make("ImageLabel", { Size = UDim2.fromOffset(36, 36), Position = UDim2.fromOffset(4, 4), BackgroundTransparency = 1, Image = info.Icon, ScaleType = Enum.ScaleType.Fit })
-		icon.Parent = frame
+		make("ImageLabel", { Size = UDim2.fromOffset(24, 24), Position = UDim2.fromOffset(3, 3), BackgroundTransparency = 1, Image = info.Icon, ScaleType = Enum.ScaleType.Fit }).Parent = frame
 		make("TextLabel", {
-			Size = UDim2.new(1, -52, 0, 20), Position = UDim2.fromOffset(46, 3), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13,
-			TextColor3 = RARITY_COLORS[math.clamp(info.Rarity, 1, #RARITY_COLORS)] or TEXT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = info.Name,
+			Size = UDim2.new(1, -34, 0, 14), Position = UDim2.fromOffset(31, 2), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 10,
+			TextColor3 = RARITY_COLORS[math.clamp(info.Rarity, 1, #RARITY_COLORS)] or GOLD, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Text = info.Name,
 		}).Parent = frame
 		make("TextLabel", {
-			Size = UDim2.new(1, -52, 0, 16), Position = UDim2.fromOffset(46, 23), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 12,
+			Size = UDim2.new(1, -34, 0, 12), Position = UDim2.fromOffset(31, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 9,
 			TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, Text = money(info.Value),
 		}).Parent = frame
 
-		rows[info.Uid] = { Frame = frame, Stroke = rowStroke }
+		rows[info.Uid] = { Frame = frame, Stroke = rowStroke, Gradient = rowGradient }
 		frame.MouseButton1Click:Connect(function()
-			selectedUid = info.Uid
-			for uid, row in pairs(rows) do
-				row.Stroke.Color = uid == selectedUid and GOLD or GOLD_DARK
-				row.Stroke.Thickness = uid == selectedUid and 2.5 or 1.5
-			end
-			status("Selected: " .. info.Name .. "  " .. money(info.Value))
+			setSelected(info.Uid)
+			status("Selected: " .. info.Name)
 		end)
-		if info.Uid == selectedUid then
-			rowStroke.Color = GOLD
-			rowStroke.Thickness = 2.5
-		end
 	end
 
+	setSelected(still and selectedUid or nil)
 	if #infos == 0 then
-		status("No egg on the field right now")
+		status("Pick a pet")
 	end
 end
 
@@ -711,17 +806,16 @@ stealButton.MouseButton1Click:Connect(function()
 		return
 	end
 	if not selectedUid then
-		status("Pick a pet first")
+		status("Pick a pet")
 		return
 	end
-	stealButton.Text = "Cancel"
 	stealAndDeliver(selectedUid)
 end)
 
 task.spawn(function()
 	while gui.Parent do
 		task.wait(0.25)
-		stealButton.Text = state.Busy and "Cancel" or "Steal Selected"
+		stealButton.Text = state.Busy and "Cancel" or "Steal"
 	end
 end)
 
@@ -750,12 +844,13 @@ local minimized = false
 minimize.MouseButton1Click:Connect(function()
 	minimized = not minimized
 	body.Visible = not minimized
-	window.Size = minimized and UDim2.fromOffset(300, 34) or UDim2.fromOffset(300, 380)
+	window.Size = minimized and UDim2.fromOffset(W, HEADER) or UDim2.fromOffset(W, H)
 end)
 
 close.MouseButton1Click:Connect(function()
 	state.Cancel = true
 	fpsOff()
+	shineConnection:Disconnect()
 	gui:Destroy()
 end)
 
