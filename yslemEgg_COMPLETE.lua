@@ -7891,7 +7891,15 @@ do
 				local slicedn17 = math.clamp(sliced20.Position.Z, -425, -300)
 				local vector = Vector3.new(x + (safeCarry.Hops and safeCarry.HopStop or safeCarry.LineGap), y + 3.35, slicedn17)
 				
-				local crossTarget = sliced19
+				-- same arrival as Normal mode: first the checkpoint 7 studs past the line, then the base
+				local crossCheckpoint = Vector3.new(x - 7, sliced19.Y, slicedn17)
+				local function crossLine(ratio, stopFn)
+					slicedfn57(crossCheckpoint, tbl4.WalkSpeed() * ratio, 6, stopFn)
+
+					if steal.Carrying and safeCarry.LastDelivered < now and not slicedfn13(arg) then
+						slicedfn57(sliced19, tbl4.WalkSpeed() * ratio, 6, stopFn)
+					end
+				end
 
 
 				local function slicedfn58()
@@ -8254,7 +8262,7 @@ do
 					str2 = "Line Drop: stepping over the line"
 					local crossRatio = safeCarry.Cap(safeCarry.CrossRatio)
 
-					slicedfn57(crossTarget, tbl4.WalkSpeed() * crossRatio, 6, function()
+					crossLine(crossRatio, function()
 						return safeCarry.LastDelivered >= now or not steal.Carrying
 					end)
 
@@ -8418,7 +8426,7 @@ do
 				str2 = "Line Drop: stepping over the line"
 				local crossRatio = safeCarry.Cap(safeCarry.CrossRatio)
 
-				slicedfn57(crossTarget, tbl4.WalkSpeed() * crossRatio, 6, function()
+				crossLine(crossRatio, function()
 					return safeCarry.LastDelivered >= now or not steal.Carrying
 				end)
 
