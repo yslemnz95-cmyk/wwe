@@ -595,13 +595,12 @@ local function stealAndDeliver(uid)
 	end)
 end
 
------------------------------------------------------------------- UI (gold, shining strokes)
-local GOLD = Color3.fromRGB(255, 196, 61)
-local GOLD_DARK = Color3.fromRGB(150, 100, 20)
-local SHINE = Color3.fromRGB(255, 244, 200)
-local BG = Color3.fromRGB(16, 14, 10)
-local CARD = Color3.fromRGB(27, 23, 15)
-local MUTED = Color3.fromRGB(170, 158, 132)
+------------------------------------------------------------------ UI (full black, pulsing white strokes)
+local GOLD = Color3.fromRGB(255, 255, 255) -- main accent (white)
+local GOLD_DARK = Color3.fromRGB(90, 90, 90) -- resting stroke
+local BG = Color3.fromRGB(0, 0, 0)
+local CARD = Color3.fromRGB(0, 0, 0)
+local MUTED = Color3.fromRGB(150, 150, 150)
 local RARITY_COLORS = {
 	Color3.fromRGB(190, 190, 190), Color3.fromRGB(110, 210, 110), Color3.fromRGB(90, 160, 255),
 	Color3.fromRGB(190, 110, 255), Color3.fromRGB(255, 170, 50), Color3.fromRGB(255, 80, 80),
@@ -626,24 +625,14 @@ local function make(class, props)
 	return inst
 end
 
--- every stroke gets a bright band that keeps sweeping around it
+-- strokes: white, the active ones pulse (their transparency breathes)
 local shines = {}
 local function stroke(parent, thickness, shining)
 	local s = make("UIStroke", { Thickness = thickness or 1, Color = shining and Color3.new(1, 1, 1) or GOLD_DARK, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
 	s.Parent = parent
-	local g = make("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, GOLD_DARK),
-			ColorSequenceKeypoint.new(0.42, GOLD),
-			ColorSequenceKeypoint.new(0.5, SHINE),
-			ColorSequenceKeypoint.new(0.58, GOLD),
-			ColorSequenceKeypoint.new(1, GOLD_DARK),
-		}),
-		Enabled = shining == true,
-	})
-	g.Parent = s
-	shines[#shines + 1] = g
-	return s, g
+	local entry = { Stroke = s, On = shining == true }
+	shines[#shines + 1] = entry
+	return s, entry
 end
 
 local function corner(parent, radius)
@@ -664,12 +653,15 @@ window.Parent = gui
 corner(window, 8)
 stroke(window, 1.5, true)
 
-local angle = 0
+local clock = 0
 local shineConnection = RunService.Heartbeat:Connect(function(dt)
-	angle = (angle + dt * 120) % 360
-	for _, g in ipairs(shines) do
-		if g.Enabled then
-			g.Rotation = angle
+	clock += dt
+	local pulse = 0.5 + 0.5 * math.sin(clock * 3)
+	for _, entry in ipairs(shines) do
+		if entry.On then
+			entry.Stroke.Transparency = 0.7 * pulse
+		else
+			entry.Stroke.Transparency = 0
 		end
 	end
 end)
@@ -742,7 +734,7 @@ local function setSelected(uid)
 	selectedUid = uid
 	for rowUid, row in pairs(rows) do
 		local on = rowUid == uid
-		row.Gradient.Enabled = on
+		row.Gradient.On = on
 		row.Stroke.Color = on and Color3.new(1, 1, 1) or GOLD_DARK
 		row.Stroke.Thickness = on and 1.5 or 1
 	end
