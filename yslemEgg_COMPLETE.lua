@@ -7811,14 +7811,14 @@ do
 
 			-- Instant TP without Anti Guard: the server let go of the egg on the way. Take it straight back,
 			-- teleporting onto it when it is far and running to it when it is close
-			tbl4.SafeCarry.Regrab = function(arg, uid)
+			tbl4.SafeCarry.Regrab = function(arg, uid, force)
 				local sc = tbl4.SafeCarry
 
 				if tbl4.Steal.Carrying then
 					return true
 				end
 
-				if not sc.Teleport or tbl4.AntiGuard.Enabled then
+				if not sc.Teleport or (tbl4.AntiGuard.Enabled and not force) then
 					return false
 				end
 
@@ -8962,7 +8962,7 @@ do
 
 				if not tbl4.Steal.Carrying then
 					str2 = "The egg is gone, staying to look for it"
-					local retaken = slicedfn50(arg)
+					local retaken = (tbl4.SafeCarry.Teleport and tbl4.SafeCarry.Regrab(arg, nil, true)) or slicedfn50(arg)
 
 					if not retaken then
 						str2 = "The egg is gone"
@@ -30450,6 +30450,23 @@ do
 			end
 
 			tbl20.Steps = steps
+		end
+
+		-- Instant TP: the guard run is squeezed to half the time so the guard has no time to hit us
+		if tbl4.SafeCarry.Teleport and type(tbl20.Steps) == "table" then
+			local fast = {}
+			local lastAt = 0
+
+			for i, step in ipairs(tbl20.Steps) do
+				local at = (tonumber(step.At) or 0) * 0.5
+				lastAt = math.max(lastAt, at)
+				fast[i] = { At = at, To = step.To, Glide = step.Glide }
+			end
+
+			tbl20.Steps = fast
+			tbl20.ReleaseAt = lastAt + 0.1
+			tbl20.HopRandom = math.min(tonumber(tbl20.HopRandom) or 0, 0.02)
+			tbl20.HoldRandom = math.min(tonumber(tbl20.HoldRandom) or 0, 0.05)
 		end
 
 		return tbl20
