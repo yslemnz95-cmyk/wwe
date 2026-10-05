@@ -4479,8 +4479,8 @@ do
 
 		tbl4.SafeCarry.TpFpsCap = true
 		tbl4.SafeCarry.TpFpsHandle = sliced8:CreateToggle({
-			Name = "Instant TP FPS Cap (60 / 35)",
-			Note = "Instant TP: the FPS cap flips between 60 and 35 from the start of the steal until it is over",
+			Name = "Instant TP FPS Cap (60 / 30)",
+			Note = "Instant TP: the FPS cap flips between 60 and 30 from the start of the steal until it is over",
 			Default = true,
 			Callback = function(arg)
 				if type(arg) ~= "boolean" then
@@ -4581,7 +4581,7 @@ do
 				cap.Active = true
 				cap.At = os.clock()
 				if fps == "pulse" then
-					-- 60 / 35 FPS battle: the cap keeps flipping between the two values while it is on
+					-- 60 / 30 FPS battle: the cap keeps flipping between the two values while it is on
 					cap.Gen = (cap.Gen or 0) + 1
 					local mine = cap.Gen
 
@@ -4589,7 +4589,7 @@ do
 						local high = true
 
 						while cap.Active and cap.Gen == mine do
-							pcall(setfpscap, high and 60 or 35)
+							pcall(setfpscap, high and 60 or 30)
 							high = not high
 							task.wait(0.15)
 						end
@@ -9060,6 +9060,11 @@ do
 				local island = A.Island()
 				pcall(A.Begin, mode, { mode })
 				tbl4.Tune.Apply()
+				-- Instant TP without Anti Guard: nothing to wait for, so hop faster and trust the direct margin more
+				if sc.Teleport and not tbl4.AntiGuard.Enabled then
+					sc.HopGap = math.max(0.05, (tonumber(sc.HopGap) or 0.1) * 0.6)
+					sc.DirectMargin = math.max(0.6, math.min(tonumber(sc.DirectMargin) or 1.2, 0.9))
+				end
 				A.Event("tune", string.format("hop %.2f every %.2fs, walk %.2f", tbl4.Tune.HopRatio, tbl4.Tune.HopGap, tbl4.Tune.Ratio))
 
 				local attemptAt = os.clock()
@@ -9109,7 +9114,7 @@ do
 				end
 
 				if ok then
-					sc.DirectMargin = math.max(1.0, (tonumber(sc.DirectMargin) or 1.2) - 0.05)
+					sc.DirectMargin = math.max((sc.Teleport and not tbl4.AntiGuard.Enabled) and 0.6 or 1.0, (tonumber(sc.DirectMargin) or 1.2) - 0.05)
 				end
 
 				pcall(A.Finish, ok, reason)
@@ -9162,7 +9167,7 @@ do
 				local sliced19 = slicedn5
 				tbl4.Steal.Active = true
 
-				-- Instant TP: the 60 / 35 FPS battle from the very start of the steal, released when the steal is over
+				-- Instant TP: the 60 / 30 FPS battle from the very start of the steal, released when the steal is over
 				if tbl4.SafeCarry.Teleport and tbl4.SafeCarry.TpFpsCap ~= false then
 					pcall(tbl4.CarryCap.On, "pulse")
 					task.spawn(function()
