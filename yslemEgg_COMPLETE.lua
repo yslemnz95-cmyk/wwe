@@ -4413,6 +4413,15 @@ do
 				end
 				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
 
+				if name == "Delivery Stop" then
+					local handle = ag.Handle
+
+					if handle and type(handle.Set) == "function" then
+						pcall(handle.Set, handle, false)
+					end
+					ag.Enabled = false
+				end
+
 				if name == "Instant TP" then
 					local handle = ag.Handle
 
@@ -8200,7 +8209,7 @@ do
 				for attempt = 1, 3 do
 					local settle = 0
 
-					while settle < 0.15 and not slicedfn13(arg) do
+					while settle < (safeCarry.Teleport and 0.08 or 0.15) and not slicedfn13(arg) do
 						settle += RunService.Heartbeat:Wait()
 					end
 					local landed = tbl4.Root()
@@ -8216,7 +8225,7 @@ do
 				if safeCarry.Hops and steal.Carrying then
 					local slicedn19 = 0
 
-					while slicedn19 < safeCarry.DropDelay and steal.Carrying and not slicedfn13(arg) do
+					while slicedn19 < (safeCarry.Teleport and 0.05 or safeCarry.DropDelay) and steal.Carrying and not slicedfn13(arg) do
 						slicedn19 += RunService.Heartbeat:Wait()
 					end
 
@@ -8452,7 +8461,7 @@ do
 							end
 						end
 
-						slicedn24 += task.wait(safeCarry.SnapPickup and 0.1 or 0.15)
+						slicedn24 += task.wait((safeCarry.SnapPickup or safeCarry.Teleport) and 0.08 or 0.15)
 					end
 
 					if steal.Carrying and not steal.WrongEgg(carryUid) then
@@ -8744,7 +8753,7 @@ do
 			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
-				if antiGuard.Enabled then
+				if antiGuard.Enabled and not tbl4.SafeCarry.StopMode then
 					local slicedn17 = 0
 
 					while not antiGuard.Busy and slicedn17 < 1 and not slicedfn13(arg) do
@@ -8775,7 +8784,7 @@ do
 
 							if flag3 and ok and not antiGuard.Busy then
 								slicedn20 += RunService.Heartbeat:Wait()
-								if not (slicedn20 >= 0.3) then
+								if not (slicedn20 >= (tbl4.SafeCarry.Teleport and 0.1 or 0.3)) then
 									continue
 								end
 								break
@@ -30594,7 +30603,7 @@ do
 		local flag5
 
 		if enabled then
-			flag5 = true
+			flag5 = not tbl4.SafeCarry.StopMode
 		else
 			flag5 = enabled
 		end
