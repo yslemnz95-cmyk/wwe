@@ -8316,6 +8316,13 @@ do
 
 							if steal.Carrying then
 								tbl4.ClearClones()
+
+								-- no Anti Guard: egg is back in the hands, go straight to the safe zone (line checkpoint, then home)
+								if not tbl4.AntiGuard.Enabled then
+									slicedfn56()
+									str2 = "Instant TP: egg retaken, heading to the safe zone"
+									return tbl4.SafeCarry.Home(arg)
+								end
 							end
 						end
 					end
@@ -8543,6 +8550,11 @@ do
 				if sliced22 and sliced22.Position.X - x > safeCarry.FarFromLine then
 					slicedfn56()
 					str2 = "Line Drop: egg ended up far from the line, carrying it home safely"
+					return tbl4.SafeCarry.Home(arg)
+				end
+
+				if safeCarry.Teleport and not tbl4.AntiGuard.Enabled then
+					slicedfn56()
 					return tbl4.SafeCarry.Home(arg)
 				end
 
