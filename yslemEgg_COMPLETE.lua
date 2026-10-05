@@ -7890,8 +7890,8 @@ do
 				slicedfn22()
 				local slicedn17 = math.clamp(sliced20.Position.Z, -425, -300)
 				local vector = Vector3.new(x + (safeCarry.Hops and safeCarry.HopStop or safeCarry.LineGap), y + 3.35, slicedn17)
-				-- Instant TP: the crossing only needs to go 7 studs past the line
-				local crossTarget = safeCarry.Teleport and Vector3.new(x - 7, sliced19.Y, slicedn17) or sliced19
+				
+				local crossTarget = sliced19
 
 
 				local function slicedfn58()
@@ -8773,7 +8773,32 @@ do
 
 				if not tbl4.Steal.Carrying then
 					str2 = "The egg is gone, staying to look for it"
-					if not slicedfn50(arg) then
+					local retaken = slicedfn50(arg)
+
+					-- hop modes: the egg usually lies right where Anti Guard left us, jump onto it and keep taking it,
+					-- going back to it whenever the server pulls us away
+					if not retaken and tbl4.SafeCarry.LineDrop and type(tbl4.Steal.CarryUid) == "string" then
+						local uid = tbl4.Steal.CarryUid
+						local spent = 0
+
+						while spent < 6 and not tbl4.Steal.Carrying and not slicedfn13(arg) do
+							str2 = "Retaking the egg"
+							local eggPos = slicedfn48(uid)
+							local me = tbl4.Root()
+
+							if eggPos and me and Vector3.new(me.Position.X - eggPos.X, 0, me.Position.Z - eggPos.Z).Magnitude > 3 then
+								pcall(function()
+									me.CFrame = CFrame.new(eggPos + Vector3.new(0, 3, 0)) * me.CFrame.Rotation
+									me.AssemblyLinearVelocity = Vector3.zero
+								end)
+							end
+							task.spawn(slicedfn28, uid)
+							spent += task.wait(0.1)
+						end
+						retaken = tbl4.Steal.Carrying == true
+					end
+
+					if not retaken then
 						str2 = "The egg is gone"
 						return false
 					end
