@@ -8230,8 +8230,24 @@ do
 
 						local slicedn20 = 0
 
-						while steal.Carrying and slicedn20 < 1 and not slicedfn13(arg) do
+												while steal.Carrying and slicedn20 < 1 and not slicedfn13(arg) do
 							slicedn20 += RunService.Heartbeat:Wait()
+						end
+
+						-- Instant TP: egg is down -> let go of everything (camera, clones, speed) and force the grab right away
+						if safeCarry.Teleport and not steal.Carrying then
+							slicedfn55()
+							tbl4.ClearClones()
+							str2 = "Instant TP: egg down, forcing the grab"
+							local dropRoot = tbl4.Root()
+
+							if dropRoot then
+								pcall(function()
+									dropRoot.AssemblyLinearVelocity = Vector3.zero
+									dropRoot.AssemblyAngularVelocity = Vector3.zero
+								end)
+							end
+							slicedfn50(arg, carryUid)
 						end
 					end
 				end
@@ -8822,19 +8838,17 @@ do
 					end
 
 					-- the egg was left on the ground (Anti Guard) and we walked back to it, so finish like the Normal mode does
-					tbl4.ClearClones()
-
-					if tbl4.SafeCarry.LineDrop then
+					if tbl4.SafeCarry.Teleport then
+						tbl4.ClearClones()
 						str2 = "Egg retaken, carrying it home"
 						return tbl4.SafeCarry.Home(arg)
 					end
 				end
 
-				if tbl4.Steal.Carrying then
-					tbl4.ClearClones()
-				end
-
 				if tbl4.SafeCarry.Teleport then
+					if tbl4.Steal.Carrying then
+						tbl4.ClearClones()
+					end
 					return tbl4.SafeCarry.InstantHome(arg)
 				end
 
@@ -30249,10 +30263,10 @@ do
 		local sliced10 = slicedfn31()
 		local options = antiGuard.Options
 
-		-- Instant TP / Delivery Stop: Anti Guard lands in the safe zone and stays there (no return to the start),
+		-- Instant TP / Delivery Stop: Anti Guard stops in front of the line and stays there (no return to the start),
 		-- then the delivery takes over from there
 		if tbl4.SafeCarry.LineDrop then
-			options = { Destination = "Safe Zone", Stay = true }
+			options = { Destination = "Next To Line", Stay = true, LineOffset = 14 }
 		end
 		if type(options) ~= "table" or options.Destination == "Safe Zone" and not options.Stay then
 			return sliced10
