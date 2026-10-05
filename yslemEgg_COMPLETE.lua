@@ -7809,6 +7809,36 @@ do
 				return false
 			end
 
+			-- Instant TP without Anti Guard: the server let go of the egg on the way. Take it straight back,
+			-- teleporting onto it when it is far and running to it when it is close
+			tbl4.SafeCarry.Regrab = function(arg, uid)
+				local sc = tbl4.SafeCarry
+
+				if tbl4.Steal.Carrying then
+					return true
+				end
+
+				if not sc.Teleport or tbl4.AntiGuard.Enabled then
+					return false
+				end
+
+				local eggPos = slicedfn48(uid or tbl4.Steal.CarryUid)
+				local root = tbl4.Root()
+
+				if eggPos and root and Vector3.new(root.Position.X - eggPos.X, 0, root.Position.Z - eggPos.Z).Magnitude > 40 then
+					str2 = "Instant TP: the egg fell far behind, teleporting onto it"
+					pcall(function()
+						root.CFrame = CFrame.new(eggPos + Vector3.new(0, 3, 0)) * CFrame.Angles(0, 1.5707963267948966, 0)
+						root.AssemblyLinearVelocity = Vector3.zero
+						root.AssemblyAngularVelocity = Vector3.zero
+					end)
+				else
+					str2 = "Instant TP: the egg fell close, running back to it"
+				end
+
+				return slicedfn50(arg, uid) and tbl4.Steal.Carrying and not tbl4.Steal.WrongEgg(uid or tbl4.Steal.CarryUid)
+			end
+
 			tbl4.SafeCarry.LineDropHome = function(arg)
 				if MoonLib.ReleaseCamera then pcall(MoonLib.ReleaseCamera) end
 				local safeCarry = tbl4.SafeCarry
@@ -8065,7 +8095,19 @@ do
 						end
 
 
-						while x2 - slicedn20 > vector.X and steal.Carrying and not slicedfn13(arg) do
+						local midRegrabs = 0
+
+						while x2 - slicedn20 > vector.X and (steal.Carrying or (safeCarry.Teleport and not safeCarry.StopMode and midRegrabs < 4 and not slicedfn13(arg) and (function()
+							midRegrabs += 1
+							local regrabbed = tbl4.SafeCarry.Regrab(arg, carryUid)
+							local regrabRoot = tbl4.Root()
+
+							if regrabbed and regrabRoot then
+								x2 = math.min(x2, regrabRoot.Position.X)
+							end
+
+							return regrabbed
+						end)())) and not slicedfn13(arg) do
 							x2 -= slicedn20
 							tbl4.Trip = { Phase = "Hopping", Progress = (hopStartX - x2) / math.max(hopStartX - vector.X, 1), Stop = hopStops + 1, Stops = hopStopsWanted + 1, At = os.clock() }
 							pcall(tbl4.Analyzer.Event, "hop", string.format("x=%.0f", x2))
@@ -8691,7 +8733,7 @@ do
 							return false
 						end
 						str2 = "Egg dropped, taking it back"
-						if not slicedfn50(arg) then
+						if not (tbl4.SafeCarry.Teleport and not tbl4.AntiGuard.Enabled and tbl4.SafeCarry.Regrab(arg, tbl4.Steal.CarryUid)) and not slicedfn50(arg) then
 							str2 = "Could not take the egg back"
 							return false
 						end
