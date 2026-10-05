@@ -6768,10 +6768,10 @@ do
 							local slicedn22 = vector + (slicedn16 - sliced27.Position) / math.max(0.08, slicedn21)
 							local enabled = tbl4.SafeCarry.Enabled and tbl4.SafeCarry.Pace() or slicedn4 + vector.Magnitude
 
-							-- Instant TP: going back to the egg after a pull-back runs at 1500%; once it is in hand this
+							-- Instant TP: going back to the egg after a pull-back runs at 1200%; once it is in hand this
 							-- connection stops and the carry goes back to the normal capped speed
 							if tbl4.SafeCarry.Teleport then
-								enabled = math.max(enabled, math.max(tbl4.WalkSpeed(), 16) * 15)
+								enabled = math.max(enabled, math.max(tbl4.WalkSpeed(), 16) * 12)
 							end
 
 							if slicedn22.Magnitude > enabled then
@@ -8876,10 +8876,34 @@ do
 
 				if not tbl4.Steal.Carrying then
 					str2 = "The egg is gone, staying to look for it"
-					if not slicedfn50(arg) then
+					local retaken = false
+
+					if tbl4.SafeCarry.Teleport then
+						-- Anti Guard must not fire again when the egg is taken back, and must be finished before the race starts
+						antiGuard.Suppress = true
+						if antiGuard.Stop then antiGuard.Stop() end
+						local tries = 0
+
+						while tries < 3 and not retaken and not slicedfn13(arg) do
+							tries += 1
+							local startedAt = os.clock()
+							retaken = slicedfn50(arg)
+
+							if not retaken and tbl4.Analyzer.RelocateAt >= startedAt then
+								str2 = "Pulled back, running to the egg again"
+							else
+								break
+							end
+						end
+					else
+						retaken = slicedfn50(arg)
+					end
+
+					if not retaken then
 						str2 = "The egg is gone"
 						return false
 					end
+
 
 					-- the egg was left on the ground (Anti Guard) and we walked back to it, so finish like the Normal mode does
 					if tbl4.SafeCarry.Teleport then
@@ -9033,7 +9057,9 @@ do
 
 				local attemptAt = os.clock()
 				A.Event("attempt", mode)
+				tbl4.AntiGuard.Suppress = false
 				local okCall, callResult = pcall(deliverOnce, arg)
+				tbl4.AntiGuard.Suppress = false
 				pcall(tbl4.CarryCap.Off)
 
 				if tbl4.CameraFrozen then
@@ -30645,7 +30671,7 @@ do
 	local function slicedfn42()
 		local carrying = tbl18.Carrying
 		tbl18.Carrying = tbl18.SignalCarrying or tbl18.WeldCarrying
-		local enabled = tbl18.Carrying and not carrying and flag4 and antiGuard.Enabled
+		local enabled = tbl18.Carrying and not carrying and flag4 and antiGuard.Enabled and not antiGuard.Suppress
 		local flag5
 
 		if enabled then
@@ -30663,6 +30689,15 @@ do
 	end
 
 	-- lets the delivery start the guard run again at every stop on the way home
+	antiGuard.Stop = function()
+		tbl18.Active = false
+		antiGuard.Busy = false
+
+		if MoonLib.ReleaseCamera then
+			pcall(MoonLib.ReleaseCamera)
+		end
+	end
+
 	antiGuard.Fire = function()
 		if flag4 and antiGuard.Enabled and not tbl18.Active and not slicedfn41() then
 			tbl18.Active = true
