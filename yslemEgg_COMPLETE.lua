@@ -4413,22 +4413,13 @@ do
 				end
 				sc.SpeedJitter = sc.LineDrop and 0 or 0.08
 
-				if name == "Delivery Stop" then
+				if name == "Delivery Stop" or name == "Instant TP" then
 					local handle = ag.Handle
 
 					if handle and type(handle.Set) == "function" then
 						pcall(handle.Set, handle, false)
 					end
 					ag.Enabled = false
-				end
-
-				if name == "Instant TP" then
-					local handle = ag.Handle
-
-					if handle and type(handle.Set) == "function" then
-						pcall(handle.Set, handle, true)
-					end
-					ag.Enabled = true
 				end
 
 				local methodHandle = sc.MethodHandle
@@ -8874,7 +8865,7 @@ do
 			local function deliverOnce(arg)
 				local antiGuard = tbl4.AntiGuard
 
-				if antiGuard.Enabled and not tbl4.SafeCarry.StopMode then
+				if antiGuard.Enabled and not (tbl4.SafeCarry.StopMode or tbl4.SafeCarry.Teleport) then
 					local slicedn17 = 0
 
 					while not antiGuard.Busy and slicedn17 < 1 and not slicedfn13(arg) do
@@ -30760,7 +30751,7 @@ do
 		local flag5
 
 		if enabled then
-			flag5 = not tbl4.SafeCarry.StopMode
+			flag5 = not (tbl4.SafeCarry.StopMode or tbl4.SafeCarry.Teleport)
 		else
 			flag5 = enabled
 		end
@@ -30775,7 +30766,7 @@ do
 
 	-- lets the delivery start the guard run again at every stop on the way home
 	antiGuard.Fire = function()
-		if flag4 and antiGuard.Enabled and not tbl18.Active and not slicedfn41() then
+		if flag4 and antiGuard.Enabled and not tbl4.SafeCarry.Teleport and not tbl18.Active and not slicedfn41() then
 			tbl18.Active = true
 			antiGuard.Busy = true
 			antiGuard.BusySince = os.clock()
