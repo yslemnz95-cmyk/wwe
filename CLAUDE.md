@@ -46,10 +46,20 @@ desactivation d'anti-triche via `getconnections`, webhook Discord / kill-switch 
 - Le hub est protege par le bouclier "Humanoid Swap" (copie de l'Humanoid) : sans lui on meurt au moment du tp.
 - Vitesse de marche reelle = min(Humanoid.WalkSpeed, vitesse issue de leaderstats.Speed via TreadmillUtil).
 
-## Notes jeu : Ride a Pet (yslempet_EggTP)
-- Oeufs de la map : `Workspace.RenderedEggs`, prompt "Pick Up". Le jeu a un bouton DROP a l'ecran (droite) et affiche
-  une barre "Egg Will Break" avec un compte a rebours quand on porte un oeuf.
-- Retour au ranch : on se place a l'EXTERIEUR du plot (bord de la boite englobante + marge), on lache l'oeuf, on le
-  reprend, puis on COURT (60% de la vitesse de marche) jusque dans le plot. Plus de passage par le Shop Food.
+## Notes jeu : Ride a Pet (yslempet_EggTP) - releve par GameScan (appareil mobile, Delta)
+- PlaceId 124216119978534. Marche a 20 de vitesse, saut 73. Position typique du joueur : Y ~ 40316 (le ranch est en hauteur).
+- Oeufs de la map : `Workspace.RenderedEggs.<Nom>` (prompt `Pick Up | <Nom>`, maintien 0,2 s). Stands : `Workspace.Stalls`
+  = Gears (Rick), Food (Tim, prompt "Talk"), Sell (Richie), EggTracker (Eggo). Plots : `Workspace.Plots.Plot` (pets, oeufs).
+- **Bouton DROP** : `PlayerGui.Main.BasketTracker.Handler.EggFrame.Drop` (ImageButton "Drop", texte DROP).
+  **Remote du drop** : `ReplicatedStorage.Remotes.Game.BasketDrop` (RemoteEvent). Autres remotes utiles dans
+  `Remotes.Game` : EggPickup, EggBroke, EggTimerPause, EggArrivalClaim, TeleportToPlot, PickupPet, PetMove, Rebirth.
+- Barre "Egg Will Break" (compte a rebours) = on porte un oeuf (dans BasketTracker).
+- Securite observee (noms seulement) : attribut joueur `TeleportGraceUntil` (le serveur donne un delai de grace apres un
+  teleport legitime -> il verifie les teleports), remotes `Strike`, `Ban`, `Teleporting`, `RE/Ragdoll`, Cmdr (kick, `CmdrAdmin=false`),
+  LocalScript `StudioCheatTeleport` (outil de dev). Pas de nom "anticheat" explicite.
+- Capacites executeur confirmees : firesignal, fireproximityprompt, setclipboard, gethui, setfpscap, VirtualInputManager.
+- Retour au ranch : on se place a l'EXTERIEUR du plot (bord de la boite englobante + marge), on lache l'oeuf (bouton Drop
+  via firesignal, puis remote BasketDrop, puis Backspace, clic souris en dernier recours), on le reprend (prompt Pick Up),
+  puis VOL a 700% de la vitesse de marche jusque dans le plot et pose au sol. Pas de touche/toucher simule (bloque le joystick).
 - Le plot du joueur est trouve par nom d'instance (pseudo/UserId) ou pancarte "Your Ranch" ; jamais le plus proche.
-- Mobile (Delta) : le clic simule sur DROP n'est pas garanti ; le rapport GameScan donne le chemin exact du bouton.
+- Idee non activee : `Remotes.Game.TeleportToPlot` (teleport integre du jeu vers le plot, avec delai de grace serveur).

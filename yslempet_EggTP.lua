@@ -414,8 +414,17 @@ local function dropGuiCandidates()
 	local list = {}
 	local pg = lp:FindFirstChild("PlayerGui")
 	if not pg then return list end
+
+	-- chemin exact releve par l'analyse : Main.BasketTracker.Handler.EggFrame.Drop
+	local node = pg
+	for _, name in ipairs({"Main", "BasketTracker", "Handler", "EggFrame", "Drop"}) do
+		node = node and node:FindFirstChild(name)
+	end
+	if node and node:IsA("GuiObject") then
+		table.insert(list, node)
+	end
 	for _, d in ipairs(pg:GetDescendants()) do
-		if d:IsA("GuiObject") and not d:FindFirstAncestor("EggTPGui") then
+		if d:IsA("GuiObject") and d ~= node and not d:FindFirstAncestor("EggTPGui") then
 			local hit = false
 			if d:IsA("TextLabel") or d:IsA("TextButton") then
 				hit = trimLower(d.Text) == "drop"
@@ -468,8 +477,13 @@ end
 -- Remotes dont le nom parle de "drop" (dernier recours, sans argument).
 local function dropRemotes()
 	local list = {}
+	-- remote exact du jeu : ReplicatedStorage.Remotes.Game.BasketDrop
+	pcall(function()
+		local r = ReplicatedStorage.Remotes.Game.BasketDrop
+		if r:IsA("RemoteEvent") then table.insert(list, r) end
+	end)
 	for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
-		if d:IsA("RemoteEvent") and d.Name:lower():find("drop", 1, true) then
+		if d:IsA("RemoteEvent") and d.Name:lower():find("drop", 1, true) and d ~= list[1] then
 			table.insert(list, d)
 		end
 	end
