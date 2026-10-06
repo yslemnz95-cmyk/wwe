@@ -252,8 +252,7 @@ local function findRanchPos()
 			if n == myName or d.Name == myUserId or (myDisplay and n == myDisplay) then
 				local pos = getPos(d)
 				if pos then
-					warn("[EggTP] Ranch cible (nom d'instance) : " .. d:GetFullName())
-					return pos
+					warn("[EggTP] Ranch cible (nom d'instance) : " .. d:GetFullName()) return pos, d
 				end
 			end
 		end
@@ -278,15 +277,11 @@ local function findRanchPos()
 	local function posFromAncestors(inst, stopAt)
 		local p = inst
 		while p and p ~= stopAt do
-			if p:IsA("BasePart") then return p.Position end
+			if p:IsA("BasePart") then return p.Position, p end
 			if p:IsA("BillboardGui") and p.Adornee then
-				local pos = getPos(p.Adornee)
-				if pos then return pos end
+				local pos = getPos(p.Adornee) if pos then return pos, p.Adornee end
 			end
-			if p:IsA("Model") then
-				local pos = getPos(p)
-				if pos then return pos end
-			end
+			if p:IsA("Model") then local pos = getPos(p) if pos then return pos, p end end
 			p = p.Parent
 		end
 		return nil
@@ -301,10 +296,8 @@ local function findRanchPos()
 			if not isSelf then
 				if (d:IsA("TextLabel") or d:IsA("TextButton")) and d.Text and #d.Text > 0 and #d.Text < 80 then
 					if textMatches(d.Text) then
-						local pos = posFromAncestors(d.Parent, root)
-						if pos then
-							warn("[EggTP] Ranch cible (pancarte '" .. d.Text .. "') : " .. d:GetFullName())
-							return pos
+						local pos, owner = posFromAncestors(d.Parent, root) if pos then
+							warn("[EggTP] Ranch cible (pancarte '" .. d.Text .. "') : " .. d:GetFullName()) return pos, owner
 						end
 					end
 					local lt = d.Text:lower()
@@ -327,8 +320,7 @@ local function findRanchPos()
 	if lp:FindFirstChild("PlayerGui") then table.insert(roots, lp.PlayerGui) end
 
 	for _, root in ipairs(roots) do
-		local pos = scanRoot(root)
-		if pos then return pos end
+		local pos, owner = scanRoot(root) if pos then return pos, owner end
 	end
 
 	warn("[EggTP] Ranch introuvable. Diagnostic :")
@@ -441,22 +433,114 @@ local function nearbyPickups(radius)
 	return list
 end
 
--- Distance derriere le ranch ou on se place pour lacher / reprendre l'oeuf.
-local STAGE_BACK = 30
+-- Marge entre le bord du plot et le point d'attente (on reste DEHORS du ranch).
+local STAGE_BACK  = 20
 local STAGE_TRIES = 5
+local MAX_PLOT    = 300 -- un conteneur plus grand n'est pas le plot
+
+-- Boite englobante (axes du monde) de toutes les pieces d'une instance, sans
+-- les personnages. Renvoie min, max ou nil.
+local function instBounds(inst)
+	local minV, maxV = nil, nil
+	local count = 0
+	local function addPart(part)
+		local cf, size = part.CFrame, part.Size
+		local r = cf - cf.Position
+		local ex = r:VectorToWorldSpace(Vector3.new(size.X / 2, 0, 0))
+		local ey = r:VectorToWorldSpace(Vector3.new(0, size.Y / 2, 0))
+		local ez = r:VectorToWorldSpace(Vector3.new(0, 0, size.Z / 2))
+		local half = Vector3.new(
+			math.abs(ex.X) + math.abs(ey.X) + math.abs(ez.X),
+			math.abs(ex.Y) + math.abs(ey.Y) + math.abs(ez.Y),
+			math.abs(ex.Z) + math.abs(ey.Z) + math.abs(ez.Z))
+		local lo, hi = cf.Position - half, cf.Position + half
+		if not minV then
+			minV, maxV = lo, hi
+		else
+			minV = Vector3.new(math.min(minV.X, lo.X), math.min(minV.Y, lo.Y), math.min(minV.Z, lo.Z))
+			maxV = Vector3.new(math.max(maxV.X, hi.X), math.max(maxV.Y, hi.Y), math.max(maxV.Z, hi.Z))
+		end
+	end
+	local function isPlayerPart(part)
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Character and part:IsDescendantOf(plr.Character) then return true end
+		end
+		return false
+	end
+	if inst:IsA("BasePart") then
+		addPart(inst)
+	end
+	for _, d in ipairs(inst:GetDescendants()) do
+		if d:IsA("BasePart") and not isPlayerPart(d) then
+			addPart(d)
+			count = count + 1
+			if count > 4000 then break end
+		end
+	end
+	return minV, maxV
+end
+
+-- Le plot entier : on remonte du repere trouve (piece / pancarte) jusqu'au plus
+-- grand conteneur qui reste de la taille d'un plot.
+local function plotBounds(inst)
+	if not inst then return nil end
+	local bestMin, bestMax = instBounds(inst)
+	local p = inst.Parent
+	while p and p ~= ws and (p:IsA("Model") or p:IsA("Folder")) do
+		local lo, hi = instBounds(p)
+		if not lo then break end
+		if (hi.X - lo.X) > MAX_PLOT or (hi.Z - lo.Z) > MAX_PLOT then break end
+		bestMin, bestMax = lo, hi
+		p = p.Parent
+	end
+	return bestMin, bestMax
+end
+
+-- Point d'attente : le point du bord du plot le plus proche de nous, repousse de
+-- STAGE_BACK studs vers l'exterieur (donc devant le ranch, jamais dedans).
+local function stagePoint(ppos, inst)
+	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+	if not myHrp then return nil end
+	local me = myHrp.Position
+
+	local lo, hi = plotBounds(inst)
+	if not lo then
+		-- repere inconnu : on retombe sur la direction ranch -> nous
+		local flat = Vector3.new(me.X - ppos.X, 0, me.Z - ppos.Z)
+		local dir  = flat.Magnitude > 1 and flat.Unit or Vector3.new(0, 0, 1)
+		return ppos + dir * (STAGE_BACK + 25)
+	end
+
+	local cx = math.clamp(me.X, lo.X, hi.X)
+	local cz = math.clamp(me.Z, lo.Z, hi.Z)
+	local away = Vector3.new(me.X - cx, 0, me.Z - cz)
+	if away.Magnitude < 1 then
+		-- on est deja dans la boite : sortir par le bord le plus proche
+		local dists = {
+			{me.X - lo.X, Vector3.new(-1, 0, 0)},
+			{hi.X - me.X, Vector3.new(1, 0, 0)},
+			{me.Z - lo.Z, Vector3.new(0, 0, -1)},
+			{hi.Z - me.Z, Vector3.new(0, 0, 1)},
+		}
+		table.sort(dists, function(a, b) return a[1] < b[1] end)
+		away = dists[1][2]
+		cx = math.clamp(me.X + away.X * dists[1][1], lo.X, hi.X)
+		cz = math.clamp(me.Z + away.Z * dists[1][1], lo.Z, hi.Z)
+	end
+	return Vector3.new(cx, ppos.Y, cz) + away.Unit * STAGE_BACK
+end
 
 -- Retour au ranch : tp (ou vol, selon le bouton) un peu en arriere du plot,
 -- drop de l'oeuf, reprise, puis entree dans le ranch. Renvoie false si on n'a
 -- pas pu se placer derriere le ranch.
-local function goToRanchPos(ppos)
+local function goToRanchPos(ppos, pinst)
 	cancelMove = false
 	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
 	if not myHrp then return false end
 
-	-- point d'attente : sur la ligne ranch -> nous, STAGE_BACK studs avant le ranch
-	local flat = Vector3.new(myHrp.Position.X - ppos.X, 0, myHrp.Position.Z - ppos.Z)
-	local dir  = flat.Magnitude > 1 and flat.Unit or Vector3.new(0, 0, 1)
-	local stage = ppos + dir * STAGE_BACK
+	-- point d'attente : devant le ranch, a l'exterieur de son bord
+	local stage = stagePoint(ppos, pinst)
+	if not stage then return false end
 
 	-- on s'assure d'etre vraiment arrive (le serveur peut renvoyer ailleurs)
 	local arrived = false
@@ -1007,7 +1091,7 @@ local function goToRanch()
 		stopMove()
 		return
 	end
-	local ppos = findRanchPos()
+	local ppos, pinst = findRanchPos()
 	if not ppos then
 		statusLbl.Text = "Ranch introuvable"
 		return
@@ -1015,7 +1099,7 @@ local function goToRanch()
 
 	setBusy(true)
 	statusLbl.Text = methodLabel() .. " -> Ranch (drop + reprise)"
-	local reached = goToRanchPos(ppos)
+	local reached = goToRanchPos(ppos, pinst)
 	setBusy(false)
 	if not reached then
 		statusLbl.Text = "Placement avant ranch impossible"
@@ -1273,10 +1357,10 @@ local function doPickup()
 	task.wait(0.7)
 
 	if autoReturnRanch then
-		local ppos = findRanchPos()
+		local ppos, pinst = findRanchPos()
 		if ppos then
 			statusLbl.Text = pickedName .. " -> Ranch (drop + reprise)"
-			local reached = goToRanchPos(ppos)
+			local reached = goToRanchPos(ppos, pinst)
 			if not reached then
 				statusLbl.Text = "Placement avant ranch impossible"
 				setBusy(false)
