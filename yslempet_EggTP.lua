@@ -350,47 +350,112 @@ end
 --   3) la touche de drop par defaut de Roblox (Backspace) pour un outil tenu
 local DROP_WORDS = {"drop", "release", "put down", "place", "poser", "lacher", "deposer"}
 
-local function findDropButton()
+local function trimLower(t)
+	t = (t or ""):lower()
+	t = t:gsub("^%s+", "")
+	t = t:gsub("%s+$", "")
+	return t
+end
+
+-- un objet GUI est "affiche" si lui et tous ses parents sont visibles
+local function guiShown(obj)
+	local p = obj
+	while p and p:IsA("GuiObject") do
+		if not p.Visible then return false end
+		p = p.Parent
+	end
+	local sg = obj:FindFirstAncestorOfClass("ScreenGui")
+	return sg == nil or sg.Enabled
+end
+
+-- Tous les objets d'interface qui ressemblent au bouton DROP du jeu (texte
+-- "DROP" ou nom drop/dropbutton...), hors de notre propre interface.
+local function dropGuiCandidates()
+	local list = {}
 	local pg = lp:FindFirstChild("PlayerGui")
-	if not pg then return nil end
+	if not pg then return list end
 	for _, d in ipairs(pg:GetDescendants()) do
-		if (d:IsA("TextLabel") or d:IsA("TextButton")) and not d:FindFirstAncestor("EggTPGui") then
-			local t = (d.Text or ""):lower()
-			t = t:gsub("^%s+", "")
-			t = t:gsub("%s+$", "")
-			if t == "drop" and d.AbsoluteSize.X > 0 and d.AbsoluteSize.Y > 0 and d.Visible then
-				return d
+		if d:IsA("GuiObject") and not d:FindFirstAncestor("EggTPGui") then
+			local hit = false
+			if d:IsA("TextLabel") or d:IsA("TextButton") then
+				hit = trimLower(d.Text) == "drop"
 			end
-		elseif d:IsA("ImageButton") and d.Name:lower() == "drop" and d.AbsoluteSize.X > 0 and d.Visible then
-			return d
+			if not hit then
+				local n = d.Name:lower()
+				hit = (n == "drop" or n == "dropbutton" or n == "dropbtn" or n == "drop_button" or n == "dropegg")
+			end
+			if hit and d.AbsoluteSize.X > 0 and d.AbsoluteSize.Y > 0 then
+				table.insert(list, d)
+			end
 		end
 	end
-	return nil
+	return list
 end
 
-local function clickGui(obj)
-	local vim    = game:GetService("VirtualInputManager")
-	local inset  = game:GetService("GuiService"):GetGuiInset()
-	local screen = obj:FindFirstAncestorOfClass("ScreenGui")
-	local dy = (screen and screen.IgnoreGuiInset) and 0 or inset.Y
-	local c = obj.AbsolutePosition + obj.AbsoluteSize / 2
-	vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, true, game, 0)
-	task.wait(0.06)
-	vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, false, game, 0)
+-- Appuie sur un objet d'interface : signaux du bouton (si l'executeur a
+-- firesignal), puis clic souris et toucher simules au centre de l'objet.
+local function pressGui(obj)
+	local btn = obj
+	while btn and not btn:IsA("GuiButton") do
+		btn = btn.Parent
+		if btn and not btn:IsA("GuiObject") then btn = nil end
+	end
+	local target = btn or obj
+
+	if btn and typeof(firesignal) == "function" then
+		for _, sig in ipairs({"MouseButton1Down", "MouseButton1Click", "Activated", "MouseButton1Up"}) do
+			pcall(function() firesignal(btn[sig]) end)
+		end
+	end
+
+	pcall(function()
+		local vim    = game:GetService("VirtualInputManager")
+		local inset  = game:GetService("GuiService"):GetGuiInset()
+		local screen = target:FindFirstAncestorOfClass("ScreenGui")
+		local dy = (screen and screen.IgnoreGuiInset) and 0 or inset.Y
+		local c = target.AbsolutePosition + target.AbsoluteSize / 2
+		vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, true, game, 0)
+		vim:SendTouchEvent(1, 0, c.X, c.Y + dy)
+		task.wait(0.06)
+		vim:SendTouchEvent(1, 2, c.X, c.Y + dy)
+		vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, false, game, 0)
+	end)
 end
 
-local function dropEgg()
+-- Remotes dont le nom parle de "drop" (dernier recours, sans argument).
+local function dropRemotes()
+	local list = {}
+	for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
+		if d:IsA("RemoteEvent") and d.Name:lower():find("drop", 1, true) then
+			table.insert(list, d)
+		end
+	end
+	return list
+end
+
+-- niveau 1 : le bouton DROP de l'ecran ; niveau 2 : remotes drop, prompts de
+-- depot proches et touche de drop par defaut (Backspace).
+local function dropEgg(level)
 	local myChar = lp.Character
 	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
 	if not myHrp then return end
 
-	-- 1) bouton DROP de l'ecran
-	pcall(function()
-		local btn = findDropButton()
-		if btn then clickGui(btn) end
-	end)
+	if level == 1 then
+		local n = 0
+		for _, obj in ipairs(dropGuiCandidates()) do
+			if guiShown(obj) then
+				pressGui(obj)
+				n = n + 1
+				if n >= 3 then break end
+			end
+		end
+		return
+	end
 
-	-- 2) prompt de depot proche
+	for _, r in ipairs(dropRemotes()) do
+		pcall(function() r:FireServer() end)
+	end
+
 	pcall(function()
 		for _, d in ipairs(ws:GetDescendants()) do
 			if d:IsA("ProximityPrompt") and d.Parent and not d:IsDescendantOf(myChar) then
@@ -408,7 +473,6 @@ local function dropEgg()
 		end
 	end)
 
-	-- 3) touche de drop par defaut
 	pcall(function()
 		local vim = game:GetService("VirtualInputManager")
 		vim:SendKeyEvent(true, Enum.KeyCode.Backspace, false, game)
@@ -417,16 +481,56 @@ local function dropEgg()
 	end)
 end
 
--- Prompts "Pick Up" proches de nous (pour reperer l'oeuf une fois lache).
+-- Diagnostic si le drop n'est pas detecte : ce qu'on a trouve (ou pas) comme
+-- bouton DROP / remote drop. Copie dans le presse-papier si possible.
+local lastDropDiag = ""
+local function dropDiagnostic()
+	local lines = {}
+	for _, obj in ipairs(dropGuiCandidates()) do
+		table.insert(lines, obj.ClassName .. (guiShown(obj) and "" or " (cache)") .. " <" .. obj:GetFullName() .. ">")
+		if #lines >= 8 then break end
+	end
+	if #lines == 0 then table.insert(lines, "aucun bouton DROP trouve dans PlayerGui") end
+	for _, r in ipairs(dropRemotes()) do
+		table.insert(lines, "Remote <" .. r:GetFullName() .. ">")
+		if #lines >= 12 then break end
+	end
+	return table.concat(lines, " | ")
+end
+
+-- Etat "on porte un oeuf" : la barre "Egg Will Break" du jeu est affichee.
+-- Renvoie true / false, ou nil si la barre n'existe pas encore.
+local breakLabel = nil
+local function isCarrying()
+	if not (breakLabel and breakLabel.Parent) then
+		breakLabel = nil
+		local pg = lp:FindFirstChild("PlayerGui")
+		if pg then
+			for _, d in ipairs(pg:GetDescendants()) do
+				if d:IsA("TextLabel") and d.Text and d.Text:lower():find("egg will break", 1, true) then
+					breakLabel = d
+					break
+				end
+			end
+		end
+	end
+	if not breakLabel then return nil end
+	return guiShown(breakLabel)
+end
+
+-- Prompts de ramassage proches de nous (pour reperer l'oeuf une fois lache).
 local function nearbyPickups(radius)
 	local list = {}
 	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
 	if not myHrp then return list end
 	for _, d in ipairs(ws:GetDescendants()) do
-		if d:IsA("ProximityPrompt") and d.ActionText == "Pick Up" and d.Parent then
-			local pos = getPos(d.Parent)
-			if pos and (pos - myHrp.Position).Magnitude <= radius then
-				list[d] = true
+		if d:IsA("ProximityPrompt") and d.Parent then
+			local at = (d.ActionText or ""):lower()
+			if at:find("pick", 1, true) or at:find("grab", 1, true) or at:find("take", 1, true) then
+				local pos = getPos(d.Parent)
+				if pos and (pos - myHrp.Position).Magnitude <= radius then
+					list[d] = true
+				end
 			end
 		end
 	end
@@ -498,12 +602,15 @@ end
 
 -- Point d'attente : le point du bord du plot le plus proche de nous, repousse de
 -- STAGE_BACK studs vers l'exterieur (donc devant le ranch, jamais dedans).
+local plotLo, plotHi = nil, nil
+
 local function stagePoint(ppos, inst)
 	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
 	if not myHrp then return nil end
 	local me = myHrp.Position
 
 	local lo, hi = plotBounds(inst)
+	plotLo, plotHi = lo, hi
 	if not lo then
 		-- repere inconnu : on retombe sur la direction ranch -> nous
 		local flat = Vector3.new(me.X - ppos.X, 0, me.Z - ppos.Z)
@@ -530,9 +637,55 @@ local function stagePoint(ppos, inst)
 	return Vector3.new(cx, ppos.Y, cz) + away.Unit * STAGE_BACK
 end
 
--- Retour au ranch : tp (ou vol, selon le bouton) un peu en arriere du plot,
--- drop de l'oeuf, reprise, puis entree dans le ranch. Renvoie false si on n'a
--- pas pu se placer derriere le ranch.
+-- Derniere etape : un RUN au sol (jamais tp ni vol) a 60% de la vitesse de
+-- marche, jusqu'a l'interieur du ranch.
+local RUN_FRACTION = 0.6
+
+local function insidePlot()
+	local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+	if not h or not plotLo then return false end
+	return h.Position.X >= plotLo.X and h.Position.X <= plotHi.X and h.Position.Z >= plotLo.Z and h.Position.Z <= plotHi.Z
+end
+
+local function runTo(pos, fraction, doneFn)
+	local myChar = lp.Character
+	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	local hum    = myChar and myChar:FindFirstChildOfClass("Humanoid")
+	if not myHrp or not hum or not pos then return end
+
+	local started   = os.clock()
+	local lastCheck = os.clock()
+	local lastPos   = myHrp.Position
+
+	while not cancelMove and myHrp.Parent and os.clock() - started < 40 do
+		if doneFn and doneFn() then break end
+		local flat = Vector3.new(pos.X - myHrp.Position.X, 0, pos.Z - myHrp.Position.Z)
+		if flat.Magnitude < 4 then break end
+
+		local unit  = flat.Unit
+		local speed = hum.WalkSpeed * fraction
+		local v     = unit * math.min(speed, flat.Magnitude / 0.05)
+		myHrp.AssemblyLinearVelocity = Vector3.new(v.X, myHrp.AssemblyLinearVelocity.Y, v.Z)
+		hum:Move(unit, false)
+
+		-- bloque sur le decor : saut
+		if os.clock() - lastCheck >= 1.5 then
+			if (myHrp.Position - lastPos).Magnitude < 3 and flat.Magnitude > 10 then
+				hum.Jump = true
+			end
+			lastPos, lastCheck = myHrp.Position, os.clock()
+		end
+
+		RunService.Heartbeat:Wait()
+	end
+
+	myHrp.AssemblyLinearVelocity = Vector3.new(0, myHrp.AssemblyLinearVelocity.Y, 0)
+	hum:Move(Vector3.new(0, 0, 0), false)
+end
+
+-- Retour au ranch : tp (ou vol, selon le bouton) devant le plot (a l'exterieur),
+-- drop de l'oeuf, reprise, puis RUN a 60% jusque dans le ranch. Renvoie
+-- (false) si on n'a pas pu se placer, sinon (true, dropFailed).
 local function goToRanchPos(ppos, pinst)
 	cancelMove = false
 	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
@@ -546,7 +699,7 @@ local function goToRanchPos(ppos, pinst)
 	local arrived = false
 	for _ = 1, STAGE_TRIES do
 		moveTo(stage)
-		if cancelMove then return true end
+		if cancelMove then return true, false end
 		task.wait(0.15)
 		local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
 		if h and (Vector3.new(h.Position.X - stage.X, 0, h.Position.Z - stage.Z)).Magnitude <= 12 then
@@ -556,37 +709,62 @@ local function goToRanchPos(ppos, pinst)
 	end
 	if not arrived then return false end
 
-	-- drop : le nouvel objet "Pick Up" qui apparait est l'oeuf lache
+	-- drop : succes si un nouvel objet de ramassage apparait OU si la barre
+	-- "Egg Will Break" disparait
+	local carriedAtStart = isCarrying() == true
 	local before = nearbyPickups(30)
-	dropEgg()
-
-	local dropped = nil
-	local waited = 0
-	while not dropped and waited < 1.5 and not cancelMove do
-		for prompt in pairs(nearbyPickups(30)) do
-			if not before[prompt] then dropped = prompt; break end
-		end
-		if not dropped then
+	local dropped, droppedPrompt = false, nil
+	for level = 1, 2 do
+		dropEgg(level)
+		local waited = 0
+		while waited < 1.3 and not cancelMove do
+			for prompt in pairs(nearbyPickups(30)) do
+				if not before[prompt] then droppedPrompt = prompt; break end
+			end
+			if droppedPrompt or (carriedAtStart and not isCarrying()) then
+				dropped = true
+				break
+			end
 			task.wait(0.1)
 			waited = waited + 0.1
 		end
+		if dropped or cancelMove then break end
 	end
-	if cancelMove then return true end
+	if cancelMove then return true, false end
 
-	-- reprise : on tire le prompt de l'oeuf lache jusqu'a ce qu'il disparaisse
-	if dropped then
+	local dropFailed = not dropped
+	if dropFailed then
+		lastDropDiag = dropDiagnostic()
+		warn("[EggTP] Drop non detecte. " .. lastDropDiag)
+		pcall(function() setclipboard("Drop non detecte. " .. lastDropDiag) end)
+	else
+		-- reprise : on tire le prompt de l'oeuf lache jusqu'a ce qu'on le porte de nouveau
 		local t = 0
-		while t < 3 and not cancelMove and dropped.Parent and dropped:IsDescendantOf(ws) do
-			tryFire(dropped)
+		while t < 3 and not cancelMove do
+			if carriedAtStart and isCarrying() then break end
+			local pr = droppedPrompt
+			if not pr then
+				local best, bd = nil, math.huge
+				for prompt in pairs(nearbyPickups(30)) do
+					local pos = getPos(prompt.Parent)
+					local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+					if pos and h and (pos - h.Position).Magnitude < bd then
+						best, bd = prompt, (pos - h.Position).Magnitude
+					end
+				end
+				pr = best
+			end
+			if not pr or not pr.Parent or not pr:IsDescendantOf(ws) then break end
+			tryFire(pr)
 			task.wait(0.12)
 			t = t + 0.12
 		end
 	end
-	if cancelMove then return true end
+	if cancelMove then return true, dropFailed end
 
-	-- entree dans le ranch
-	moveTo(ppos)
-	return true
+	-- course jusque dans le ranch
+	runTo(ppos, RUN_FRACTION, insidePlot)
+	return true, dropFailed
 end
 
 -- === icones : uniquement une correspondance EXACTE avec l'UI du jeu =========
@@ -1099,10 +1277,12 @@ local function goToRanch()
 
 	setBusy(true)
 	statusLbl.Text = methodLabel() .. " -> Ranch (drop + reprise)"
-	local reached = goToRanchPos(ppos, pinst)
+	local reached, dropFailed = goToRanchPos(ppos, pinst)
 	setBusy(false)
 	if not reached then
 		statusLbl.Text = "Placement avant ranch impossible"
+	elseif dropFailed then
+		statusLbl.Text = "Drop non detecte (diag copie)"
 	else
 		statusLbl.Text = cancelMove and "Arrete" or "Ranch atteint"
 	end
@@ -1360,7 +1540,7 @@ local function doPickup()
 		local ppos, pinst = findRanchPos()
 		if ppos then
 			statusLbl.Text = pickedName .. " -> Ranch (drop + reprise)"
-			local reached = goToRanchPos(ppos, pinst)
+			local reached, dropFailed = goToRanchPos(ppos, pinst)
 			if not reached then
 				statusLbl.Text = "Placement avant ranch impossible"
 				setBusy(false)
@@ -1373,7 +1553,7 @@ local function doPickup()
 				rebuildEggList(true, true)
 				return
 			end
-			statusLbl.Text = pickedName .. " recupere (Ranch)"
+			statusLbl.Text = pickedName .. (dropFailed and " (Ranch, drop non detecte - diag copie)" or " recupere (Ranch)")
 		else
 			statusLbl.Text = pickedName .. " recupere (Ranch inconnu)"
 		end
