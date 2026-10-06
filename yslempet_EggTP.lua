@@ -358,62 +358,160 @@ local function isPositionable(inst)
 	return inst:IsA("BasePart") or inst:IsA("Model") or inst:IsA("Folder")
 end
 
-local function findFoodShopPos()
+-- Le stand Food peut porter plusieurs noms/formes : on essaie, dans l'ordre,
+--   1) un objet dont le NOM contient food/feed/snack/treat... (Stalls d'abord)
+--   2) un texte de pancarte dans le monde (SurfaceGui/BillboardGui) "Food"
+--   3) un ProximityPrompt dont le texte/nom parle de nourriture
+-- Les candidats sont notes (Stalls/Shop/Stand dans le chemin = meilleur) et le
+-- meilleur est choisi. Un diagnostic est garde pour l'afficher / le copier.
+local FOOD_WORDS = {"food", "feed", "snack", "treat", "nourr", "aliment"}
+local lastFoodDiag = ""
+local foodHook = nil -- appele avec le chemin de la cible trouvee (affiche dans le statut)
+
+local function hasFoodWord(str)
+	str = (str or ""):lower()
+	for _, w in ipairs(FOOD_WORDS) do
+		if str:find(w, 1, true) then return true end
+	end
+	return false
+end
+
+local function foodDiagnostic()
+	local names = {}
+	local seen  = {}
+	local function add(inst)
+		local n = inst.Name
+		if not seen[n] and #names < 14 then
+			seen[n] = true
+			table.insert(names, n)
+		end
+	end
 	local stalls = ws:FindFirstChild("Stalls")
 	if stalls then
-		for _, d in ipairs(stalls:GetDescendants()) do
-			if isPositionable(d) and d.Name:lower():find("food", 1, true) then
-				local pos = getPos(d)
-				if pos then
-					warn("[EggTP] Shop Food cible : " .. d:GetFullName())
-					return pos
-				end
-			end
-		end
+		for _, c in ipairs(stalls:GetChildren()) do add(c) end
 	end
-
-	-- repli : n'importe quel objet nomme "food" dans tout le Workspace
 	for _, d in ipairs(ws:GetDescendants()) do
-		if isPositionable(d) and d.Name:lower():find("food", 1, true) then
-			local pos = getPos(d)
-			if pos then
-				warn("[EggTP] Shop Food cible (repli global) : " .. d:GetFullName())
-				return pos
+		if #names >= 14 then break end
+		if (d:IsA("Model") or d:IsA("Folder")) and not isAnyCharacter(d) then
+			local ln = d.Name:lower()
+			if ln:find("shop", 1, true) or ln:find("stall", 1, true) or ln:find("stand", 1, true) or ln:find("market", 1, true) or ln:find("store", 1, true) then
+				add(d)
 			end
 		end
 	end
+	return (stalls and "Stalls: " or "pas de Workspace.Stalls; ") .. table.concat(names, ", ")
+end
 
+local function findFoodShopPos()
+	local best, bestScore, bestPath = nil, -1, nil
+	local function consider(pos, path, bonus)
+		if not pos then return end
+		local lowered = path:lower()
+		local score = bonus
+		if lowered:find("stall", 1, true) then score = score + 3 end
+		if lowered:find("shop", 1, true) or lowered:find("stand", 1, true) then score = score + 2 end
+		if score > bestScore then best, bestScore, bestPath = pos, score, path end
+	end
+
+	local rendered = ws:FindFirstChild("RenderedEggs")
+	for _, d in ipairs(ws:GetDescendants()) do
+		if lp.Character and d:IsDescendantOf(lp.Character) then
+			-- jamais notre propre personnage
+		elseif rendered and d:IsDescendantOf(rendered) then
+			-- jamais les oeufs de la map
+		elseif isPositionable(d) and not isAnyCharacter(d) and hasFoodWord(d.Name) then
+			consider(getPos(d), d:GetFullName(), d:IsA("Model") and 2 or 1)
+		elseif (d:IsA("TextLabel") or d:IsA("TextButton")) and d.Text and #d.Text > 0 and #d.Text < 40 and hasFoodWord(d.Text) then
+			-- pancarte dans le monde : remonter jusqu'a une position 3D
+			local p = d.Parent
+			local pos = nil
+			while p and p ~= ws do
+				if p:IsA("BillboardGui") and p.Adornee then pos = getPos(p.Adornee) end
+				if not pos and p:IsA("BasePart") then pos = p.Position end
+				if not pos and p:IsA("Model") then pos = getPos(p) end
+				if pos then break end
+				p = p.Parent
+			end
+			consider(pos, d:GetFullName(), 2)
+		elseif d:IsA("ProximityPrompt") and (hasFoodWord(d.ActionText) or hasFoodWord(d.ObjectText) or hasFoodWord(d.Name)) and d.Parent then
+			consider(getPos(d.Parent), d:GetFullName(), 1)
+		end
+	end
+
+	if best then
+		warn("[EggTP] Shop Food cible : " .. tostring(bestPath))
+		if foodHook then pcall(foodHook, tostring(bestPath)) end
+		return best
+	end
 	return nil
 end
 
 -- Recherche "forcee" : le stand peut mettre un instant a se charger
--- (streaming) - on reessaie jusqu'a ~10 s. Pas de repli "vol direct" : le
--- passage au Food est obligatoire, sinon le trajet est annule (message).
+-- (streaming) - on reessaie ~8 s. Pas de repli "vol direct" : le passage au
+-- Food est obligatoire, sinon le trajet est annule et le diagnostic est
+-- affiche (et copie dans le presse-papier si possible).
 local function findFoodShopPosForced()
 	local pos = findFoodShopPos()
 	if pos then return pos end
-	for _ = 1, 25 do
-		task.wait(0.4)
+	for _ = 1, 16 do
+		task.wait(0.5)
 		if cancelMove then return nil end
 		pos = findFoodShopPos()
 		if pos then return pos end
 	end
-	warn("[EggTP] Shop Food introuvable apres reessais : trajet annule.")
+	lastFoodDiag = foodDiagnostic()
+	warn("[EggTP] Shop Food introuvable apres reessais. " .. lastFoodDiag)
+	pcall(function() setclipboard("Shop Food introuvable. " .. lastFoodDiag) end)
 	return nil
 end
 
--- Lacher l'oeuf au Food. Le code du jeu n'expose aucune fonction de drop :
--- on utilise donc les moyens generiques, dans l'ordre :
---   1) un prompt de depot/lacher proche (ActionText "Drop", "Release", "Put
---      down", "Place", "Poser", "Lacher", "Deposer")
---   2) la touche de drop par defaut de Roblox (Backspace) pour un outil tenu
+-- Lacher l'oeuf au Food. Dans l'ordre :
+--   1) le bouton "DROP" du jeu (a l'ecran) : clic simule au centre du bouton
+--   2) un prompt de depot/lacher proche
+--   3) la touche de drop par defaut de Roblox (Backspace) pour un outil tenu
 local DROP_WORDS = {"drop", "release", "put down", "place", "poser", "lacher", "deposer"}
+
+local function findDropButton()
+	local pg = lp:FindFirstChild("PlayerGui")
+	if not pg then return nil end
+	for _, d in ipairs(pg:GetDescendants()) do
+		if (d:IsA("TextLabel") or d:IsA("TextButton")) and not d:FindFirstAncestor("EggTPGui") then
+			local t = (d.Text or ""):lower()
+			t = t:gsub("^%s+", "")
+			t = t:gsub("%s+$", "")
+			if t == "drop" and d.AbsoluteSize.X > 0 and d.AbsoluteSize.Y > 0 and d.Visible then
+				return d
+			end
+		elseif d:IsA("ImageButton") and d.Name:lower() == "drop" and d.AbsoluteSize.X > 0 and d.Visible then
+			return d
+		end
+	end
+	return nil
+end
+
+local function clickGui(obj)
+	local vim    = game:GetService("VirtualInputManager")
+	local inset  = game:GetService("GuiService"):GetGuiInset()
+	local screen = obj:FindFirstAncestorOfClass("ScreenGui")
+	local dy = (screen and screen.IgnoreGuiInset) and 0 or inset.Y
+	local c = obj.AbsolutePosition + obj.AbsoluteSize / 2
+	vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, true, game, 0)
+	task.wait(0.06)
+	vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, false, game, 0)
+end
 
 local function dropEgg()
 	local myChar = lp.Character
 	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
 	if not myHrp then return end
 
+	-- 1) bouton DROP de l'ecran
+	pcall(function()
+		local btn = findDropButton()
+		if btn then clickGui(btn) end
+	end)
+
+	-- 2) prompt de depot proche
 	pcall(function()
 		for _, d in ipairs(ws:GetDescendants()) do
 			if d:IsA("ProximityPrompt") and d.Parent and not d:IsDescendantOf(myChar) then
@@ -431,6 +529,7 @@ local function dropEgg()
 		end
 	end)
 
+	-- 3) touche de drop par defaut
 	pcall(function()
 		local vim = game:GetService("VirtualInputManager")
 		vim:SendKeyEvent(true, Enum.KeyCode.Backspace, false, game)
@@ -1013,6 +1112,10 @@ autoBtn.MouseButton1Click:Connect(function()
 	TweenService:Create(autoKnob, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Position = targetPos}):Play()
 	TweenService:Create(autoBtn, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {BackgroundColor3 = targetColor}):Play()
 end)
+
+foodHook = function(path)
+	statusLbl.Text = "Food: " .. (path:match("[^%.]+$") or path)
+end
 
 local function goToRanch()
 	if busy then
