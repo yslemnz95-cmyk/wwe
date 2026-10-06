@@ -12,6 +12,7 @@ inconnues (les globales Roblox/executeur apparaissent a tort).
 | `yslemEgg_DeliveryStop_Standalone.lua` | Steal An Egg | Delivery Stop seul, stops modifiables (Stops, Pause, Distance, Go Fly/Run) |
 | `yslempet_EggTP.lua` | Ride a Pet (PlaceId 124216119978534) | tp vers les oeufs de la map + retour au ranch (drop/reprise devant le plot) |
 | `yslem_GameScan.lua` | tous | module d'analyse du jeu, a coller TEMPORAIREMENT (voir plus bas) |
+| `friend/ShinEggFarm_yslem.lua` | Ride a Pet | script SHIN HUB d'un ami repare (TP oeuf, prise confirmee, drop dehors, reprise, vol 700%), UI yslemStyle rouge/noir, bouton GO/STOP. Non teste en jeu (pas de maquette) |
 | `tools/mock/` | tous | maquette Roblox + scenarios de test de `yslempet_EggTP.lua` |
 | `GUIDE_Livraison_InstantTP.md` | Steal An Egg | explication de la logique de livraison |
 
