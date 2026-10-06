@@ -720,13 +720,14 @@ end
 -- Vol par vitesse (jamais un tp) : monte au-dessus du ranch, avance a
 -- WalkSpeed x FLY_FRACTION, puis pose le personnage au sol quand il est dans le
 -- plot. PlatformStand + noclip pendant le vol, TOUJOURS restaures ensuite.
-local function flyIntoRanch(pos)
+local function flyIntoRanch(pos, abortFn)
 	local myChar = lp.Character
 	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
 	local hum    = myChar and myChar:FindFirstChildOfClass("Humanoid")
 	if not myHrp or not hum or not pos then return end
 
 	local cruiseY = pos.Y + FLY_HEIGHT
+	local aborted = false
 	hum.PlatformStand = true
 
 	pcall(function()
@@ -734,6 +735,7 @@ local function flyIntoRanch(pos)
 		local dt = 1 / 60
 		while not cancelMove and myHrp.Parent and os.clock() - started < 40 do
 			setNoclip(true)
+			if abortFn and abortFn() then aborted = true break end
 			if insidePlot() then break end
 			local flat = Vector3.new(pos.X - myHrp.Position.X, 0, pos.Z - myHrp.Position.Z)
 			if flat.Magnitude < 4 then break end
@@ -747,8 +749,8 @@ local function flyIntoRanch(pos)
 			dt = RunService.Heartbeat:Wait()
 		end
 
-		-- pose au sol dans le ranch
-		if not cancelMove and myHrp.Parent then
+		-- pose au sol dans le ranch (pas si le vol a ete interrompu : oeuf perdu)
+		if not cancelMove and not aborted and myHrp.Parent then
 			local params = RaycastParams.new()
 			params.FilterType = Enum.RaycastFilterType.Exclude
 			params.FilterDescendantsInstances = {myChar}
@@ -764,6 +766,48 @@ local function flyIntoRanch(pos)
 	setNoclip(false)
 	hum.PlatformStand = false
 	restoreControl()
+	return not aborted
+end
+
+-- Reprise de l'oeuf lache : tire le prompt de ramassage jusqu'a CONFIRMER qu'on
+-- le porte de nouveau (barre "Egg Will Break" de retour). On ne se contente
+-- jamais de "le prompt a disparu" quand la barre existe : c'etait la cause du
+-- vol vers le ranch sans l'oeuf. Si l'oeuf a roule loin de nous, on se place
+-- sur lui avant de tirer le prompt.
+local function retakeEgg(before, hint, timeout, needCarry)
+	local t0 = os.clock()
+	while os.clock() - t0 < timeout and not cancelMove do
+		if needCarry and isCarrying() == true then return true end
+
+		local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+		if not h then return false end
+
+		local pr = (hint and hint.Parent and hint:IsDescendantOf(ws)) and hint or nil
+		if not pr then
+			-- le nouvel objet de ramassage le plus proche (a defaut le plus proche tout court)
+			local best, bestScore = nil, math.huge
+			for prompt in pairs(nearbyPickups(60)) do
+				local pos = getPos(prompt.Parent)
+				if pos then
+					local score = (pos - h.Position).Magnitude - (before[prompt] and 0 or 1000)
+					if score < bestScore then best, bestScore = prompt, score end
+				end
+			end
+			pr = best
+		end
+
+		if pr then
+			local pos = getPos(pr.Parent)
+			if pos and (pos - h.Position).Magnitude > 8 then
+				place(pos + Vector3.new(0, 3, 0))
+			end
+			tryFire(pr)
+		elseif not needCarry then
+			return true -- plus rien a ramasser et pas de barre pour confirmer
+		end
+		task.wait(0.06)
+	end
+	return needCarry and isCarrying() == true or false
 end
 
 -- Analyse automatique (definie plus bas avec GameScan) : appelee quand quelque
@@ -826,33 +870,31 @@ local function goToRanchPos(ppos, pinst)
 		pcall(function() setclipboard("Drop non detecte. " .. lastDropDiag) end)
 		if scanHook then task.spawn(scanHook, "drop") end
 	else
-		-- reprise : on tire le prompt de l'oeuf lache jusqu'a ce qu'on le porte de nouveau
-		local t = 0
-		while t < 3 and not cancelMove do
-			if carriedAtStart and isCarrying() then break end
-			local pr = droppedPrompt
-			if not pr then
-				local best, bd = nil, math.huge
-				for prompt in pairs(nearbyPickups(30)) do
-					local pos = getPos(prompt.Parent)
-					local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-					if pos and h and (pos - h.Position).Magnitude < bd then
-						best, bd = prompt, (pos - h.Position).Magnitude
-					end
-				end
-				pr = best
-			end
-			if not pr or not pr.Parent or not pr:IsDescendantOf(ws) then break end
-			tryFire(pr)
-			task.wait(0.06)
-			t = t + 0.06
+		-- reprise CONFIRMEE : on ne part pas tant que l'oeuf n'est pas repris
+		if not retakeEgg(before, droppedPrompt, 6, carriedAtStart) then
+			if cancelMove then return true, false, false end
+			lastDropDiag = dropDiagnostic()
+			if scanHook then task.spawn(scanHook, "reprise") end
+			return true, false, true
 		end
 	end
-	if cancelMove then return true, dropFailed end
+	if cancelMove then return true, dropFailed, false end
 
-	-- vol a 100% jusque dans le ranch, pose au sol
-	flyIntoRanch(ppos)
-	return true, dropFailed
+	-- vol jusque dans le ranch ; si l'oeuf est perdu en route on s'arrete, on le
+	-- reprend, puis on repart (3 essais)
+	local function lost()
+		return carriedAtStart and isCarrying() ~= true
+	end
+	local retakeFailed = false
+	for _ = 1, 3 do
+		if cancelMove then break end
+		if lost() and not retakeEgg(before, nil, 5, true) then
+			retakeFailed = true
+			break
+		end
+		if flyIntoRanch(ppos, lost) then break end
+	end
+	return true, dropFailed, retakeFailed
 end
 
 -- === icones : uniquement une correspondance EXACTE avec l'UI du jeu =========
@@ -1638,10 +1680,12 @@ local function goToRanch()
 
 	setBusy(true)
 	statusLbl.Text = methodLabel() .. " -> Ranch (drop + reprise)"
-	local reached, dropFailed = goToRanchPos(ppos, pinst)
+	local reached, dropFailed, retakeFailed = goToRanchPos(ppos, pinst)
 	setBusy(false)
 	if not reached then
 		statusLbl.Text = "Placement avant ranch impossible"
+	elseif retakeFailed then
+		statusLbl.Text = "Oeuf non repris (reste devant le ranch)"
 	elseif dropFailed then
 		statusLbl.Text = "Drop non detecte (analyse copiee)"
 	else
@@ -2022,7 +2066,7 @@ local function doPickup()
 		local ppos, pinst = findRanchPos()
 		if ppos then
 			statusLbl.Text = pickedName .. " -> Ranch (drop + reprise)"
-			local reached, dropFailed = goToRanchPos(ppos, pinst)
+			local reached, dropFailed, retakeFailed = goToRanchPos(ppos, pinst)
 			if not reached then
 				statusLbl.Text = "Placement avant ranch impossible"
 				setBusy(false)
@@ -2035,7 +2079,7 @@ local function doPickup()
 				rebuildEggList(true, true)
 				return
 			end
-			statusLbl.Text = pickedName .. (dropFailed and " (Ranch, drop non detecte - analyse copiee)" or " recupere (Ranch)")
+			statusLbl.Text = retakeFailed and (pickedName .. ": oeuf non repris (devant le ranch)") or (pickedName .. (dropFailed and " (Ranch, drop non detecte - analyse copiee)" or " recupere (Ranch)"))
 		else
 			statusLbl.Text = pickedName .. " recupere (Ranch inconnu)"
 		end
