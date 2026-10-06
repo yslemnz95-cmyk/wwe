@@ -127,13 +127,28 @@ end
 local FLY_SPEED    = 600
 local FLY_ARRIVE_D = 4
 
+-- Les valeurs CanCollide d'origine sont memorisees : au retour a la normale on
+-- les restaure EXACTEMENT (mettre tout a true bloquait les membres/accessoires
+-- dans le sol et empechait d'avancer apres un trajet).
+local savedCollide = {}
+
 local function setNoclip(state)
 	local myChar = lp.Character
 	if not myChar then return end
-	for _, d in ipairs(myChar:GetDescendants()) do
-		if d:IsA("BasePart") then
-			d.CanCollide = not state
+	if state then
+		for _, d in ipairs(myChar:GetDescendants()) do
+			if d:IsA("BasePart") then
+				if savedCollide[d] == nil then savedCollide[d] = d.CanCollide end
+				d.CanCollide = false
+			end
 		end
+	else
+		for part, original in pairs(savedCollide) do
+			if part and part.Parent then
+				part.CanCollide = original
+			end
+		end
+		savedCollide = {}
 	end
 end
 
@@ -144,27 +159,29 @@ local function flyTo(pos)
 	local hum = myChar:FindFirstChildOfClass("Humanoid")
 	local target = pos + Vector3.new(0, 5, 0)
 
-	local prevPlatformStand = hum and hum.PlatformStand
 	if hum then hum.PlatformStand = true end
 
-	while myHrp and myHrp.Parent do
-		if cancelMove then
-			myHrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-			break
+	pcall(function()
+		while myHrp and myHrp.Parent do
+			if cancelMove then
+				myHrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+				break
+			end
+			setNoclip(true)
+			local diff = target - myHrp.Position
+			local dist = diff.Magnitude
+			if dist < FLY_ARRIVE_D then
+				myHrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+				break
+			end
+			myHrp.AssemblyLinearVelocity = diff.Unit * math.min(dist * 4 + 50, FLY_SPEED)
+			task.wait()
 		end
-		setNoclip(true)
-		local diff = target - myHrp.Position
-		local dist = diff.Magnitude
-		if dist < FLY_ARRIVE_D then
-			myHrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-			break
-		end
-		myHrp.AssemblyLinearVelocity = diff.Unit * math.min(dist * 4 + 50, FLY_SPEED)
-		task.wait()
-	end
+	end)
 
 	setNoclip(false)
-	if hum then hum.PlatformStand = prevPlatformStand end
+	-- on ne rend JAMAIS un personnage fige : PlatformStand toujours remis a faux
+	if hum then hum.PlatformStand = false end
 end
 
 -- === choix de methode (option utilisateur) ==================================
@@ -175,6 +192,28 @@ local function methodLabel()
 	return tpMethod == "fly" and "VOL" or "TP"
 end
 
+-- Rend la main au joueur apres un deplacement : plus de noclip, plus de
+-- PlatformStand, vitesse nulle, etat de marche retabli (un tp peut laisser
+-- l'humanoid en etat Physics/Ragdoll/FallingDown, sans controle).
+local function restoreControl()
+	setNoclip(false)
+	local myChar = lp.Character
+	local hum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+	local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	if hum then
+		hum.PlatformStand = false
+		pcall(function() hum:Move(Vector3.new(0, 0, 0), false) end)
+		local st = hum:GetState()
+		if st == Enum.HumanoidStateType.Physics or st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown or st == Enum.HumanoidStateType.PlatformStanding then
+			pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+		end
+	end
+	if hrp then
+		hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+		hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+	end
+end
+
 local function moveTo(pos)
 	cancelMove = false
 	if tpMethod == "fly" then
@@ -182,6 +221,7 @@ local function moveTo(pos)
 	else
 		tpTo(pos)
 	end
+	restoreControl()
 end
 
 local function stopMove()
@@ -392,32 +432,35 @@ local function dropGuiCandidates()
 	return list
 end
 
--- Appuie sur un objet d'interface : signaux du bouton (si l'executeur a
--- firesignal), puis clic souris et toucher simules au centre de l'objet.
-local function pressGui(obj)
+-- Appui "silencieux" sur un bouton : uniquement ses signaux (firesignal), SANS
+-- souris ni toucher simules. Renvoie true si l'executeur sait le faire.
+local function pressGuiSilent(obj)
 	local btn = obj
 	while btn and not btn:IsA("GuiButton") do
 		btn = btn.Parent
 		if btn and not btn:IsA("GuiObject") then btn = nil end
 	end
-	local target = btn or obj
-
-	if btn and typeof(firesignal) == "function" then
-		for _, sig in ipairs({"MouseButton1Down", "MouseButton1Click", "Activated", "MouseButton1Up"}) do
-			pcall(function() firesignal(btn[sig]) end)
-		end
+	if not btn or typeof(firesignal) ~= "function" then return false end
+	for _, sig in ipairs({"MouseButton1Down", "MouseButton1Click", "Activated", "MouseButton1Up"}) do
+		pcall(function() firesignal(btn[sig]) end)
 	end
+	return true
+end
 
+-- Dernier recours (desactivable avec CLICK_FALLBACK = false) : un clic souris
+-- simule au centre du bouton. Jamais de toucher simule (un toucher reste
+-- parfois "enfonce" et bloque le joystick).
+local CLICK_FALLBACK = true
+
+local function pressGuiClick(obj)
 	pcall(function()
 		local vim    = game:GetService("VirtualInputManager")
 		local inset  = game:GetService("GuiService"):GetGuiInset()
-		local screen = target:FindFirstAncestorOfClass("ScreenGui")
+		local screen = obj:FindFirstAncestorOfClass("ScreenGui")
 		local dy = (screen and screen.IgnoreGuiInset) and 0 or inset.Y
-		local c = target.AbsolutePosition + target.AbsoluteSize / 2
+		local c = obj.AbsolutePosition + obj.AbsoluteSize / 2
 		vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, true, game, 0)
-		vim:SendTouchEvent(1, 0, c.X, c.Y + dy)
-		task.wait(0.06)
-		vim:SendTouchEvent(1, 2, c.X, c.Y + dy)
+		task.wait(0.05)
 		vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, false, game, 0)
 	end)
 end
@@ -433,8 +476,9 @@ local function dropRemotes()
 	return list
 end
 
--- niveau 1 : le bouton DROP de l'ecran ; niveau 2 : remotes drop, prompts de
--- depot proches et touche de drop par defaut (Backspace).
+-- niveau 1 : signaux du bouton DROP (silencieux) ; niveau 2 : remotes drop,
+-- prompts de depot proches et touche de drop par defaut (Backspace) ;
+-- niveau 3 : clic souris simule (seulement si CLICK_FALLBACK).
 local function dropEgg(level)
 	local myChar = lp.Character
 	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -444,9 +488,20 @@ local function dropEgg(level)
 		local n = 0
 		for _, obj in ipairs(dropGuiCandidates()) do
 			if guiShown(obj) then
-				pressGui(obj)
+				pressGuiSilent(obj)
 				n = n + 1
 				if n >= 3 then break end
+			end
+		end
+		return
+	end
+
+	if level == 3 then
+		if not CLICK_FALLBACK then return end
+		for _, obj in ipairs(dropGuiCandidates()) do
+			if guiShown(obj) then
+				pressGuiClick(obj)
+				return
 			end
 		end
 		return
@@ -637,9 +692,10 @@ local function stagePoint(ppos, inst)
 	return Vector3.new(cx, ppos.Y, cz) + away.Unit * STAGE_BACK
 end
 
--- Derniere etape : un RUN au sol (jamais tp ni vol) a 60% de la vitesse de
--- marche, jusqu'a l'interieur du ranch.
-local RUN_FRACTION = 0.6
+-- Derniere etape : VOL a 100% de la vitesse de marche (la jauge de yslemEgg :
+-- 100% = WalkSpeed), au-dessus de la cloture, puis pose au sol dans le ranch.
+local FLY_FRACTION = 1.0
+local FLY_HEIGHT   = 40
 
 local function insidePlot()
 	local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
@@ -647,40 +703,53 @@ local function insidePlot()
 	return h.Position.X >= plotLo.X and h.Position.X <= plotHi.X and h.Position.Z >= plotLo.Z and h.Position.Z <= plotHi.Z
 end
 
-local function runTo(pos, fraction, doneFn)
+-- Vol par vitesse (jamais un tp) : monte au-dessus du ranch, avance a
+-- WalkSpeed x FLY_FRACTION, puis pose le personnage au sol quand il est dans le
+-- plot. PlatformStand + noclip pendant le vol, TOUJOURS restaures ensuite.
+local function flyIntoRanch(pos)
 	local myChar = lp.Character
 	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
 	local hum    = myChar and myChar:FindFirstChildOfClass("Humanoid")
 	if not myHrp or not hum or not pos then return end
 
-	local started   = os.clock()
-	local lastCheck = os.clock()
-	local lastPos   = myHrp.Position
+	local cruiseY = pos.Y + FLY_HEIGHT
+	hum.PlatformStand = true
 
-	while not cancelMove and myHrp.Parent and os.clock() - started < 40 do
-		if doneFn and doneFn() then break end
-		local flat = Vector3.new(pos.X - myHrp.Position.X, 0, pos.Z - myHrp.Position.Z)
-		if flat.Magnitude < 4 then break end
+	pcall(function()
+		local started = os.clock()
+		local dt = 1 / 60
+		while not cancelMove and myHrp.Parent and os.clock() - started < 40 do
+			setNoclip(true)
+			if insidePlot() then break end
+			local flat = Vector3.new(pos.X - myHrp.Position.X, 0, pos.Z - myHrp.Position.Z)
+			if flat.Magnitude < 4 then break end
 
-		local unit  = flat.Unit
-		local speed = hum.WalkSpeed * fraction
-		local v     = unit * math.min(speed, flat.Magnitude / 0.05)
-		myHrp.AssemblyLinearVelocity = Vector3.new(v.X, myHrp.AssemblyLinearVelocity.Y, v.Z)
-		hum:Move(unit, false)
-
-		-- bloque sur le decor : saut
-		if os.clock() - lastCheck >= 1.5 then
-			if (myHrp.Position - lastPos).Magnitude < 3 and flat.Magnitude > 10 then
-				hum.Jump = true
-			end
-			lastPos, lastCheck = myHrp.Position, os.clock()
+			local speed = math.max(hum.WalkSpeed * FLY_FRACTION, 8)
+			-- meme repartition que le vol de yslemEgg : la vitesse totale reste = speed
+			local vy = math.clamp((cruiseY - myHrp.Position.Y) / 0.12, -speed * 0.5, speed * 0.5)
+			local horizontal = math.sqrt(math.max(speed * speed - vy * vy, 0))
+			local v = flat.Unit * math.min(horizontal, flat.Magnitude / math.max(dt, 1 / 240))
+			myHrp.AssemblyLinearVelocity = Vector3.new(v.X, vy, v.Z)
+			dt = RunService.Heartbeat:Wait()
 		end
 
-		RunService.Heartbeat:Wait()
-	end
+		-- pose au sol dans le ranch
+		if not cancelMove and myHrp.Parent then
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = {myChar}
+			params.IgnoreWater = true
+			local origin = Vector3.new(myHrp.Position.X, myHrp.Position.Y + 5, myHrp.Position.Z)
+			local hit = ws:Raycast(origin, Vector3.new(0, -400, 0), params)
+			if hit then
+				myHrp.CFrame = CFrame.new(hit.Position + Vector3.new(0, 4, 0)) * myHrp.CFrame.Rotation
+			end
+		end
+	end)
 
-	myHrp.AssemblyLinearVelocity = Vector3.new(0, myHrp.AssemblyLinearVelocity.Y, 0)
-	hum:Move(Vector3.new(0, 0, 0), false)
+	setNoclip(false)
+	hum.PlatformStand = false
+	restoreControl()
 end
 
 -- Analyse automatique (definie plus bas avec GameScan) : appelee quand quelque
@@ -688,7 +757,7 @@ end
 local scanHook = nil
 
 -- Retour au ranch : tp (ou vol, selon le bouton) devant le plot (a l'exterieur),
--- drop de l'oeuf, reprise, puis RUN a 60% jusque dans le ranch. Renvoie
+-- drop de l'oeuf, reprise, puis VOL a 100% jusque dans le ranch. Renvoie
 -- (false) si on n'a pas pu se placer, sinon (true, dropFailed).
 local function goToRanchPos(ppos, pinst)
 	cancelMove = false
@@ -718,10 +787,10 @@ local function goToRanchPos(ppos, pinst)
 	local carriedAtStart = isCarrying() == true
 	local before = nearbyPickups(30)
 	local dropped, droppedPrompt = false, nil
-	for level = 1, 2 do
+	for level = 1, 3 do
 		dropEgg(level)
 		local waited = 0
-		while waited < 1.3 and not cancelMove do
+		while waited < (level == 1 and 0.7 or 1.1) and not cancelMove do
 			for prompt in pairs(nearbyPickups(30)) do
 				if not before[prompt] then droppedPrompt = prompt; break end
 			end
@@ -729,8 +798,8 @@ local function goToRanchPos(ppos, pinst)
 				dropped = true
 				break
 			end
-			task.wait(0.1)
-			waited = waited + 0.1
+			task.wait(0.05)
+			waited = waited + 0.05
 		end
 		if dropped or cancelMove then break end
 	end
@@ -761,14 +830,14 @@ local function goToRanchPos(ppos, pinst)
 			end
 			if not pr or not pr.Parent or not pr:IsDescendantOf(ws) then break end
 			tryFire(pr)
-			task.wait(0.12)
-			t = t + 0.12
+			task.wait(0.06)
+			t = t + 0.06
 		end
 	end
 	if cancelMove then return true, dropFailed end
 
-	-- course jusque dans le ranch
-	runTo(ppos, RUN_FRACTION, insidePlot)
+	-- vol a 100% jusque dans le ranch, pose au sol
+	flyIntoRanch(ppos)
 	return true, dropFailed
 end
 
