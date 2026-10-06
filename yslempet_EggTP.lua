@@ -1337,13 +1337,117 @@ quickListLayout.Padding   = UDim.new(0, 2)
 quickListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 quickListLayout.Parent    = quickScroll
 
+-- === yslemStyle ============================================================
+-- Contours et textes en degrade qui tourne en continu, theme noir, barre de
+-- titre claire a titre noir, formes arrondies.
+
+local Y_WHITE  = Color3.fromRGB(255, 255, 255)
+local Y_SILVER = Color3.fromRGB(150, 150, 156)
+local Y_STEEL  = Color3.fromRGB(70, 70, 76)
+local yLiving  = {}
+
+local function yBands(a, b)
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(0.25, b), ColorSequenceKeypoint.new(0.5, a),
+		ColorSequenceKeypoint.new(0.75, b), ColorSequenceKeypoint.new(1, a),
+	})
+end
+
+-- contour vivant (bandes qui tournent autour de la bordure)
+local function livingStroke(inst, thickness, bright)
+	local old = inst:FindFirstChild("YslemStroke")
+	if old then old:Destroy() end
+	local st = Instance.new("UIStroke")
+	st.Name = "YslemStroke"
+	st.Thickness = thickness or 1
+	st.Color = Y_WHITE
+	st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	st.Parent = inst
+	local g = Instance.new("UIGradient")
+	g.Rotation = 45
+	g.Color = yBands(bright and Y_WHITE or Y_SILVER, Y_STEEL)
+	g.Parent = st
+	table.insert(yLiving, g)
+	return st, g
+end
+
+-- texte vivant (bandes qui traversent les lettres)
+local function livingText(inst)
+	if inst:FindFirstChild("YslemText") then return end
+	local g = Instance.new("UIGradient")
+	g.Name = "YslemText"
+	g.Color = yBands(Y_WHITE, Y_SILVER)
+	g.Parent = inst
+	table.insert(yLiving, g)
+end
+
+local function darkButton(btn, radius)
+	btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	btn.TextColor3 = Y_WHITE
+	local c = btn:FindFirstChildOfClass("UICorner")
+	if c and radius then c.CornerRadius = UDim.new(0, radius) end
+	livingStroke(btn, 1, true)
+	livingText(btn)
+end
+
+-- fenetre : le contour existant devient le contour vivant
+mainStroke.Thickness = 1.4
+borderGradient.Color = yBands(Y_WHITE, Y_STEEL)
+borderGradient.Rotation = 45
+table.insert(yLiving, borderGradient)
+main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(14, 14, 14)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0)),
+})
+main:FindFirstChildOfClass("UICorner").CornerRadius = UDim.new(0, 14)
+
+-- barre de titre : bande claire vivante, titre noir
+titleBar.BackgroundColor3 = Y_WHITE
+titleGradient.Rotation = 0
+titleGradient.Color = yBands(Y_WHITE, Y_SILVER)
+table.insert(yLiving, titleGradient)
+titleLbl.TextColor3 = Color3.fromRGB(0, 0, 0)
+titleBar:FindFirstChildOfClass("UICorner").CornerRadius = UDim.new(0, 14)
+
+darkButton(minimizeBtn, 7)
+darkButton(ranchBtn, 7)
+darkButton(modeBtn, 7)
+darkButton(leftArrow, 8)
+darkButton(rightArrow, 8)
+darkButton(grabBtn, 7)
+darkButton(listToggleBtn, 6)
+
+livingText(autoLbl)
+livingText(nameLbl)
+livingText(countLbl)
+livingText(statusLbl)
+
+iconHolderStroke.Thickness = 1
+livingStroke(iconHolder, 1, false)
+iconHolderStroke.Enabled = false
+quickListStroke.Enabled = false
+livingStroke(quickList, 1, false)
+
 -- === effets (glow anime + pulsation + intro) ================================
 
 local uiClock = 0
+local yTick = 0
 local fxConn
 fxConn = RunService.Heartbeat:Connect(function(dt)
 	uiClock = uiClock + dt
-	borderGradient.Rotation = (borderGradient.Rotation + dt * 45) % 360
+	yTick = yTick + 1
+	if yTick % 2 == 0 then
+		local rot = (uiClock * 72) % 360
+		for i = #yLiving, 1, -1 do
+			local g = yLiving[i]
+			if g.Parent then
+				g.Rotation = g.Parent:IsA("UIStroke") and (45 + rot) % 360 or rot
+			else
+				table.remove(yLiving, i)
+			end
+		end
+	end
 	liveDot.BackgroundTransparency = 0.15 + 0.35 * (0.5 + 0.5 * math.sin(uiClock * 3))
 end)
 
@@ -1424,10 +1528,10 @@ local function setBusy(state)
 	busy = state
 	if state then
 		grabBtn.Text = "STOP"
-		grabBtn.BackgroundColor3 = Color3.fromRGB(190, 50, 50)
+		grabBtn.BackgroundColor3 = Color3.fromRGB(70, 12, 12)
 	else
 		grabBtn.Text = "RAMASSER"
-		grabBtn.BackgroundColor3 = Color3.fromRGB(35, 165, 80)
+		grabBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	end
 end
 
@@ -1621,7 +1725,8 @@ local function buildQuickList()
 		row.AutoButtonColor  = false
 		row.ZIndex           = 6
 		row.Parent           = quickScroll
-		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 5)
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+		livingStroke(row, 1, false)
 
 		local iconBox = Instance.new("Frame")
 		iconBox.Size             = UDim2.new(0, 22, 0, 22)
@@ -1656,6 +1761,7 @@ local function buildQuickList()
 		rowLbl.Text                   = entry.name .. "  x" .. #entry.list
 		rowLbl.ZIndex                 = 6
 		rowLbl.Parent                 = row
+		livingText(rowLbl)
 
 		row.MouseButton1Click:Connect(function()
 			currentIndex = i
