@@ -671,7 +671,7 @@ end
 
 -- Point d'attente : le point du bord du plot le plus proche de nous, repousse de
 -- STAGE_BACK studs vers l'exterieur (donc devant le ranch, jamais dedans).
-local plotLo, plotHi = nil, nil
+local plotLo, plotHi, plotCenter = nil, nil, nil
 
 local function stagePoint(ppos, inst)
 	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
@@ -680,6 +680,7 @@ local function stagePoint(ppos, inst)
 
 	local lo, hi = plotBounds(inst)
 	plotLo, plotHi = lo, hi
+	plotCenter = lo and Vector3.new((lo.X + hi.X) / 2, ppos.Y, (lo.Z + hi.Z) / 2) or ppos
 	if not lo then
 		-- repere inconnu : on retombe sur la direction ranch -> nous
 		local flat = Vector3.new(me.X - ppos.X, 0, me.Z - ppos.Z)
@@ -711,12 +712,6 @@ end
 local FLY_FRACTION = 7.0 -- 700% de la vitesse de marche
 local FLY_HEIGHT   = 40
 
-local function insidePlot()
-	local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-	if not h or not plotLo then return false end
-	return h.Position.X >= plotLo.X and h.Position.X <= plotHi.X and h.Position.Z >= plotLo.Z and h.Position.Z <= plotHi.Z
-end
-
 -- Vol par vitesse (jamais un tp) : monte au-dessus du ranch, avance a
 -- WalkSpeed x FLY_FRACTION, puis pose le personnage au sol quand il est dans le
 -- plot. PlatformStand + noclip pendant le vol, TOUJOURS restaures ensuite.
@@ -736,9 +731,9 @@ local function flyIntoRanch(pos, abortFn)
 		while not cancelMove and myHrp.Parent and os.clock() - started < 40 do
 			setNoclip(true)
 			if abortFn and abortFn() then aborted = true break end
-			if insidePlot() then break end
+			-- on va jusqu'au CENTRE du ranch (pas seulement son bord)
 			local flat = Vector3.new(pos.X - myHrp.Position.X, 0, pos.Z - myHrp.Position.Z)
-			if flat.Magnitude < 4 then break end
+			if flat.Magnitude < 6 then break end
 
 			local speed = math.max(hum.WalkSpeed * FLY_FRACTION, 8)
 			-- meme repartition que le vol de yslemEgg : la vitesse totale reste = speed
@@ -892,7 +887,7 @@ local function goToRanchPos(ppos, pinst)
 			retakeFailed = true
 			break
 		end
-		if flyIntoRanch(ppos, lost) then break end
+		if flyIntoRanch(plotCenter or ppos, lost) then break end
 	end
 	return true, dropFailed, retakeFailed
 end
@@ -2024,6 +2019,34 @@ local function showIndex(newIndex, dir)
 	renderCard(currentIndex, dir)
 end
 
+-- Prise de l'oeuf de la map CONFIRMEE : on tire le prompt (maintien a 0) jusqu'a
+-- ce que la barre "Egg Will Break" apparaisse, en se replacant sur l'oeuf s'il
+-- est loin. Sans barre (detection impossible) on accepte quand le prompt a
+-- disparu. On ne part JAMAIS vers le ranch sans avoir confirme la prise.
+local function grabEgg(e, timeout)
+	local t0 = os.clock()
+	while os.clock() - t0 < timeout and not cancelMove do
+		if isCarrying() == true then return true end
+
+		local prompt = e.prompt
+		if not (prompt and prompt.Parent and prompt:IsDescendantOf(ws)) then
+			-- le prompt a disparu : pris (ou pris par un autre) ; la barre tranche
+			task.wait(0.15)
+			return isCarrying() == true or (isCarrying() == nil and true or false)
+		end
+
+		local h   = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+		local pos = getPos(prompt.Parent) or e.pos
+		if h and pos and (pos - h.Position).Magnitude > 10 then
+			place(pos + Vector3.new(0, 3, 0))
+		end
+		pcall(function() prompt.HoldDuration = 0 end)
+		tryFire(prompt)
+		task.wait(0.08)
+	end
+	return isCarrying() == true
+end
+
 local function doPickup()
 	if busy then return end
 	if #eggOrder == 0 then
@@ -2058,9 +2081,13 @@ local function doPickup()
 		return
 	end
 	statusLbl.Text = methodLabel() .. " -> " .. pickedName
-	task.wait(0.5)
-	tryFire(e.prompt)
-	task.wait(0.7)
+	task.wait(0.15)
+	if not grabEgg(e, 6) then
+		statusLbl.Text = cancelMove and "Arrete" or (pickedName .. " non pris")
+		setBusy(false)
+		rebuildEggList(true, true)
+		return
+	end
 
 	if autoReturnRanch then
 		local ppos, pinst = findRanchPos()
