@@ -1030,7 +1030,7 @@ local function goToRanch()
 	local reached = goToRanchPos(ppos)
 	setBusy(false)
 	if not reached then
-		statusLbl.Text = "Shop Food inatteignable"
+		statusLbl.Text = "Food: " .. (lastFoodDiag ~= "" and lastFoodDiag or "inatteignable")
 	else
 		statusLbl.Text = cancelMove and "Arrete" or "Ranch atteint"
 	end
@@ -1290,7 +1290,7 @@ local function doPickup()
 			statusLbl.Text = pickedName .. " -> Shop Food -> Ranch"
 			local reached = goToRanchPos(ppos)
 			if not reached then
-				statusLbl.Text = "Shop Food inatteignable (oeuf garde)"
+				statusLbl.Text = "Food: " .. (lastFoodDiag ~= "" and lastFoodDiag or "inatteignable")
 				setBusy(false)
 				rebuildEggList(true, true)
 				return
