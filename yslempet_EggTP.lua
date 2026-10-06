@@ -1,34 +1,3 @@
--- yslempet_EggTP.lua  (standalone, ultra-compact, theme noir)
--- "Ride a Pet" - Teleportation vers les oeufs de la map
--- PlaceId: 124216119978534
---
--- Carrousel : uniquement les oeufs ramassables presents sur la MAP
--- (Workspace.RenderedEggs, prompt "Pick Up") - jamais les oeufs du Ranch.
--- Swipe/fleches pour parcourir un par un, OU le bouton "v" pour ouvrir une
--- liste et sauter directement sur l'oeuf voulu (evite de tourner longtemps).
--- Toucher la carte / RAMASSER : deplacement -> ramassage -> retour au Ranch
--- (optionnel, bouton "Auto"). Bouton RANCH separe pour y retourner quand on
--- veut. Bouton "-" pour reduire completement l'UI.
---
--- Deux methodes de deplacement au choix (bouton TP/VOL) :
---   - TP   : teleportation instantanee en desync (hors du tick principal),
---            vitesse annulee puis reconfirmee sur quelques frames.
---   - VOL  : deplacement par velocite (AssemblyLinearVelocity sur son
---            propre personnage uniquement) + noclip pendant le trajet pour
---            ne jamais rester bloque sur le terrain, vitesse elevee.
---
--- Le retour au Ranch cible STRICTEMENT le plot appartenant a l'utilisateur
--- (verification proprietaire) : jamais le plot d'un autre joueur, meme s'il
--- est plus proche.
---
--- La liste se rafraichit toute seule en continu (pas de bouton "Scan") pour
--- suivre le renouvellement des oeufs sur la map.
---
--- Icone affichee : image reelle deja utilisee par le jeu si une
--- correspondance EXACTE de nom est trouvee, sinon rendu 3D du vrai modele
--- de l'oeuf (jamais d'icone approximative/fausse).
-
--- === services ===============================================================
 local Players           = game:GetService("Players")
 local UserInputService  = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
