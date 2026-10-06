@@ -272,6 +272,33 @@ do
 		return table.concat(out, "\n")
 	end
 
+	-- Recherche ciblee : tout ce qui contient un mot (boutons/textes d'interface,
+	-- remotes, prompts, objets du monde). Exemple : GameScan.find("drop").
+	function GameScan.find(keyword)
+		keyword = tostring(keyword or ""):lower()
+		local out = {"##### yslem GameScan.find '" .. keyword .. "' #####"}
+		local function check(label, root)
+			if not root then return end
+			walk(root, function(d)
+				if #out > 80 then return end
+				local hit = d.Name:lower():find(keyword, 1, true)
+				if not hit and (d:IsA("TextLabel") or d:IsA("TextButton")) then hit = (d.Text or ""):lower():find(keyword, 1, true) end
+				if not hit and d:IsA("ProximityPrompt") then hit = ((d.ActionText or "") .. (d.ObjectText or "")):lower():find(keyword, 1, true) end
+				if hit then
+					local extra = ""
+					if d:IsA("TextLabel") or d:IsA("TextButton") then extra = " texte='" .. d.Text .. "'" end
+					if d:IsA("ProximityPrompt") then extra = " action='" .. d.ActionText .. "' objet='" .. d.ObjectText .. "'" end
+					table.insert(out, label .. " [" .. d.ClassName .. "]" .. extra .. " <" .. path(d) .. ">")
+				end
+			end)
+		end
+		check("GUI", lp_:FindFirstChild("PlayerGui"))
+		check("RS", ReplicatedStorage_)
+		check("WS", Workspace_)
+		if #out == 1 then table.insert(out, "(rien trouve)") end
+		return table.concat(out, "\n")
+	end
+
 	function GameScan.copy(text)
 		local ok = pcall(function() setclipboard(text) end)
 		return ok
