@@ -683,6 +683,10 @@ local function runTo(pos, fraction, doneFn)
 	hum:Move(Vector3.new(0, 0, 0), false)
 end
 
+-- Analyse automatique (definie plus bas avec GameScan) : appelee quand quelque
+-- chose echoue pour copier le rapport complet.
+local scanHook = nil
+
 -- Retour au ranch : tp (ou vol, selon le bouton) devant le plot (a l'exterieur),
 -- drop de l'oeuf, reprise, puis RUN a 60% jusque dans le ranch. Renvoie
 -- (false) si on n'a pas pu se placer, sinon (true, dropFailed).
@@ -737,6 +741,7 @@ local function goToRanchPos(ppos, pinst)
 		lastDropDiag = dropDiagnostic()
 		warn("[EggTP] Drop non detecte. " .. lastDropDiag)
 		pcall(function() setclipboard("Drop non detecte. " .. lastDropDiag) end)
+		if scanHook then task.spawn(scanHook, "drop") end
 	else
 		-- reprise : on tire le prompt de l'oeuf lache jusqu'a ce qu'on le porte de nouveau
 		local t = 0
@@ -852,6 +857,279 @@ local function buildViewport(modelInst, parent)
 
 	return vp
 end
+
+-- ==== yslem GameScan (START) ================================================
+local GameScan = {}
+
+do
+	local Players_           = game:GetService("Players")
+	local ReplicatedStorage_ = game:GetService("ReplicatedStorage")
+	local Workspace_         = game:GetService("Workspace")
+	local lp_                = Players_.LocalPlayer
+
+	local MAX_YIELD = 1500 -- on rend la main tous les N elements (pas de gel)
+
+	local function path(inst)
+		local ok, p = pcall(function() return inst:GetFullName() end)
+		return ok and p or tostring(inst)
+	end
+
+	local function walk(root, fn)
+		local n = 0
+		for _, d in ipairs(root:GetDescendants()) do
+			fn(d)
+			n = n + 1
+			if n % MAX_YIELD == 0 then task.wait() end
+		end
+	end
+
+	local function shown(obj)
+		local p = obj
+		while p and p:IsA("GuiObject") do
+			if not p.Visible then return false end
+			p = p.Parent
+		end
+		local sg = obj:FindFirstAncestorOfClass("ScreenGui")
+		return sg == nil or sg.Enabled
+	end
+
+	local function addLines(out, title, lines, limit)
+		table.insert(out, "== " .. title .. " (" .. #lines .. ") ==")
+		for i, l in ipairs(lines) do
+			if i > (limit or 40) then
+				table.insert(out, "  ... +" .. (#lines - (limit or 40)) .. " autres")
+				break
+			end
+			table.insert(out, "  " .. l)
+		end
+		if #lines == 0 then table.insert(out, "  (aucun)") end
+	end
+
+	-- 1) contexte -------------------------------------------------------------
+	local function sectionContext(out)
+		local lines = {}
+		local name = "?"
+		pcall(function()
+			name = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+		end)
+		table.insert(lines, "jeu: " .. tostring(name) .. "  PlaceId=" .. game.PlaceId .. "  GameId=" .. game.GameId)
+		table.insert(lines, "serveur: " .. #Players_:GetPlayers() .. " joueurs  streaming=" .. tostring(Workspace_.StreamingEnabled))
+		table.insert(lines, "joueur: " .. lp_.Name .. " (" .. lp_.UserId .. ")  age compte=" .. lp_.AccountAge .. "j")
+		local ch = lp_.Character
+		local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+		local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+		if hum then
+			table.insert(lines, string.format("humanoid: vie %.0f/%.0f  vitesse %.1f  saut %.1f  etat=%s", hum.Health, hum.MaxHealth, hum.WalkSpeed, hum.UseJumpPower and hum.JumpPower or hum.JumpHeight, tostring(hum:GetState())))
+		end
+		if hrp then
+			table.insert(lines, string.format("position: %.0f, %.0f, %.0f", hrp.Position.X, hrp.Position.Y, hrp.Position.Z))
+		end
+		local caps = {}
+		for _, fname in ipairs({"firesignal", "fireproximityprompt", "setclipboard", "gethui", "setfpscap", "getconnections", "hookfunction", "getgenv", "queue_on_teleport", "writefile", "readfile"}) do
+			local okf, fv = pcall(function() return getfenv()[fname] end)
+			table.insert(caps, fname .. "=" .. ((okf and type(fv) == "function") and "oui" or "non"))
+		end
+		pcall(function()
+			game:GetService("VirtualInputManager")
+			table.insert(caps, "VirtualInputManager=oui")
+		end)
+		table.insert(lines, "executeur: " .. table.concat(caps, " "))
+		addLines(out, "CONTEXTE", lines, 20)
+	end
+
+	-- 2) securite : seulement des observations (noms suspects), rien n'est touche
+	local SEC_WORDS = {"anticheat", "anti_cheat", "anti-cheat", "cheat", "exploit", "ban", "kick", "detect", "monitor", "security", "verify", "validate", "flag", "violation", "suspicious", "sanity", "integrity"}
+
+	local function secName(n)
+		n = n:lower()
+		for _, w in ipairs(SEC_WORDS) do
+			if n:find(w, 1, true) then return w end
+		end
+		return nil
+	end
+
+	local function sectionSecurity(out)
+		local lines = {}
+		local function scan(root, label)
+			if not root then return end
+			walk(root, function(d)
+				if #lines >= 60 then return end
+				local w = secName(d.Name)
+				if w and (d:IsA("LuaSourceContainer") or d:IsA("RemoteEvent") or d:IsA("RemoteFunction") or d:IsA("BindableEvent") or d:IsA("Folder") or d:IsA("ValueBase")) then
+					table.insert(lines, label .. " [" .. d.ClassName .. "] " .. path(d) .. "  (mot: " .. w .. ")")
+				end
+			end)
+		end
+		scan(ReplicatedStorage_, "RS")
+		scan(lp_:FindFirstChild("PlayerScripts"), "PlayerScripts")
+		scan(lp_:FindFirstChild("PlayerGui"), "PlayerGui")
+		scan(game:GetService("StarterPlayer"), "StarterPlayer")
+		for _, c in ipairs(Workspace_:GetChildren()) do
+			local w = secName(c.Name)
+			if w then table.insert(lines, "Workspace [" .. c.ClassName .. "] " .. c.Name .. "  (mot: " .. w .. ")") end
+		end
+		-- attributs du joueur / personnage (minuteries, drapeaux)
+		local attrs = {}
+		for k, v in pairs(lp_:GetAttributes()) do table.insert(attrs, "joueur." .. k .. "=" .. tostring(v)) end
+		if lp_.Character then
+			for k, v in pairs(lp_.Character:GetAttributes()) do table.insert(attrs, "perso." .. k .. "=" .. tostring(v)) end
+		end
+		if #attrs > 0 then table.insert(lines, "attributs: " .. table.concat(attrs, ", ")) end
+		addLines(out, "SECURITE (observations : noms evocateurs, rien n'est modifie)", lines, 60)
+	end
+
+	-- 3) boutons ---------------------------------------------------------------
+	local function sectionButtons(out)
+		local lines = {}
+		local pg = lp_:FindFirstChild("PlayerGui")
+		if pg then
+			walk(pg, function(d)
+				if #lines >= 80 then return end
+				if (d:IsA("TextButton") or d:IsA("ImageButton")) and shown(d) and d.AbsoluteSize.X > 0 then
+					local txt = ""
+					if d:IsA("TextButton") then
+						txt = d.Text
+					else
+						for _, c in ipairs(d:GetDescendants()) do
+							if c:IsA("TextLabel") and c.Text ~= "" then txt = c.Text break end
+						end
+					end
+					table.insert(lines, string.format("%s '%s' texte='%s' pos=(%.0f,%.0f) taille=(%.0f,%.0f) <%s>", d.ClassName, d.Name, txt, d.AbsolutePosition.X, d.AbsolutePosition.Y, d.AbsoluteSize.X, d.AbsoluteSize.Y, path(d)))
+				end
+			end)
+		end
+		addLines(out, "BOUTONS VISIBLES (PlayerGui)", lines, 50)
+	end
+
+	-- 4) prompts ---------------------------------------------------------------
+	local function sectionPrompts(out)
+		local groups, order = {}, {}
+		local hrp = lp_.Character and lp_.Character:FindFirstChild("HumanoidRootPart")
+		walk(Workspace_, function(d)
+			if d:IsA("ProximityPrompt") then
+				local key = (d.ActionText or "") .. " | " .. (d.ObjectText or "")
+				local g = groups[key]
+				if not g then
+					g = {count = 0, near = math.huge, hold = d.HoldDuration, ex = path(d)}
+					groups[key] = g
+					table.insert(order, key)
+				end
+				g.count = g.count + 1
+				local par = d.Parent
+				if hrp and par then
+					local pos = par:IsA("BasePart") and par.Position or (par:IsA("Model") and par:GetPivot().Position) or nil
+					if pos then g.near = math.min(g.near, (pos - hrp.Position).Magnitude) end
+				end
+			end
+		end)
+		local lines = {}
+		for _, key in ipairs(order) do
+			local g = groups[key]
+			table.insert(lines, string.format("'%s' x%d  maintien=%.1fs  plus proche=%s  ex: %s", key, g.count, g.hold, g.near == math.huge and "?" or string.format("%.0f", g.near), g.ex))
+		end
+		addLines(out, "PROMPTS (ActionText | ObjectText)", lines, 30)
+	end
+
+	-- 5) remotes ---------------------------------------------------------------
+	local function sectionRemotes(out)
+		local byParent, order = {}, {}
+		walk(ReplicatedStorage_, function(d)
+			if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") or d:IsA("UnreliableRemoteEvent") then
+				local parent = path(d.Parent)
+				if not byParent[parent] then byParent[parent] = {} table.insert(order, parent) end
+				table.insert(byParent[parent], (d:IsA("RemoteFunction") and "RF:" or "RE:") .. d.Name)
+			end
+		end)
+		local lines = {}
+		for _, parent in ipairs(order) do
+			table.insert(lines, parent .. " -> " .. table.concat(byParent[parent], ", "))
+		end
+		addLines(out, "REMOTES (ReplicatedStorage)", lines, 25)
+	end
+
+	-- 6) monde -----------------------------------------------------------------
+	local function sectionWorld(out)
+		local lines = {}
+		for _, c in ipairs(Workspace_:GetChildren()) do
+			if not c:IsA("Terrain") and not Players_:GetPlayerFromCharacter(c) and c ~= Workspace_.CurrentCamera then
+				table.insert(lines, c.ClassName .. " '" .. c.Name .. "' (" .. #c:GetChildren() .. " enfants)")
+			end
+		end
+		table.sort(lines)
+		addLines(out, "MONDE (Workspace, premier niveau)", lines, 45)
+	end
+
+	-- 7) inventaire / stats -----------------------------------------------------
+	local function sectionInventory(out)
+		local lines = {}
+		local bp = lp_:FindFirstChildOfClass("Backpack")
+		if bp then
+			local names = {}
+			for _, t in ipairs(bp:GetChildren()) do table.insert(names, t.Name) end
+			table.insert(lines, "sac: " .. (#names > 0 and table.concat(names, ", ") or "vide"))
+		end
+		if lp_.Character then
+			for _, t in ipairs(lp_.Character:GetChildren()) do
+				if t:IsA("Tool") then table.insert(lines, "en main: " .. t.Name) end
+			end
+		end
+		local ls = lp_:FindFirstChild("leaderstats")
+		if ls then
+			for _, v in ipairs(ls:GetChildren()) do
+				if v:IsA("ValueBase") then table.insert(lines, "stat " .. v.Name .. " = " .. tostring(v.Value)) end
+			end
+		end
+		addLines(out, "INVENTAIRE / STATS", lines, 25)
+	end
+
+	-- 8) scripts ---------------------------------------------------------------
+	local function sectionScripts(out)
+		local lines = {}
+		local function count(root, label)
+			if not root then return end
+			local scripts, modules = 0, 0
+			local sample = {}
+			walk(root, function(d)
+				if d:IsA("LocalScript") then
+					scripts = scripts + 1
+					if #sample < 12 then table.insert(sample, d.Name) end
+				elseif d:IsA("ModuleScript") then
+					modules = modules + 1
+					if #sample < 12 then table.insert(sample, d.Name) end
+				end
+			end)
+			table.insert(lines, label .. ": " .. scripts .. " LocalScript, " .. modules .. " ModuleScript  (" .. table.concat(sample, ", ") .. ")")
+		end
+		count(lp_:FindFirstChild("PlayerScripts"), "PlayerScripts")
+		count(ReplicatedStorage_, "ReplicatedStorage")
+		count(lp_:FindFirstChild("PlayerGui"), "PlayerGui")
+		addLines(out, "SCRIPTS", lines, 10)
+	end
+
+	-- rapport complet ---------------------------------------------------------
+	function GameScan.run(sections)
+		sections = sections or {}
+		local out = {"##### yslem GameScan " .. os.date("%Y-%m-%d %H:%M:%S") .. " #####"}
+		local steps = {
+			{"context", sectionContext}, {"security", sectionSecurity}, {"buttons", sectionButtons},
+			{"prompts", sectionPrompts}, {"remotes", sectionRemotes}, {"world", sectionWorld},
+			{"inventory", sectionInventory}, {"scripts", sectionScripts},
+		}
+		for _, step in ipairs(steps) do
+			if sections[step[1]] ~= false then
+				local ok, err = pcall(step[2], out)
+				if not ok then table.insert(out, "== " .. step[1] .. " : erreur " .. tostring(err)) end
+			end
+		end
+		return table.concat(out, "\n")
+	end
+
+	function GameScan.copy(text)
+		local ok = pcall(function() setclipboard(text) end)
+		return ok
+	end
+end
+-- ==== yslem GameScan (END) ==================================================
 
 -- === UI (ultra-compacte, theme noir) ========================================
 
@@ -1282,13 +1560,134 @@ local function goToRanch()
 	if not reached then
 		statusLbl.Text = "Placement avant ranch impossible"
 	elseif dropFailed then
-		statusLbl.Text = "Drop non detecte (diag copie)"
+		statusLbl.Text = "Drop non detecte (analyse copiee)"
 	else
 		statusLbl.Text = cancelMove and "Arrete" or "Ranch atteint"
 	end
 end
 
 ranchBtn.MouseButton1Click:Connect(goToRanch)
+
+
+-- === analyse a la demande (bouton "i") ======================================
+-- Rapport complet sur le jeu : contexte, securite (observations), boutons,
+-- prompts, remotes, monde, inventaire, scripts. Affiche dans un panneau et
+-- copie dans le presse-papier. Lance aussi automatiquement si le drop echoue.
+
+local scanBtn = Instance.new("TextButton")
+scanBtn.Size             = UDim2.new(0, 15, 0, 15)
+scanBtn.Position         = UDim2.new(1, -40, 0.5, -7)
+scanBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+scanBtn.BorderSizePixel  = 0
+scanBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+scanBtn.Font             = Enum.Font.GothamBold
+scanBtn.TextSize         = 10
+scanBtn.Text             = "i"
+scanBtn.AutoButtonColor  = false
+scanBtn.Parent           = titleBar
+Instance.new("UICorner", scanBtn).CornerRadius = UDim.new(0, 5)
+addPressFX(scanBtn)
+
+local scanPanel = Instance.new("Frame")
+scanPanel.Size             = UDim2.new(0, 300, 0, 230)
+scanPanel.Position         = UDim2.new(0.5, -150, 0.5, -115)
+scanPanel.BackgroundColor3 = Color3.fromRGB(6, 6, 6)
+scanPanel.BorderSizePixel  = 0
+scanPanel.Visible          = false
+scanPanel.ZIndex           = 30
+scanPanel.Parent           = sg
+Instance.new("UICorner", scanPanel).CornerRadius = UDim.new(0, 10)
+local scanStroke = Instance.new("UIStroke", scanPanel)
+scanStroke.Color = Color3.fromRGB(255, 255, 255)
+scanStroke.Thickness = 1.2
+
+local scanTitle = Instance.new("TextLabel")
+scanTitle.Size = UDim2.new(1, -90, 0, 18)
+scanTitle.Position = UDim2.new(0, 8, 0, 3)
+scanTitle.BackgroundTransparency = 1
+scanTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+scanTitle.Font = Enum.Font.GothamBold
+scanTitle.TextSize = 10
+scanTitle.TextXAlignment = Enum.TextXAlignment.Left
+scanTitle.Text = "ANALYSE DU JEU"
+scanTitle.ZIndex = 31
+scanTitle.Parent = scanPanel
+
+local function panelButton(text, offsetX)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0, 36, 0, 15)
+	b.Position = UDim2.new(1, offsetX, 0, 4)
+	b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	b.BorderSizePixel = 0
+	b.TextColor3 = Color3.fromRGB(255, 255, 255)
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 8
+	b.Text = text
+	b.AutoButtonColor = false
+	b.ZIndex = 31
+	b.Parent = scanPanel
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+	return b
+end
+local scanCopyBtn  = panelButton("COPIER", -78)
+local scanCloseBtn = panelButton("X", -38)
+
+local scanScroll = Instance.new("ScrollingFrame")
+scanScroll.Size = UDim2.new(1, -10, 1, -30)
+scanScroll.Position = UDim2.new(0, 5, 0, 25)
+scanScroll.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+scanScroll.BorderSizePixel = 0
+scanScroll.ScrollBarThickness = 3
+scanScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scanScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scanScroll.ZIndex = 31
+scanScroll.Parent = scanPanel
+Instance.new("UICorner", scanScroll).CornerRadius = UDim.new(0, 6)
+
+local scanText = Instance.new("TextLabel")
+scanText.Size = UDim2.new(1, -8, 0, 0)
+scanText.AutomaticSize = Enum.AutomaticSize.Y
+scanText.Position = UDim2.new(0, 4, 0, 2)
+scanText.BackgroundTransparency = 1
+scanText.TextColor3 = Color3.fromRGB(215, 215, 215)
+scanText.Font = Enum.Font.Code
+scanText.TextSize = 8
+scanText.TextWrapped = true
+scanText.TextXAlignment = Enum.TextXAlignment.Left
+scanText.TextYAlignment = Enum.TextYAlignment.Top
+scanText.Text = ""
+scanText.ZIndex = 32
+scanText.Parent = scanScroll
+
+local lastReport = ""
+local scanning = false
+
+local function runScan(reason)
+	if scanning then return end
+	scanning = true
+	scanPanel.Visible = true
+	scanTitle.Text = "ANALYSE DU JEU" .. (reason and (" (" .. reason .. ")") or "")
+	scanText.Text = "Analyse en cours..."
+	local ok, report = pcall(GameScan.run)
+	if not ok then report = "Erreur d'analyse : " .. tostring(report) end
+	lastReport = report
+	local copied = GameScan.copy(report)
+	-- une Label accepte ~16000 caracteres : le reste est dans le presse-papier
+	local shown = #report > 15000 and (report:sub(1, 15000) .. "\n... (suite dans le presse-papier)") or report
+	scanText.Text = shown
+	scanTitle.Text = "ANALYSE" .. (copied and " - copiee" or " - copie impossible")
+	scanning = false
+end
+
+scanHook = function(reason)
+	pcall(runScan, reason)
+end
+
+scanBtn.MouseButton1Click:Connect(function() task.spawn(runScan) end)
+scanCopyBtn.MouseButton1Click:Connect(function()
+	if lastReport ~= "" then GameScan.copy(lastReport) end
+end)
+scanCloseBtn.MouseButton1Click:Connect(function() scanPanel.Visible = false end)
 
 -- === drag (barre de titre) ===================================================
 
@@ -1553,7 +1952,7 @@ local function doPickup()
 				rebuildEggList(true, true)
 				return
 			end
-			statusLbl.Text = pickedName .. (dropFailed and " (Ranch, drop non detecte - diag copie)" or " recupere (Ranch)")
+			statusLbl.Text = pickedName .. (dropFailed and " (Ranch, drop non detecte - analyse copiee)" or " recupere (Ranch)")
 		else
 			statusLbl.Text = pickedName .. " recupere (Ranch inconnu)"
 		end
