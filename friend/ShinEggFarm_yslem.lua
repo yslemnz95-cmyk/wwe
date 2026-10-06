@@ -793,6 +793,17 @@ local function eggWorldPos(e)
     return nil
 end
 
+-- position of a map egg: its real pivot first (where the prompt is), the
+-- "Position" attribute only as a fallback
+local function eggPivotPos(e)
+    local ok, pv = pcall(function() return e:GetPivot().Position end)
+    if ok and pv and (pv.X ~= 0 or pv.Y ~= 0 or pv.Z ~= 0) then return pv end
+    local pr = getPrompt(e)
+    local pp = pr and getPos(pr.Parent)
+    if pp then return pp end
+    return eggWorldPos(e)
+end
+
 local function newEggsSince(snap)
     local out = {}
     local folder = workspace:FindFirstChild(FOLDER_NAME)
@@ -859,6 +870,8 @@ local function plotBounds(inst)
     if cached and os.clock() - cached.at < 20 then return cached.lo, cached.hi end
     local bestMin, bestMax = instBounds(inst)
     local p = inst.Parent
+    -- never climb into the shared "Plots" folder: it holds the other players' plots too
+    if p and p.Name == "Plots" then p = nil end
     while p and p ~= workspace and (p:IsA("Model") or p:IsA("Folder")) do
         local lo, hi = instBounds(p)
         if not lo then break end
@@ -1174,7 +1187,7 @@ local function runSequenceInner(egg)
         if stopFlag then return end
     end
 
-    local epos = eggWorldPos(egg)
+    local epos = eggPivotPos(egg)
     if not epos then
         setStatus("egg gone")
         return
