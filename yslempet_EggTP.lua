@@ -215,7 +215,8 @@ local function restoreControl()
 end
 
 local function moveTo(pos)
-	cancelMove = false
+	-- le drapeau d'arret n'est PAS remis a zero ici : il l'est seulement au debut
+	-- d'un nouveau trajet (sinon un appui sur STOP etait efface par le deplacement suivant)
 	if tpMethod == "fly" then
 		flyTo(pos)
 	else
@@ -226,6 +227,8 @@ end
 
 local function stopMove()
 	cancelMove = true
+	-- rend tout de suite la main au joueur (noclip / PlatformStand / vitesse)
+	task.defer(restoreControl)
 end
 
 local function tryFire(prompt)
@@ -711,6 +714,7 @@ end
 -- WalkSpeed), au-dessus de la cloture, puis pose au sol dans le ranch.
 local FLY_FRACTION = 7.0 -- 700% de la vitesse de marche
 local FLY_HEIGHT   = 40
+local RANCH_DEEPER = 15 -- studs de plus apres le centre du ranch
 
 -- Vol par vitesse (jamais un tp) : monte au-dessus du ranch, avance a
 -- WalkSpeed x FLY_FRACTION, puis pose le personnage au sol quand il est dans le
@@ -813,7 +817,6 @@ local scanHook = nil
 -- drop de l'oeuf, reprise, puis VOL a 100% jusque dans le ranch. Renvoie
 -- (false) si on n'a pas pu se placer, sinon (true, dropFailed).
 local function goToRanchPos(ppos, pinst)
-	cancelMove = false
 	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
 	if not myHrp then return false end
 
@@ -880,6 +883,20 @@ local function goToRanchPos(ppos, pinst)
 	local function lost()
 		return carriedAtStart and isCarrying() ~= true
 	end
+	-- on s'enfonce un peu plus dans le ranch que son centre (RANCH_DEEPER studs
+	-- dans la direction d'arrivee), sans sortir de la boite du plot
+	local aim = plotCenter or ppos
+	local toward = Vector3.new(aim.X - stage.X, 0, aim.Z - stage.Z)
+	if toward.Magnitude > 1 then
+		aim = aim + toward.Unit * RANCH_DEEPER
+	end
+	if plotLo and plotHi then
+		aim = Vector3.new(
+			math.clamp(aim.X, plotLo.X + 6, math.max(plotLo.X + 6, plotHi.X - 6)),
+			aim.Y,
+			math.clamp(aim.Z, plotLo.Z + 6, math.max(plotLo.Z + 6, plotHi.Z - 6)))
+	end
+
 	local retakeFailed = false
 	for _ = 1, 3 do
 		if cancelMove then break end
@@ -887,7 +904,7 @@ local function goToRanchPos(ppos, pinst)
 			retakeFailed = true
 			break
 		end
-		if flyIntoRanch(plotCenter or ppos, lost) then break end
+		if flyIntoRanch(aim, lost) then break end
 	end
 	return true, dropFailed, retakeFailed
 end
@@ -1662,7 +1679,7 @@ autoBtn.MouseButton1Click:Connect(function()
 	TweenService:Create(autoBtn, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {BackgroundColor3 = targetColor}):Play()
 end)
 
-local function goToRanch()
+local function goToRanchInner()
 	if busy then
 		stopMove()
 		return
@@ -1673,6 +1690,7 @@ local function goToRanch()
 		return
 	end
 
+	cancelMove = false
 	setBusy(true)
 	statusLbl.Text = methodLabel() .. " -> Ranch (drop + reprise)"
 	local reached, dropFailed, retakeFailed = goToRanchPos(ppos, pinst)
@@ -1685,6 +1703,20 @@ local function goToRanch()
 		statusLbl.Text = "Drop non detecte (analyse copiee)"
 	else
 		statusLbl.Text = cancelMove and "Arrete" or "Ranch atteint"
+	end
+end
+
+local function goToRanch()
+	if busy then
+		stopMove()
+		return
+	end
+	local ok, err = pcall(goToRanchInner)
+	if not ok then
+		warn("[EggTP] erreur : " .. tostring(err))
+		statusLbl.Text = "Erreur (voir console)"
+		setBusy(false)
+		restoreControl()
 	end
 end
 
@@ -2047,13 +2079,14 @@ local function grabEgg(e, timeout)
 	return isCarrying() == true
 end
 
-local function doPickup()
+local function doPickupInner()
 	if busy then return end
 	if #eggOrder == 0 then
 		statusLbl.Text = "Aucun oeuf disponible"
 		return
 	end
 
+	cancelMove = false
 	setBusy(true)
 	local sel = eggOrder[currentIndex]
 
@@ -2117,6 +2150,17 @@ local function doPickup()
 	task.wait(0.4)
 	setBusy(false)
 	rebuildEggList(true, true)
+end
+
+local function doPickup()
+	if busy then return end
+	local ok, err = pcall(doPickupInner)
+	if not ok then
+		warn("[EggTP] erreur : " .. tostring(err))
+		statusLbl.Text = "Erreur (voir console)"
+		setBusy(false)
+		restoreControl()
+	end
 end
 
 leftArrow.MouseButton1Click:Connect(function() showIndex(currentIndex - 1, -1) end)
