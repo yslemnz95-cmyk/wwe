@@ -20,7 +20,6 @@ if not guiParent then
 end
 
 local FOLDER_NAME = "RenderedEggs"
-local EGG_OFFSET = Vector3.new(0, 2, 0)
 local EGGS_TO_SHOW = 5
 local REFRESH_TIME = 1.5
 local ROW_HEIGHT = 34
@@ -31,10 +30,9 @@ local LOGO_ID = "rbxassetid://130258290579194"
 local DISCORD_TEXT = "discord.gg/Q7Q6mGbcg8"
 local WAYPOINT_WAIT = 0.18
 
--- vol final vers le plot : 700% de la vitesse de marche, a 40 studs au-dessus du plot
+-- final flight into the plot: 700% of the walk speed, 40 studs above the plot
 local FLY_FRACTION = 7
 local FLY_HEIGHT = 40
-local DROP_SIDE_MARGIN = 25
 
 local VOLCANO_PATH = {
     Vector3.new(-4920.68, 41284.93, -3701.18),
@@ -66,21 +64,20 @@ pcall(function()
     end
 end)
 if type(EGGS_DATA) ~= "table" then EGGS_DATA = {} end
-
 -- =====================================================================
--- etat (le drapeau d'arret n'est remis a zero qu'au debut d'un trajet)
+-- state (the stop flag is only reset when a new job starts)
 -- =====================================================================
 local running = false
 local stopFlag = false
 local autoDip = false
-local statusSetter = function(_) end -- remplace plus bas par le vrai label
+local statusSetter = function(_) end -- replaced further down by the real label
 
 local function setStatus(text)
     pcall(statusSetter, text)
 end
 
 -- =====================================================================
--- deplacement
+-- movement helpers
 -- =====================================================================
 local function getRoot()
     local c = LocalPlayer.Character
@@ -96,11 +93,38 @@ end
 
 local function zeroVelocity(hrp)
     pcall(function()
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end)
 end
 
+local function getPos(inst)
+    if not inst then return nil end
+    if inst:IsA("BasePart") then return inst.Position end
+    if inst:IsA("Model") then
+        if inst.PrimaryPart then return inst.PrimaryPart.Position end
+        for _, d in ipairs(inst:GetDescendants()) do
+            if d:IsA("BasePart") then return d.Position end
+        end
+    end
+    if inst:IsA("Folder") then
+        for _, d in ipairs(inst:GetDescendants()) do
+            if d:IsA("BasePart") then return d.Position end
+        end
+    end
+    return nil
+end
+
+-- Puts the character at a position (velocities cancelled): used to stand on an
+-- egg to pick it up / retake it.
+local function place(position)
+    local h = getRoot()
+    if not h or not position then return end
+    h.CFrame = CFrame.new(position)
+    zeroVelocity(h)
+end
+
+-- plain teleport (used for the volcano waypoints)
 local function tpToPos(pos)
     local hrp = getRoot()
     if not hrp then return false end
@@ -109,25 +133,45 @@ local function tpToPos(pos)
     return true
 end
 
-local function tpToObj(obj, offset)
+-- Desync teleport: the CFrame write happens outside the main tick (avoids the
+-- server movement validation running on the synchronized thread). Velocity is
+-- cancelled to avoid any bounce, then the teleport is re-confirmed over a few
+-- frames if a server correction sends us back.
+local function tpTo(pos)
     local hrp = getRoot()
-    if not hrp then return false end
-    if not obj or not obj.Parent then return false end
-    local cf
-    if obj:IsA("BasePart") then
-        cf = obj.CFrame
-    elseif obj:IsA("Model") then
-        local ok, c = pcall(function() return obj:GetPivot() end)
-        if ok then cf = c end
+    if not hrp or not pos then return end
+    local target = CFrame.new(pos + Vector3.new(0, 5, 0))
+
+    local function apply()
+        hrp.CFrame = target
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end
-    if not cf then return false end
-    if offset then hrp.CFrame = cf + offset else hrp.CFrame = cf end
-    zeroVelocity(hrp)
-    return true
+
+    local ok = pcall(function()
+        task.desynchronize()
+        apply()
+        task.synchronize()
+    end)
+    if not ok then apply() end
+
+    for _ = 1, 3 do
+        task.wait()
+        if stopFlag then break end
+        if not (hrp and hrp.Parent) then break end
+        if (hrp.Position - target.Position).Magnitude > 6 then
+            local ok2 = pcall(function()
+                task.desynchronize()
+                apply()
+                task.synchronize()
+            end)
+            if not ok2 then apply() end
+        end
+    end
 end
 
--- Les valeurs CanCollide d'origine sont memorisees et restaurees EXACTEMENT
--- (tout remettre a true bloquait les membres dans le sol apres un vol).
+-- The original CanCollide values are remembered and restored EXACTLY (setting
+-- everything back to true left limbs stuck in the ground after a trip).
 local savedCollide = {}
 
 local function setNoclip(state)
@@ -148,8 +192,9 @@ local function setNoclip(state)
     end
 end
 
--- Rend la main au joueur : plus de noclip, plus de PlatformStand, vitesse nulle,
--- etat de marche retabli.
+-- Gives control back to the player: no noclip, no PlatformStand, zero velocity,
+-- walking state restored (a teleport can leave the humanoid in a
+-- Physics/Ragdoll/FallingDown state with no control).
 local function restoreControl()
     setNoclip(false)
     local hum = getHum()
@@ -166,8 +211,13 @@ local function restoreControl()
     if hrp then zeroVelocity(hrp) end
 end
 
--- =====================================================================
--- oeufs : luck, image, prompt
+local function moveTo(pos)
+    -- the stop flag is NOT reset here: only at the start of a new job
+    tpTo(pos)
+    restoreControl()
+end
+
+-- eggs: luck, image, prompt
 -- =====================================================================
 local function parseLuck(txt)
     if not txt then return 0 end
@@ -340,24 +390,6 @@ local function getPlotTop()
     if not bp then return nil end
     return bp.Position + Vector3.new(0, bp.Size.Y / 2, 0)
 end
-
--- Point juste a l'EXTERIEUR du plot (du cote ou on se trouve) pour lacher puis reprendre l'oeuf.
-local function outsideDropPoint()
-    local bp = getPlotBase()
-    if not bp then return nil end
-    local hrp = getRoot()
-    if not hrp then return nil end
-    local ok, localPos = pcall(function() return bp.CFrame:PointToObjectSpace(hrp.Position) end)
-    if not ok or not localPos then return nil end
-    local side = 1
-    if localPos.X < 0 then side = -1 end
-    local halfX = bp.Size.X / 2
-    local targetLocal = Vector3.new(side * (halfX + DROP_SIDE_MARGIN), 0, 0)
-    local ok2, world = pcall(function() return bp.CFrame:PointToWorldSpace(targetLocal) end)
-    if not ok2 or not world then return nil end
-    return world
-end
-
 local function getBasket()
     return LocalPlayer:FindFirstChild("Basket")
 end
@@ -483,51 +515,422 @@ local function exitVolcanoPath()
 end
 
 -- =====================================================================
--- prise de l'oeuf CONFIRMEE (le panier se remplit) ; sans panier on se fie a la disparition
+-- carrying detection: the game's "Egg Will Break" bar and/or the basket
 -- =====================================================================
-local function grabEgg(egg)
-    if not egg or not egg.Parent then return false end
-    local before = basketCount()
-    local deadline = os.clock() + 5
-    local gone = false
+local breakLabel = nil
 
-    while os.clock() < deadline do
-        if stopFlag then return false end
-        local now = basketCount()
-        if before ~= nil and now ~= nil and now > before then return true end
-
-        if not egg.Parent then
-            -- l'oeuf a disparu du monde : pris par nous (le panier le confirme) ou par un autre
-            if before == nil then return true end
-            if not gone then
-                gone = true
-                deadline = math.min(deadline, os.clock() + 0.6)
-            end
-        else
-            local hrp = getRoot()
-            local ok, pivot = pcall(function() return egg:GetPivot().Position end)
-            if hrp and ok and (hrp.Position - pivot).Magnitude > 12 then
-                tpToObj(egg, EGG_OFFSET)
-            end
-            firePrompt(getPrompt(egg))
-        end
-        task.wait(0.08)
+local function guiShown(obj)
+    local p = obj
+    while p and p:IsA("GuiObject") do
+        if not p.Visible then return false end
+        p = p.Parent
     end
+    local sg = obj:FindFirstAncestorOfClass("ScreenGui")
+    return sg == nil or sg.Enabled
+end
 
-    local now = basketCount()
-    return before ~= nil and now ~= nil and now > before
+-- true / false, or nil if the bar does not exist yet
+local function isCarrying()
+    if not (breakLabel and breakLabel.Parent) then
+        breakLabel = nil
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, d in ipairs(pg:GetDescendants()) do
+                if d:IsA("TextLabel") and d.Text and d.Text:lower():find("egg will break", 1, true) then
+                    breakLabel = d
+                    break
+                end
+            end
+        end
+    end
+    if not breakLabel then return nil end
+    return guiShown(breakLabel)
+end
+
+-- are we holding anything? bar OR basket content; nil when neither can tell
+local function holdingAny()
+    local c = isCarrying()
+    local bc = basketCount()
+    if c == true or (bc ~= nil and bc > 0) then return true end
+    if c == nil and bc == nil then return nil end
+    return false
+end
+
+-- everything we had is back in our hands
+local function holdingAll(expected)
+    local bc = basketCount()
+    if expected and expected > 0 and bc ~= nil then
+        return bc >= expected
+    end
+    return isCarrying() == true
 end
 
 -- =====================================================================
--- vol final : 700% de la vitesse de marche jusqu'au centre du plot, puis pose au sol
+-- drop: the game's DROP button, then remotes / prompts / key, then (last
+-- resort) a simulated mouse click
 -- =====================================================================
-local function flyIntoPlot()
+local DROP_WORDS = {"drop", "release", "put down", "place"}
+local CLICK_FALLBACK = true
+
+local function trimLower(t)
+    t = (t or ""):lower()
+    t = t:gsub("^%s+", "")
+    t = t:gsub("%s+$", "")
+    return t
+end
+
+local function dropGuiCandidates()
+    local list = {}
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return list end
+
+    -- exact path found by the analysis: Main.BasketTracker.Handler.EggFrame.Drop
+    local node = pg
+    for _, name in ipairs({"Main", "BasketTracker", "Handler", "EggFrame", "Drop"}) do
+        node = node and node:FindFirstChild(name)
+    end
+    if node and node:IsA("GuiObject") then
+        table.insert(list, node)
+    end
+    for _, d in ipairs(pg:GetDescendants()) do
+        if d:IsA("GuiObject") and d ~= node and not d:FindFirstAncestor("ShinEggFarm") then
+            local hit = false
+            if d:IsA("TextLabel") or d:IsA("TextButton") then
+                hit = trimLower(d.Text) == "drop"
+            end
+            if not hit then
+                local n = d.Name:lower()
+                hit = (n == "drop" or n == "dropbutton" or n == "dropbtn" or n == "drop_button" or n == "dropegg")
+            end
+            if hit and d.AbsoluteSize.X > 0 and d.AbsoluteSize.Y > 0 then
+                table.insert(list, d)
+            end
+        end
+    end
+    return list
+end
+
+-- "silent" press: only the button's signals, NO simulated mouse or touch
+local function pressGuiSilent(obj)
+    local btn = obj
+    while btn and not btn:IsA("GuiButton") do
+        btn = btn.Parent
+        if btn and not btn:IsA("GuiObject") then btn = nil end
+    end
+    if not btn or typeof(firesignal) ~= "function" then return false end
+    for _, sig in ipairs({"MouseButton1Down", "MouseButton1Click", "Activated", "MouseButton1Up"}) do
+        pcall(function() firesignal(btn[sig]) end)
+    end
+    return true
+end
+
+local function pressGuiClick(obj)
+    pcall(function()
+        local vim    = game:GetService("VirtualInputManager")
+        local inset  = game:GetService("GuiService"):GetGuiInset()
+        local screen = obj:FindFirstAncestorOfClass("ScreenGui")
+        local dy = (screen and screen.IgnoreGuiInset) and 0 or inset.Y
+        local c = obj.AbsolutePosition + obj.AbsoluteSize / 2
+        vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, true, game, 0)
+        task.wait(0.05)
+        vim:SendMouseButtonEvent(c.X, c.Y + dy, 0, false, game, 0)
+    end)
+end
+
+local function dropRemotes()
+    local list = {}
+    local seen = {}
+    local exact = findRemote("BasketDrop")
+    if exact then table.insert(list, exact); seen[exact] = true end
+    for _, d in ipairs(ReplicatedStorage:GetDescendants()) do
+        if d:IsA("RemoteEvent") and not seen[d] and d.Name:lower():find("drop", 1, true) then
+            table.insert(list, d)
+            seen[d] = true
+        end
+    end
+    return list
+end
+
+local function basketEggNames()
+    local names = {}
+    local b = getBasket()
+    if b then
+        for _, item in ipairs(b:GetChildren()) do
+            local nm = item:GetAttribute("Egg")
+            if type(nm) == "string" and nm ~= "" then names[#names + 1] = nm end
+        end
+    end
+    return names
+end
+
+-- level 1: the DROP button's signals (silent); level 2: drop remotes, nearby
+-- drop prompts and the default Roblox drop key (Backspace); level 3: simulated
+-- mouse click (only if CLICK_FALLBACK).
+local function dropEgg(level)
+    local hrp = getRoot()
+    if not hrp then return end
+
+    if level == 1 then
+        local n = 0
+        for _, obj in ipairs(dropGuiCandidates()) do
+            if guiShown(obj) then
+                pressGuiSilent(obj)
+                n = n + 1
+                if n >= 3 then break end
+            end
+        end
+        return
+    end
+
+    if level == 3 then
+        if not CLICK_FALLBACK then return end
+        for _, obj in ipairs(dropGuiCandidates()) do
+            if guiShown(obj) then
+                pressGuiClick(obj)
+                return
+            end
+        end
+        return
+    end
+
+    local names = basketEggNames()
+    for _, r in ipairs(dropRemotes()) do
+        pcall(function() r:FireServer() end)
+        for _, nm in ipairs(names) do
+            pcall(function() r:FireServer(nm) end)
+        end
+    end
+
+    pcall(function()
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("ProximityPrompt") and d.Parent and not d:IsDescendantOf(LocalPlayer.Character) then
+                local at = (d.ActionText or ""):lower()
+                for _, w in ipairs(DROP_WORDS) do
+                    if at:find(w, 1, true) then
+                        local pos = getPos(d.Parent)
+                        if pos and (pos - hrp.Position).Magnitude <= 40 then
+                            firePrompt(d)
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end)
+
+    pcall(function()
+        local vim = game:GetService("VirtualInputManager")
+        vim:SendKeyEvent(true, Enum.KeyCode.Backspace, false, game)
+        task.wait(0.05)
+        vim:SendKeyEvent(false, Enum.KeyCode.Backspace, false, game)
+    end)
+end
+
+-- =====================================================================
+-- pick-up prompts / dropped eggs near us
+-- =====================================================================
+local lastHeavyScan = 0
+
+local function isPickupPrompt(d)
+    local at = (d.ActionText or ""):lower()
+    return at:find("pick", 1, true) or at:find("grab", 1, true) or at:find("take", 1, true)
+end
+
+local function nearbyPickups(radius)
+    local list = {}
+    local hrp = getRoot()
+    if not hrp then return list end
+    local center = hrp.Position
+
+    -- 1) spatial query: only the parts around us (fast)
+    pcall(function()
+        local params = OverlapParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances = {LocalPlayer.Character}
+        for _, part in ipairs(workspace:GetPartBoundsInRadius(center, radius, params)) do
+            for _, c in ipairs(part:GetChildren()) do
+                if c:IsA("ProximityPrompt") then
+                    if isPickupPrompt(c) then list[c] = true end
+                elseif c:IsA("Attachment") then
+                    for _, cc in ipairs(c:GetChildren()) do
+                        if cc:IsA("ProximityPrompt") and isPickupPrompt(cc) then list[cc] = true end
+                    end
+                end
+            end
+        end
+    end)
+
+    -- 2) safety net: full scan, at most every 0.6 s, only if the query found nothing
+    if next(list) == nil and os.clock() - lastHeavyScan > 0.6 then
+        lastHeavyScan = os.clock()
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("ProximityPrompt") and d.Parent and isPickupPrompt(d) then
+                local pos = getPos(d.Parent)
+                if pos and (pos - center).Magnitude <= radius then
+                    list[d] = true
+                end
+            end
+        end
+    end
+    return list
+end
+
+-- eggs of the map folder (dropped eggs show up here as new children)
+local function snapshotEggs()
+    local set = {}
+    local folder = workspace:FindFirstChild(FOLDER_NAME)
+    if folder then
+        for _, e in ipairs(folder:GetChildren()) do set[e] = true end
+    end
+    return set
+end
+
+local function eggWorldPos(e)
+    local p = e:GetAttribute("Position")
+    if typeof(p) == "Vector3" then return p end
+    local ok, pv = pcall(function() return e:GetPivot().Position end)
+    if ok then return pv end
+    return nil
+end
+
+local function newEggsSince(snap)
+    local out = {}
+    local folder = workspace:FindFirstChild(FOLDER_NAME)
+    if folder then
+        for _, e in ipairs(folder:GetChildren()) do
+            if not snap[e] then out[#out + 1] = e end
+        end
+    end
+    return out
+end
+
+-- =====================================================================
+-- plot geometry: the player's plot is found by owner, never "the closest"
+-- =====================================================================
+local STAGE_BACK  = 20
+local STAGE_TRIES = 5
+local MAX_PLOT    = 300 -- a bigger container is not the plot
+
+local function instBounds(inst)
+    local minV, maxV = nil, nil
+    local count = 0
+    local function addPart(part)
+        local cf, size = part.CFrame, part.Size
+        local r = cf - cf.Position
+        local ex = r:VectorToWorldSpace(Vector3.new(size.X / 2, 0, 0))
+        local ey = r:VectorToWorldSpace(Vector3.new(0, size.Y / 2, 0))
+        local ez = r:VectorToWorldSpace(Vector3.new(0, 0, size.Z / 2))
+        local half = Vector3.new(
+            math.abs(ex.X) + math.abs(ey.X) + math.abs(ez.X),
+            math.abs(ex.Y) + math.abs(ey.Y) + math.abs(ez.Y),
+            math.abs(ex.Z) + math.abs(ey.Z) + math.abs(ez.Z))
+        local lo, hi = cf.Position - half, cf.Position + half
+        if not minV then
+            minV, maxV = lo, hi
+        else
+            minV = Vector3.new(math.min(minV.X, lo.X), math.min(minV.Y, lo.Y), math.min(minV.Z, lo.Z))
+            maxV = Vector3.new(math.max(maxV.X, hi.X), math.max(maxV.Y, hi.Y), math.max(maxV.Z, hi.Z))
+        end
+    end
+    local function isPlayerPart(part)
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr.Character and part:IsDescendantOf(plr.Character) then return true end
+        end
+        return false
+    end
+    if inst:IsA("BasePart") then
+        addPart(inst)
+    end
+    for _, d in ipairs(inst:GetDescendants()) do
+        if d:IsA("BasePart") and not isPlayerPart(d) then
+            addPart(d)
+            count = count + 1
+            if count > 4000 then break end
+        end
+    end
+    return minV, maxV
+end
+
+local boundsCache = {}
+
+local function plotBounds(inst)
+    if not inst then return nil end
+    local cached = boundsCache[inst]
+    if cached and os.clock() - cached.at < 20 then return cached.lo, cached.hi end
+    local bestMin, bestMax = instBounds(inst)
+    local p = inst.Parent
+    while p and p ~= workspace and (p:IsA("Model") or p:IsA("Folder")) do
+        local lo, hi = instBounds(p)
+        if not lo then break end
+        if (hi.X - lo.X) > MAX_PLOT or (hi.Z - lo.Z) > MAX_PLOT then break end
+        bestMin, bestMax = lo, hi
+        p = p.Parent
+    end
+    boundsCache[inst] = {lo = bestMin, hi = bestMax, at = os.clock()}
+    return bestMin, bestMax
+end
+
+-- waiting point: the plot's edge point closest to us, pushed STAGE_BACK studs
+-- outward (so in front of the plot, never inside it)
+local plotLo, plotHi, plotCenter = nil, nil, nil
+
+local function stagePoint(ppos, inst)
+    local hrp = getRoot()
+    if not hrp then return nil end
+    local me = hrp.Position
+
+    local lo, hi = plotBounds(inst)
+    plotLo, plotHi = lo, hi
+    plotCenter = lo and Vector3.new((lo.X + hi.X) / 2, ppos.Y, (lo.Z + hi.Z) / 2) or ppos
+    if not lo then
+        local flat = Vector3.new(me.X - ppos.X, 0, me.Z - ppos.Z)
+        local dir  = flat.Magnitude > 1 and flat.Unit or Vector3.new(0, 0, 1)
+        return ppos + dir * (STAGE_BACK + 25)
+    end
+
+    local cx = math.clamp(me.X, lo.X, hi.X)
+    local cz = math.clamp(me.Z, lo.Z, hi.Z)
+    local away = Vector3.new(me.X - cx, 0, me.Z - cz)
+    if away.Magnitude < 1 then
+        -- already inside the box: leave through the nearest edge
+        local dists = {
+            {me.X - lo.X, Vector3.new(-1, 0, 0)},
+            {hi.X - me.X, Vector3.new(1, 0, 0)},
+            {me.Z - lo.Z, Vector3.new(0, 0, -1)},
+            {hi.Z - me.Z, Vector3.new(0, 0, 1)},
+        }
+        table.sort(dists, function(a, b) return a[1] < b[1] end)
+        away = dists[1][2]
+        cx = math.clamp(me.X + away.X * dists[1][1], lo.X, hi.X)
+        cz = math.clamp(me.Z + away.Z * dists[1][1], lo.Z, hi.Z)
+    end
+    return Vector3.new(cx, ppos.Y, cz) + away.Unit * STAGE_BACK
+end
+
+-- the player's plot: by owner (Plots.<n>.Data.Owner), position = top of its baseplate
+local function findRanchPos()
+    local p = findPlot()
+    if not p then return nil end
+    local top = getPlotTop()
+    if not top then
+        local pos = getPos(p)
+        if not pos then return nil end
+        top = pos
+    end
+    return top, p
+end
+
+-- =====================================================================
+-- last step: FLY at 700% of walk speed above the fence, then land inside
+-- =====================================================================
+local RANCH_DEEPER = 15 -- extra studs past the plot centre
+
+local function flyIntoRanch(pos, abortFn)
     local hrp = getRoot()
     local hum = getHum()
-    local top = getPlotTop()
-    if not hrp or not hum or not top then return false end
+    if not hrp or not hum or not pos then return end
 
-    local cruiseY = top.Y + FLY_HEIGHT
+    local cruiseY = pos.Y + FLY_HEIGHT
     local aborted = false
     hum.PlatformStand = true
 
@@ -536,7 +939,9 @@ local function flyIntoPlot()
         local dt = 1 / 60
         while not stopFlag and hrp.Parent and os.clock() - started < 40 do
             setNoclip(true)
-            local flat = Vector3.new(top.X - hrp.Position.X, 0, top.Z - hrp.Position.Z)
+            if abortFn and abortFn() then aborted = true break end
+            -- go all the way to the CENTRE of the plot (not only its edge)
+            local flat = Vector3.new(pos.X - hrp.Position.X, 0, pos.Z - hrp.Position.Z)
             if flat.Magnitude < 6 then break end
 
             local speed = math.max(hum.WalkSpeed * FLY_FRACTION, 8)
@@ -546,17 +951,18 @@ local function flyIntoPlot()
             hrp.AssemblyLinearVelocity = Vector3.new(v.X, vy, v.Z)
             dt = RunService.Heartbeat:Wait()
         end
-        aborted = stopFlag
 
-        if not aborted and hrp.Parent then
+        -- land on the ground inside the plot (not if interrupted: egg lost)
+        if not stopFlag and not aborted and hrp.Parent then
             local params = RaycastParams.new()
             params.FilterType = Enum.RaycastFilterType.Exclude
             params.FilterDescendantsInstances = {LocalPlayer.Character}
             params.IgnoreWater = true
             local origin = Vector3.new(hrp.Position.X, hrp.Position.Y + 5, hrp.Position.Z)
-            local hit = workspace:Raycast(origin, Vector3.new(0, -600, 0), params)
-            local ground = hit and hit.Position or top
-            hrp.CFrame = CFrame.new(ground + Vector3.new(0, 4, 0))
+            local hit = workspace:Raycast(origin, Vector3.new(0, -400, 0), params)
+            if hit then
+                hrp.CFrame = CFrame.new(hit.Position + Vector3.new(0, 4, 0)) * hrp.CFrame.Rotation
+            end
         end
     end)
 
@@ -567,164 +973,220 @@ local function flyIntoPlot()
 end
 
 -- =====================================================================
--- tp dehors du plot -> drop -> reprise confirmee -> vol dans le plot
+-- confirmed pick-up of a map egg: fire the prompt until the bar / basket
+-- confirms we carry it, standing on the egg if we are far from it
 -- =====================================================================
-local function eggsNear(folder, point, radius, known)
-    local out = {}
-    if not folder or not folder.Parent then return out end
-    for _, e in ipairs(folder:GetChildren()) do
-        local pos = e:GetAttribute("Position")
-        if typeof(pos) == "Vector3" and not (known and known[e]) then
-            local dx = pos.X - point.X
-            local dz = pos.Z - point.Z
-            if math.sqrt(dx * dx + dz * dz) < radius then
-                out[#out + 1] = e
-            end
-        end
+local function grabEgg(egg, timeout)
+    local before = basketCount()
+    local wasCarrying = isCarrying() == true
+    local t0 = os.clock()
+
+    local function confirmed()
+        local now = basketCount()
+        if before ~= nil and now ~= nil and now > before then return true end
+        if not wasCarrying and isCarrying() == true then return true end
+        return false
     end
-    return out
+
+    while os.clock() - t0 < timeout and not stopFlag do
+        if confirmed() then return true end
+
+        local prompt = (egg and egg.Parent) and getPrompt(egg) or nil
+        if not (prompt and prompt.Parent) then
+            -- the egg / prompt is gone: taken (by us or someone else); the bar decides
+            task.wait(0.2)
+            if confirmed() then return true end
+            return isCarrying() == nil and before == nil
+        end
+
+        local hrp = getRoot()
+        local pos = getPos(prompt.Parent) or eggWorldPos(egg)
+        if hrp and pos and (pos - hrp.Position).Magnitude > 10 then
+            place(pos + Vector3.new(0, 3, 0))
+        end
+        firePrompt(prompt)
+        task.wait(0.08)
+    end
+    return confirmed()
 end
 
-local function pickUpDropped(eggList, dropPoint, pickRem)
-    local hrp
-    for _, egg in ipairs(eggList) do
-        if stopFlag then return end
-        local lastPos = egg:GetAttribute("Position") or dropPoint
-        local deadline = os.clock() + 3
-        local nextFire = 0
-        local before = basketCount()
-
-        while egg.Parent ~= nil and os.clock() < deadline do
-            if stopFlag then return end
-            local now = basketCount()
-            if before ~= nil and now ~= nil and now > before then break end
-
-            hrp = getRoot()
-            if hrp then
-                local eggPos = egg:GetAttribute("Position") or lastPos
-                lastPos = eggPos
-                local dx = hrp.Position.X - eggPos.X
-                local dz = hrp.Position.Z - eggPos.Z
-                if math.sqrt(dx * dx + dz * dz) > 12 then
-                    hrp.CFrame = CFrame.new(eggPos + Vector3.new(0, 3, 0))
-                    zeroVelocity(hrp)
-                end
-            end
-            if os.clock() >= nextFire then
-                nextFire = os.clock() + 0.1
-                firePrompt(getPrompt(egg))
-                pcall(function() pickRem:FireServer(egg.Name) end)
-            end
-            RunService.Heartbeat:Wait()
-        end
-    end
-end
-
--- renvoie true si tout le panier est repris (ou si le panier n'est pas lisible)
-local function outsideDropAndSteal()
-    local basket = getBasket()
-    if not basket then return true end
-
-    local basketEggNames = {}
-    for _, item in ipairs(basket:GetChildren()) do
-        local nm = item:GetAttribute("Egg")
-        if type(nm) == "string" and nm ~= "" then
-            basketEggNames[#basketEggNames + 1] = nm
-        end
-    end
-    local expected = #basket:GetChildren()
-    if #basketEggNames == 0 then return expected > 0 end
-
-    local dropPoint = outsideDropPoint()
-    if not dropPoint then return true end
-
-    -- tp instantane juste dehors du plot
-    local hrp = getRoot()
-    if not hrp then return false end
-    hrp.CFrame = CFrame.new(dropPoint + Vector3.new(0, 3, 0))
-    zeroVelocity(hrp)
-    RunService.Heartbeat:Wait()
-    RunService.Heartbeat:Wait()
-    if stopFlag then return false end
-
-    -- oeufs deja presents avant le drop
-    local folder = workspace:FindFirstChild(FOLDER_NAME)
-    local existing = {}
-    if folder then
-        for _, e in ipairs(folder:GetChildren()) do existing[e] = true end
-    end
-
-    local dropRem = findRemote("BasketDrop")
+-- =====================================================================
+-- retake of the dropped egg(s): fire the pick-up until we CONFIRM we carry
+-- everything again. "The prompt disappeared" is never enough when the bar
+-- exists (that was the cause of flying to the plot without the egg).
+-- =====================================================================
+local function retakeEgg(before, hint, timeout, needCarry, expected, snap)
+    local t0 = os.clock()
     local pickRem = findRemote("EggPickup")
-    if not dropRem or not pickRem then return true end
+    while os.clock() - t0 < timeout and not stopFlag do
+        if needCarry and holdingAll(expected) then return true end
 
-    setStatus("drop")
-    for _, nm in ipairs(basketEggNames) do
-        pcall(function() dropRem:FireServer(nm) end)
-    end
+        local hrp = getRoot()
+        if not hrp then return false end
 
-    -- les oeufs lâches : nouveaux objets avec OriginPosition + Position
-    local dropped = {}
-    local spawnDeadline = os.clock() + 3
-    while os.clock() < spawnDeadline do
-        if stopFlag then return false end
-        if folder and folder.Parent then
-            for _, e in ipairs(folder:GetChildren()) do
-                if not existing[e] and e:GetAttribute("OriginPosition") ~= nil
-                    and typeof(e:GetAttribute("Position")) == "Vector3" then
-                    existing[e] = true
-                    dropped[#dropped + 1] = e
+        -- (a) eggs that just appeared in the map folder
+        local target, targetPos, bestD = nil, nil, math.huge
+        if snap then
+            for _, e in ipairs(newEggsSince(snap)) do
+                local p = eggWorldPos(e)
+                if p then
+                    local d = (p - hrp.Position).Magnitude
+                    if d < bestD then target, targetPos, bestD = e, p, d end
                 end
             end
         end
-        if #dropped >= #basketEggNames then break end
-        RunService.Heartbeat:Wait()
+        if target then
+            if bestD > 8 then place(targetPos + Vector3.new(0, 3, 0)) end
+            firePrompt(getPrompt(target))
+            if pickRem then pcall(function() pickRem:FireServer(target.Name) end) end
+        else
+            -- (b) pick-up prompts near us
+            local pr = (hint and hint.Parent and hint:IsDescendantOf(workspace)) and hint or nil
+            if not pr then
+                local best, bestScore = nil, math.huge
+                for prompt in pairs(nearbyPickups(60)) do
+                    local pos = getPos(prompt.Parent)
+                    if pos then
+                        local score = (pos - hrp.Position).Magnitude - (before[prompt] and 0 or 1000)
+                        if score < bestScore then best, bestScore = prompt, score end
+                    end
+                end
+                pr = best
+            end
+            if pr then
+                local pos = getPos(pr.Parent)
+                if pos and (pos - hrp.Position).Magnitude > 8 then
+                    place(pos + Vector3.new(0, 3, 0))
+                end
+                firePrompt(pr)
+            elseif not needCarry then
+                return true -- nothing left to pick up and no bar to confirm
+            end
+        end
+        task.wait(0.06)
     end
-    if stopFlag then return false end
-
-    -- repli : oeufs proches du point de drop
-    if #dropped == 0 then
-        dropped = eggsNear(folder, dropPoint, 90, nil)
-    end
-
-    setStatus("reprise")
-    pickUpDropped(dropped, dropPoint, pickRem)
-
-    -- reprise CONFIRMEE : deux tours de rattrapage si le panier n'est pas plein
-    for _ = 1, 2 do
-        if stopFlag then return false end
-        local count = basketCount()
-        if count == nil or count >= expected then break end
-        local rest = eggsNear(folder, dropPoint, 120, nil)
-        if #rest == 0 then break end
-        pickUpDropped(rest, dropPoint, pickRem)
-    end
-
-    local count = basketCount()
-    return count == nil or count >= expected
+    return needCarry and holdingAll(expected) or false
 end
 
+-- =====================================================================
+-- plot return: tp in front of the plot (outside), drop the egg, retake it
+-- (CONFIRMED), then fly into the plot. Returns false if we could not get in
+-- position, otherwise (true, dropFailed, retakeFailed).
+-- =====================================================================
+local function goToRanchPos(ppos, pinst)
+    local hrp0 = getRoot()
+    if not hrp0 then return false end
+
+    local stage = stagePoint(ppos, pinst)
+    if not stage then return false end
+
+    -- make sure we really arrived (the server may send us back)
+    local arrived = false
+    for _ = 1, STAGE_TRIES do
+        moveTo(stage)
+        if stopFlag then return true, false, false end
+        task.wait(0.15)
+        local h = getRoot()
+        if h and (Vector3.new(h.Position.X - stage.X, 0, h.Position.Z - stage.Z)).Magnitude <= 12 then
+            arrived = true
+            break
+        end
+    end
+    if not arrived then return false end
+
+    -- drop: success if a new pick-up object / egg appears OR the carry state ends
+    local carriedAtStart = holdingAny() == true
+    local expected = basketCount()
+    if expected ~= nil and expected < 1 then expected = nil end
+    local before = nearbyPickups(30)
+    local snap = snapshotEggs()
+    local dropped, droppedPrompt = false, nil
+    for level = 1, 3 do
+        dropEgg(level)
+        local waited = 0
+        while waited < (level == 1 and 0.7 or 1.1) and not stopFlag do
+            for prompt in pairs(nearbyPickups(30)) do
+                if not before[prompt] then droppedPrompt = prompt; break end
+            end
+            if droppedPrompt or #newEggsSince(snap) > 0 or (carriedAtStart and holdingAny() == false) then
+                dropped = true
+                break
+            end
+            task.wait(0.05)
+            waited = waited + 0.05
+        end
+        if dropped or stopFlag then break end
+    end
+    if stopFlag then return true, false, false end
+
+    local dropFailed = not dropped
+    if dropFailed then
+        warn("[ShinEggFarm] Drop not detected: the egg stays in the hands, continuing to the plot.")
+    else
+        -- CONFIRMED retake: we do not leave until the egg is back
+        if not retakeEgg(before, droppedPrompt, 6, carriedAtStart, expected, snap) then
+            if stopFlag then return true, false, false end
+            warn("[ShinEggFarm] Retake not confirmed: not leaving without the egg.")
+            return true, false, true
+        end
+    end
+    if stopFlag then return true, dropFailed, false end
+
+    -- fly into the plot; if the egg is lost on the way we stop, retake it, then go again (3 tries)
+    local function lost()
+        return carriedAtStart and holdingAny() == false
+    end
+    -- aim a bit deeper than the plot centre, without leaving the plot's box
+    local aim = plotCenter or ppos
+    local toward = Vector3.new(aim.X - stage.X, 0, aim.Z - stage.Z)
+    if toward.Magnitude > 1 then
+        aim = aim + toward.Unit * RANCH_DEEPER
+    end
+    if plotLo and plotHi then
+        aim = Vector3.new(
+            math.clamp(aim.X, plotLo.X + 6, math.max(plotLo.X + 6, plotHi.X - 6)),
+            aim.Y,
+            math.clamp(aim.Z, plotLo.Z + 6, math.max(plotLo.Z + 6, plotHi.Z - 6)))
+    end
+
+    local retakeFailed = false
+    for _ = 1, 3 do
+        if stopFlag then break end
+        if lost() and not retakeEgg(before, nil, 5, true, expected, snap) then
+            retakeFailed = true
+            break
+        end
+        if flyIntoRanch(aim, lost) then break end
+    end
+    return true, dropFailed, retakeFailed
+end
+
+-- =====================================================================
+-- full sequence: [volcano] -> tp egg -> confirmed grab -> [dip] -> tp outside
+-- the plot -> drop -> confirmed retake -> fly into the plot
+-- =====================================================================
 local function runSequenceInner(egg)
     local isVolcano = isVolcanoEgg(egg)
 
     if isVolcano then
-        setStatus("volcan")
+        setStatus("volcano path")
         walkVolcanoPath()
         if stopFlag then return end
     end
 
-    -- tp sur l'oeuf + prise confirmee
-    setStatus("tp oeuf")
-    if not tpToObj(egg, EGG_OFFSET) then
-        setStatus("oeuf disparu")
+    local epos = eggWorldPos(egg)
+    if not epos then
+        setStatus("egg gone")
         return
     end
-    task.wait(0.12)
+    setStatus("tp to egg")
+    moveTo(epos)
     if stopFlag then return end
+    task.wait(0.15)
 
-    setStatus("prise")
-    if not grabEgg(egg) then
-        if not stopFlag then setStatus("oeuf non pris") end
+    setStatus("grabbing")
+    if not grabEgg(egg, 6) then
+        if not stopFlag then setStatus("egg not picked") end
         if isVolcano then exitVolcanoPath() end
         return
     end
@@ -732,29 +1194,36 @@ local function runSequenceInner(egg)
     if stopFlag then return end
 
     if isVolcano then
-        setStatus("sortie volcan")
+        setStatus("leaving volcano")
         exitVolcanoPath()
         if stopFlag then return end
     end
 
     if autoDip then
-        setStatus("dip volcan")
+        setStatus("volcano dip")
         doVolcanoDip()
         if stopFlag then return end
     end
 
-    -- tp dehors du plot, drop, reprise confirmee
-    local ok = outsideDropAndSteal()
-    if stopFlag then return end
-    if not ok then
-        setStatus("oeuf non repris")
+    local ppos, pinst = findRanchPos()
+    if not ppos then
+        setStatus("plot not found")
         return
     end
 
-    -- vol jusque dans le plot
-    setStatus("vol")
-    flyIntoPlot()
-    if not stopFlag then setStatus("termine") end
+    setStatus("drop + retake")
+    local reached, dropFailed, retakeFailed = goToRanchPos(ppos, pinst)
+    if stopFlag then
+        setStatus("stopped")
+    elseif not reached then
+        setStatus("can't reach plot")
+    elseif retakeFailed then
+        setStatus("egg not retaken")
+    elseif dropFailed then
+        setStatus("done (drop not detected)")
+    else
+        setStatus("done")
+    end
 end
 
 local setRunningUI = function(_) end
@@ -768,8 +1237,8 @@ local function runSequence(egg)
 
     local ok, err = pcall(runSequenceInner, egg)
     if not ok then
-        warn("[ShinEggFarm] erreur : " .. tostring(err))
-        setStatus("erreur")
+        warn("[ShinEggFarm] error: " .. tostring(err))
+        setStatus("error (see console)")
     end
 
     restoreControl()
@@ -779,13 +1248,15 @@ end
 
 local function stopSequence()
     stopFlag = true
+    -- give control back right away (noclip / PlatformStand / velocity)
     task.defer(restoreControl)
 end
 
+
 -- =====================================================================
--- interface : yslemStyle aux couleurs rouge / noir
--- contours et textes en degrade qui tourne, theme noir, formes arrondies,
--- barre de titre vive a titre noir
+-- interface: yslemStyle in red / black
+-- gradient strokes and texts that rotate, black theme, rounded shapes,
+-- bright title bar with a black title
 -- =====================================================================
 local RED       = Color3.fromRGB(255, 30, 30)
 local RED_LIGHT = Color3.fromRGB(255, 120, 120)
@@ -825,7 +1296,7 @@ local function corner(inst, r)
     return c
 end
 
--- contour vivant (bandes qui tournent autour de la bordure)
+-- living stroke (bands rotating around the border)
 local function livingStroke(inst, thickness, bright)
     local st = Instance.new("UIStroke")
     st.Thickness = thickness or 1
@@ -840,7 +1311,7 @@ local function livingStroke(inst, thickness, bright)
     return st, g
 end
 
--- texte vivant (bandes qui traversent les lettres)
+-- living text (bands sweeping through the letters)
 local function livingText(inst)
     local g = Instance.new("UIGradient")
     g.Color = bands(RED, RED_LIGHT)
@@ -900,7 +1371,7 @@ Main.Parent = ScreenGui
 corner(Main, 14)
 livingStroke(Main, 1.5, true)
 
--- barre de titre vive, titre noir
+-- bright title bar, black title
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, -8, 0, 30)
 TitleBar.Position = UDim2.new(0, 4, 0, 4)
@@ -968,7 +1439,7 @@ DipBtn.Parent = Main
 
 local StatusLbl = newLabel(Main, {
     Size = UDim2.new(1, -12, 0, 12), Position = UDim2.new(0, 6, 0, BTN_Y + 28 + 5 + 26 + 4),
-    Text = "pret", TextSize = 9, TextXAlignment = Enum.TextXAlignment.Center,
+    Text = "ready", TextSize = 9, TextXAlignment = Enum.TextXAlignment.Center,
 })
 livingText(StatusLbl)
 statusSetter = function(text) StatusLbl.Text = tostring(text) end
@@ -979,7 +1450,7 @@ local DiscordLabel = newLabel(Main, {
 })
 livingText(DiscordLabel)
 
--- vue reduite --------------------------------------------------------
+-- mini view --------------------------------------------------------
 local Mini = Instance.new("Frame")
 Mini.Size = UDim2.new(0, 220, 0, 150)
 Mini.AnchorPoint = Vector2.new(0.5, 0)
@@ -1074,7 +1545,7 @@ livingText(MiniDiscordLabel)
 
 for _, b in ipairs({MinimizeBtn, GoBtn, DipBtn, MiniExpandBtn, MiniGoBtn, MiniDipBtn}) do pressFx(b) end
 
--- animation : tous les degrades vivants tournent (une image sur deux)
+-- animation: every living gradient rotates (every other frame)
 do
     local clock, tick = 0, 0
     RunService.Heartbeat:Connect(function(dt)
@@ -1115,7 +1586,7 @@ DipBtn.MouseButton1Click:Connect(toggleDip)
 MiniDipBtn.MouseButton1Click:Connect(toggleDip)
 updateDipBtn()
 
--- icones d'oeufs -----------------------------------------------------
+-- egg icons -----------------------------------------------------
 local function cleanClone(clone)
     for _, d in ipairs(clone:GetDescendants()) do
         if d:IsA("BasePart") then
@@ -1201,7 +1672,7 @@ local function makeEggIcon(parent, egg, zoom)
     return makeViewport(parent, egg, zoom)
 end
 
--- liste des oeufs ----------------------------------------------------
+-- egg list ----------------------------------------------------
 local function scanEggs()
     local folder = workspace:FindFirstChild(FOLDER_NAME)
     if not folder then
@@ -1461,7 +1932,7 @@ task.spawn(function()
     end
 end)
 
--- deplacement de la fenetre (barre de titre) : suit le doigt / la souris partout a l'ecran
+-- window drag (title bar): follows the finger / mouse anywhere on screen
 do
     local dragging = false
     local dragStart, startPos, startInput
@@ -1505,3 +1976,4 @@ end)
 pcall(findPlot)
 pcall(rebuildList)
 pcall(updateMini)
+
