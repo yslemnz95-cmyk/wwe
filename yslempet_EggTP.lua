@@ -692,9 +692,9 @@ local function stagePoint(ppos, inst)
 	return Vector3.new(cx, ppos.Y, cz) + away.Unit * STAGE_BACK
 end
 
--- Derniere etape : VOL a 100% de la vitesse de marche (la jauge de yslemEgg :
--- 100% = WalkSpeed), au-dessus de la cloture, puis pose au sol dans le ranch.
-local FLY_FRACTION = 1.0
+-- Derniere etape : VOL a 700% de la vitesse de marche (jauge yslemEgg : 100% =
+-- WalkSpeed), au-dessus de la cloture, puis pose au sol dans le ranch.
+local FLY_FRACTION = 7.0 -- 700% de la vitesse de marche
 local FLY_HEIGHT   = 40
 
 local function insidePlot()
