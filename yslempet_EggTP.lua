@@ -348,124 +348,11 @@ local function findRanchPos()
 	return nil
 end
 
--- === Stand "Food" (hub central) : etape intermediaire avant le ranch =======
--- Le hub central du jeu regroupe plusieurs stands flottants (Gears, Track,
--- Sell, Food), generalement ranges dans Workspace.Stalls. Passer par ce
--- stand avant le plot evite au vol/tp de traverser du relief accidente
--- entre la map et le ranch.
+-- === Lacher / reprendre l'oeuf devant le ranch ============================
+-- Meme principe que yslemEgg devant la ligne : on se met un peu EN ARRIERE du
+-- ranch, on lache l'oeuf, on le reprend, puis on entre dans le ranch.
 
-local function isPositionable(inst)
-	return inst:IsA("BasePart") or inst:IsA("Model") or inst:IsA("Folder")
-end
-
--- Le stand Food peut porter plusieurs noms/formes : on essaie, dans l'ordre,
---   1) un objet dont le NOM contient food/feed/snack/treat... (Stalls d'abord)
---   2) un texte de pancarte dans le monde (SurfaceGui/BillboardGui) "Food"
---   3) un ProximityPrompt dont le texte/nom parle de nourriture
--- Les candidats sont notes (Stalls/Shop/Stand dans le chemin = meilleur) et le
--- meilleur est choisi. Un diagnostic est garde pour l'afficher / le copier.
-local FOOD_WORDS = {"food", "feed", "snack", "treat", "nourr", "aliment"}
-local lastFoodDiag = ""
-local foodHook = nil -- appele avec le chemin de la cible trouvee (affiche dans le statut)
-
-local function hasFoodWord(str)
-	str = (str or ""):lower()
-	for _, w in ipairs(FOOD_WORDS) do
-		if str:find(w, 1, true) then return true end
-	end
-	return false
-end
-
-local function foodDiagnostic()
-	local names = {}
-	local seen  = {}
-	local function add(inst)
-		local n = inst.Name
-		if not seen[n] and #names < 14 then
-			seen[n] = true
-			table.insert(names, n)
-		end
-	end
-	local stalls = ws:FindFirstChild("Stalls")
-	if stalls then
-		for _, c in ipairs(stalls:GetChildren()) do add(c) end
-	end
-	for _, d in ipairs(ws:GetDescendants()) do
-		if #names >= 14 then break end
-		if (d:IsA("Model") or d:IsA("Folder")) and not isAnyCharacter(d) then
-			local ln = d.Name:lower()
-			if ln:find("shop", 1, true) or ln:find("stall", 1, true) or ln:find("stand", 1, true) or ln:find("market", 1, true) or ln:find("store", 1, true) then
-				add(d)
-			end
-		end
-	end
-	return (stalls and "Stalls: " or "pas de Workspace.Stalls; ") .. table.concat(names, ", ")
-end
-
-local function findFoodShopPos()
-	local best, bestScore, bestPath = nil, -1, nil
-	local function consider(pos, path, bonus)
-		if not pos then return end
-		local lowered = path:lower()
-		local score = bonus
-		if lowered:find("stall", 1, true) then score = score + 3 end
-		if lowered:find("shop", 1, true) or lowered:find("stand", 1, true) then score = score + 2 end
-		if score > bestScore then best, bestScore, bestPath = pos, score, path end
-	end
-
-	local rendered = ws:FindFirstChild("RenderedEggs")
-	for _, d in ipairs(ws:GetDescendants()) do
-		if lp.Character and d:IsDescendantOf(lp.Character) then
-			-- jamais notre propre personnage
-		elseif rendered and d:IsDescendantOf(rendered) then
-			-- jamais les oeufs de la map
-		elseif isPositionable(d) and not isAnyCharacter(d) and hasFoodWord(d.Name) then
-			consider(getPos(d), d:GetFullName(), d:IsA("Model") and 2 or 1)
-		elseif (d:IsA("TextLabel") or d:IsA("TextButton")) and d.Text and #d.Text > 0 and #d.Text < 40 and hasFoodWord(d.Text) then
-			-- pancarte dans le monde : remonter jusqu'a une position 3D
-			local p = d.Parent
-			local pos = nil
-			while p and p ~= ws do
-				if p:IsA("BillboardGui") and p.Adornee then pos = getPos(p.Adornee) end
-				if not pos and p:IsA("BasePart") then pos = p.Position end
-				if not pos and p:IsA("Model") then pos = getPos(p) end
-				if pos then break end
-				p = p.Parent
-			end
-			consider(pos, d:GetFullName(), 2)
-		elseif d:IsA("ProximityPrompt") and (hasFoodWord(d.ActionText) or hasFoodWord(d.ObjectText) or hasFoodWord(d.Name)) and d.Parent then
-			consider(getPos(d.Parent), d:GetFullName(), 1)
-		end
-	end
-
-	if best then
-		warn("[EggTP] Shop Food cible : " .. tostring(bestPath))
-		if foodHook then pcall(foodHook, tostring(bestPath)) end
-		return best
-	end
-	return nil
-end
-
--- Recherche "forcee" : le stand peut mettre un instant a se charger
--- (streaming) - on reessaie ~8 s. Pas de repli "vol direct" : le passage au
--- Food est obligatoire, sinon le trajet est annule et le diagnostic est
--- affiche (et copie dans le presse-papier si possible).
-local function findFoodShopPosForced()
-	local pos = findFoodShopPos()
-	if pos then return pos end
-	for _ = 1, 16 do
-		task.wait(0.5)
-		if cancelMove then return nil end
-		pos = findFoodShopPos()
-		if pos then return pos end
-	end
-	lastFoodDiag = foodDiagnostic()
-	warn("[EggTP] Shop Food introuvable apres reessais. " .. lastFoodDiag)
-	pcall(function() setclipboard("Shop Food introuvable. " .. lastFoodDiag) end)
-	return nil
-end
-
--- Lacher l'oeuf au Food. Dans l'ordre :
+-- Lacher l'oeuf. Dans l'ordre :
 --   1) le bouton "DROP" du jeu (a l'ecran) : clic simule au centre du bouton
 --   2) un prompt de depot/lacher proche
 --   3) la touche de drop par defaut de Roblox (Backspace) pour un outil tenu
@@ -538,81 +425,83 @@ local function dropEgg()
 	end)
 end
 
--- Passage FORCE par le Shop Food : on ne lache l'oeuf qu'une fois reellement
--- arrive (a moins de FOOD_ARRIVE_D studs). Si le serveur nous renvoie ailleurs
--- (tp annule), on recommence jusqu'a FOOD_TRIES fois, puis le trajet est annule.
-local FOOD_ARRIVE_D = 15
-local FOOD_TRIES    = 8
-
-local function forceToFood(shopPos)
-	for _ = 1, FOOD_TRIES do
-		moveTo(shopPos)
-		if cancelMove then return true end
-		task.wait(0.15)
-		local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-		if myHrp and (myHrp.Position - shopPos).Magnitude <= FOOD_ARRIVE_D then
-			return true
-		end
-	end
-	return false
-end
-
--- Derniere etape : un RUN au sol (jamais tp ni vol) a 60% de la vitesse de
--- marche, du Shop Food jusqu'au plot.
-local RUN_FRACTION = 0.6
-
-local function runTo(pos, fraction)
-	local myChar = lp.Character
-	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	local hum    = myChar and myChar:FindFirstChildOfClass("Humanoid")
-	if not myHrp or not hum or not pos then return end
-
-	local started   = os.clock()
-	local lastCheck = os.clock()
-	local lastPos   = myHrp.Position
-
-	while not cancelMove and myHrp.Parent and os.clock() - started < 120 do
-		local flat = Vector3.new(pos.X - myHrp.Position.X, 0, pos.Z - myHrp.Position.Z)
-		if flat.Magnitude < 4 then break end
-
-		local unit  = flat.Unit
-		local speed = hum.WalkSpeed * fraction
-		local v     = unit * math.min(speed, flat.Magnitude / 0.05)
-		myHrp.AssemblyLinearVelocity = Vector3.new(v.X, myHrp.AssemblyLinearVelocity.Y, v.Z)
-		hum:Move(unit, false)
-
-		-- bloque sur le decor : saut
-		if os.clock() - lastCheck >= 1.5 then
-			if (myHrp.Position - lastPos).Magnitude < 3 and flat.Magnitude > 10 then
-				hum.Jump = true
+-- Prompts "Pick Up" proches de nous (pour reperer l'oeuf une fois lache).
+local function nearbyPickups(radius)
+	local list = {}
+	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+	if not myHrp then return list end
+	for _, d in ipairs(ws:GetDescendants()) do
+		if d:IsA("ProximityPrompt") and d.ActionText == "Pick Up" and d.Parent then
+			local pos = getPos(d.Parent)
+			if pos and (pos - myHrp.Position).Magnitude <= radius then
+				list[d] = true
 			end
-			lastPos, lastCheck = myHrp.Position, os.clock()
 		end
-
-		RunService.Heartbeat:Wait()
 	end
-
-	myHrp.AssemblyLinearVelocity = Vector3.new(0, myHrp.AssemblyLinearVelocity.Y, 0)
-	hum:Move(Vector3.new(0, 0, 0), false)
+	return list
 end
 
--- Retour au ranch en 2 temps : Shop Food d'abord (passage force, l'oeuf est
--- lache a l'arrivee), puis RUN a 60% jusqu'au plot. Renvoie false si le Food
--- est introuvable ou inatteignable.
+-- Distance derriere le ranch ou on se place pour lacher / reprendre l'oeuf.
+local STAGE_BACK = 30
+local STAGE_TRIES = 5
+
+-- Retour au ranch : tp (ou vol, selon le bouton) un peu en arriere du plot,
+-- drop de l'oeuf, reprise, puis entree dans le ranch. Renvoie false si on n'a
+-- pas pu se placer derriere le ranch.
 local function goToRanchPos(ppos)
 	cancelMove = false
-	local shopPos = findFoodShopPosForced()
-	if cancelMove then return true end
-	if not shopPos then return false end
+	local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+	if not myHrp then return false end
 
-	if not forceToFood(shopPos) then return false end
-	if cancelMove then return true end
+	-- point d'attente : sur la ligne ranch -> nous, STAGE_BACK studs avant le ranch
+	local flat = Vector3.new(myHrp.Position.X - ppos.X, 0, myHrp.Position.Z - ppos.Z)
+	local dir  = flat.Magnitude > 1 and flat.Unit or Vector3.new(0, 0, 1)
+	local stage = ppos + dir * STAGE_BACK
 
+	-- on s'assure d'etre vraiment arrive (le serveur peut renvoyer ailleurs)
+	local arrived = false
+	for _ = 1, STAGE_TRIES do
+		moveTo(stage)
+		if cancelMove then return true end
+		task.wait(0.15)
+		local h = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+		if h and (Vector3.new(h.Position.X - stage.X, 0, h.Position.Z - stage.Z)).Magnitude <= 12 then
+			arrived = true
+			break
+		end
+	end
+	if not arrived then return false end
+
+	-- drop : le nouvel objet "Pick Up" qui apparait est l'oeuf lache
+	local before = nearbyPickups(30)
 	dropEgg()
-	task.wait(0.6)
+
+	local dropped = nil
+	local waited = 0
+	while not dropped and waited < 1.5 and not cancelMove do
+		for prompt in pairs(nearbyPickups(30)) do
+			if not before[prompt] then dropped = prompt; break end
+		end
+		if not dropped then
+			task.wait(0.1)
+			waited = waited + 0.1
+		end
+	end
 	if cancelMove then return true end
 
-	runTo(ppos, RUN_FRACTION)
+	-- reprise : on tire le prompt de l'oeuf lache jusqu'a ce qu'il disparaisse
+	if dropped then
+		local t = 0
+		while t < 3 and not cancelMove and dropped.Parent and dropped:IsDescendantOf(ws) do
+			tryFire(dropped)
+			task.wait(0.12)
+			t = t + 0.12
+		end
+	end
+	if cancelMove then return true end
+
+	-- entree dans le ranch
+	moveTo(ppos)
 	return true
 end
 
@@ -1113,10 +1002,6 @@ autoBtn.MouseButton1Click:Connect(function()
 	TweenService:Create(autoBtn, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {BackgroundColor3 = targetColor}):Play()
 end)
 
-foodHook = function(path)
-	statusLbl.Text = "Food: " .. (path:match("[^%.]+$") or path)
-end
-
 local function goToRanch()
 	if busy then
 		stopMove()
@@ -1129,11 +1014,11 @@ local function goToRanch()
 	end
 
 	setBusy(true)
-	statusLbl.Text = methodLabel() .. " -> Shop Food -> Ranch"
+	statusLbl.Text = methodLabel() .. " -> Ranch (drop + reprise)"
 	local reached = goToRanchPos(ppos)
 	setBusy(false)
 	if not reached then
-		statusLbl.Text = "Food: " .. (lastFoodDiag ~= "" and lastFoodDiag or "inatteignable")
+		statusLbl.Text = "Placement avant ranch impossible"
 	else
 		statusLbl.Text = cancelMove and "Arrete" or "Ranch atteint"
 	end
@@ -1390,10 +1275,10 @@ local function doPickup()
 	if autoReturnRanch then
 		local ppos = findRanchPos()
 		if ppos then
-			statusLbl.Text = pickedName .. " -> Shop Food -> Ranch"
+			statusLbl.Text = pickedName .. " -> Ranch (drop + reprise)"
 			local reached = goToRanchPos(ppos)
 			if not reached then
-				statusLbl.Text = "Food: " .. (lastFoodDiag ~= "" and lastFoodDiag or "inatteignable")
+				statusLbl.Text = "Placement avant ranch impossible"
 				setBusy(false)
 				rebuildEggList(true, true)
 				return
