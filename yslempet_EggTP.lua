@@ -137,7 +137,7 @@ local function setNoclip(state)
 	end
 end
 
-local function flyTo(pos, minFraction)
+local function flyTo(pos)
 	local myChar = lp.Character
 	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
 	if not myHrp or not pos then return end
@@ -146,8 +146,6 @@ local function flyTo(pos, minFraction)
 
 	local prevPlatformStand = hum and hum.PlatformStand
 	if hum then hum.PlatformStand = true end
-	local floorSpeed = (minFraction or 0) * FLY_SPEED -- vitesse minimale (fraction de FLY_SPEED)
-	local dt = 1 / 60
 
 	while myHrp and myHrp.Parent do
 		if cancelMove then
@@ -161,10 +159,8 @@ local function flyTo(pos, minFraction)
 			myHrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 			break
 		end
-		local speed = math.max(math.min(dist * 4 + 50, FLY_SPEED), floorSpeed)
-		-- jamais plus loin que la cible en une frame (pas de depassement a haute vitesse)
-		myHrp.AssemblyLinearVelocity = diff.Unit * math.min(speed, dist / math.max(dt, 1 / 240))
-		dt = RunService.Heartbeat:Wait()
+		myHrp.AssemblyLinearVelocity = diff.Unit * math.min(dist * 4 + 50, FLY_SPEED)
+		task.wait()
 	end
 
 	setNoclip(false)
@@ -179,10 +175,10 @@ local function methodLabel()
 	return tpMethod == "fly" and "VOL" or "TP"
 end
 
-local function moveTo(pos, minFraction, keepCancel)
-	if not keepCancel then cancelMove = false end
+local function moveTo(pos)
+	cancelMove = false
 	if tpMethod == "fly" then
-		flyTo(pos, minFraction)
+		flyTo(pos)
 	else
 		tpTo(pos)
 	end
@@ -443,26 +439,81 @@ local function dropEgg()
 	end)
 end
 
--- Retour au ranch en 2 temps : Shop Food d'abord (obligatoire) ou l'oeuf est
--- lache a l'arrivee, puis le plot a au moins 60% de la vitesse de vol
--- (FLY_SPEED). Renvoie false si le Food est introuvable.
-local FINAL_MIN_SPEED = 0.6
+-- Passage FORCE par le Shop Food : on ne lache l'oeuf qu'une fois reellement
+-- arrive (a moins de FOOD_ARRIVE_D studs). Si le serveur nous renvoie ailleurs
+-- (tp annule), on recommence jusqu'a FOOD_TRIES fois, puis le trajet est annule.
+local FOOD_ARRIVE_D = 15
+local FOOD_TRIES    = 8
 
+local function forceToFood(shopPos)
+	for _ = 1, FOOD_TRIES do
+		moveTo(shopPos)
+		if cancelMove then return true end
+		task.wait(0.15)
+		local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+		if myHrp and (myHrp.Position - shopPos).Magnitude <= FOOD_ARRIVE_D then
+			return true
+		end
+	end
+	return false
+end
+
+-- Derniere etape : un RUN au sol (jamais tp ni vol) a 60% de la vitesse de
+-- marche, du Shop Food jusqu'au plot.
+local RUN_FRACTION = 0.6
+
+local function runTo(pos, fraction)
+	local myChar = lp.Character
+	local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	local hum    = myChar and myChar:FindFirstChildOfClass("Humanoid")
+	if not myHrp or not hum or not pos then return end
+
+	local started   = os.clock()
+	local lastCheck = os.clock()
+	local lastPos   = myHrp.Position
+
+	while not cancelMove and myHrp.Parent and os.clock() - started < 120 do
+		local flat = Vector3.new(pos.X - myHrp.Position.X, 0, pos.Z - myHrp.Position.Z)
+		if flat.Magnitude < 4 then break end
+
+		local unit  = flat.Unit
+		local speed = hum.WalkSpeed * fraction
+		local v     = unit * math.min(speed, flat.Magnitude / 0.05)
+		myHrp.AssemblyLinearVelocity = Vector3.new(v.X, myHrp.AssemblyLinearVelocity.Y, v.Z)
+		hum:Move(unit, false)
+
+		-- bloque sur le decor : saut
+		if os.clock() - lastCheck >= 1.5 then
+			if (myHrp.Position - lastPos).Magnitude < 3 and flat.Magnitude > 10 then
+				hum.Jump = true
+			end
+			lastPos, lastCheck = myHrp.Position, os.clock()
+		end
+
+		RunService.Heartbeat:Wait()
+	end
+
+	myHrp.AssemblyLinearVelocity = Vector3.new(0, myHrp.AssemblyLinearVelocity.Y, 0)
+	hum:Move(Vector3.new(0, 0, 0), false)
+end
+
+-- Retour au ranch en 2 temps : Shop Food d'abord (passage force, l'oeuf est
+-- lache a l'arrivee), puis RUN a 60% jusqu'au plot. Renvoie false si le Food
+-- est introuvable ou inatteignable.
 local function goToRanchPos(ppos)
 	cancelMove = false
 	local shopPos = findFoodShopPosForced()
 	if cancelMove then return true end
 	if not shopPos then return false end
 
-	moveTo(shopPos)
+	if not forceToFood(shopPos) then return false end
 	if cancelMove then return true end
 
 	dropEgg()
 	task.wait(0.6)
 	if cancelMove then return true end
 
-	-- cancelMove est deja a false ici : on ne le remet pas a zero
-	moveTo(ppos, FINAL_MIN_SPEED, true)
+	runTo(ppos, RUN_FRACTION)
 	return true
 end
 
@@ -979,7 +1030,7 @@ local function goToRanch()
 	local reached = goToRanchPos(ppos)
 	setBusy(false)
 	if not reached then
-		statusLbl.Text = "Shop Food introuvable"
+		statusLbl.Text = "Shop Food inatteignable"
 	else
 		statusLbl.Text = cancelMove and "Arrete" or "Ranch atteint"
 	end
@@ -1239,7 +1290,7 @@ local function doPickup()
 			statusLbl.Text = pickedName .. " -> Shop Food -> Ranch"
 			local reached = goToRanchPos(ppos)
 			if not reached then
-				statusLbl.Text = "Shop Food introuvable (oeuf garde)"
+				statusLbl.Text = "Shop Food inatteignable (oeuf garde)"
 				setBusy(false)
 				rebuildEggList(true, true)
 				return
