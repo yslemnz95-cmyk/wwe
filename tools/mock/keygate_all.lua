@@ -458,7 +458,7 @@ local KeyGate = (function()
 		corner(close, 6); stroke(close, 1); textGradient(close)
 
 		local steps = label(
-			"1. Join our Discord server\n2. In " .. CFG.CHANNEL .. " type:  /key " .. tostring(LP.Name) .. "\n3. Paste the key the bot sends you",
+			"1. Join our Discord server\n2. In " .. CFG.CHANNEL .. " type:  /key pseudo:" .. tostring(LP.Name) .. "\n3. Paste the key the bot sends you",
 			UDim2.new(1, -24, 0, 54), UDim2.new(0, 12, 0, 36), frame, 12)
 		textGradient(steps)
 
@@ -691,7 +691,7 @@ do
 	local r = start(KG)
 	advance(0.3)
 	check("gate shown", gate() ~= nil and not r.done)
-	check("guide has /key <name>", hasText("/key TestUser"))
+	check("guide has /key pseudo:<name>", hasText("/key pseudo:TestUser"))
 	btn("Copy Discord invite").MouseButton1Click:Fire()
 	check("invite copied", clip == "https://discord.gg/REPLACE_ME")
 	submit("")

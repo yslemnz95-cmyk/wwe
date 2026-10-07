@@ -190,7 +190,7 @@ local KeyGate = (function()
 		corner(close, 6); stroke(close, 1); textGradient(close)
 
 		local steps = label(
-			"1. Join our Discord server\n2. In " .. CFG.CHANNEL .. " type:  /key " .. tostring(LP.Name) .. "\n3. Paste the key the bot sends you",
+			"1. Join our Discord server\n2. In " .. CFG.CHANNEL .. " type:  /key pseudo:" .. tostring(LP.Name) .. "\n3. Paste the key the bot sends you",
 			UDim2.new(1, -24, 0, 54), UDim2.new(0, 12, 0, 36), frame, 12)
 		textGradient(steps)
 

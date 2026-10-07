@@ -96,7 +96,7 @@ do
 	local r = start(KG)
 	advance(0.3)
 	check("gate shown", gate() ~= nil and not r.done)
-	check("guide has /key <name>", hasText("/key TestUser"))
+	check("guide has /key pseudo:<name>", hasText("/key pseudo:TestUser"))
 	btn("Copy Discord invite").MouseButton1Click:Fire()
 	check("invite copied", clip == "https://discord.gg/REPLACE_ME")
 	submit("")
