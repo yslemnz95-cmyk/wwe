@@ -32,11 +32,26 @@ if 'REPLACE_ME' in block:
 src = open(a.target).read()
 if 'yslem KeyGate START' in src:
     sys.exit('KeyGate deja present dans ' + a.target)
-anchor = 'local lib = {handles = {}, states = {}}\n'
+standalone = 'Standalone' in os.path.basename(a.target)
+if standalone:
+    anchor = 'local localPlayer = Players.LocalPlayer\n'
+else:
+    anchor = 'local lib = {handles = {}, states = {}}\n'
 if src.count(anchor) != 1:
     sys.exit('ancre introuvable ou ambigue : ' + anchor.strip())
 
-call = '''
+if standalone:
+    call = '''
+local KeyGateStop = function() end
+if not KeyGate.require("%s", {onInvalid = function() KeyGateStop() end}) then return end
+''' % a.name
+    closeblk = 'close.MouseButton1Click:Connect(function()\n\tstate.Cancel = true\n\tfpsOff()\n\tshieldStop()\n\tshineConnection:Disconnect()\n\tgui:Destroy()\nend)\n'
+    if src.count(closeblk) != 1:
+        sys.exit('bloc de fermeture introuvable ou ambigu')
+    hook = 'KeyGateStop = function()\n\tpcall(function() state.Cancel = true; fpsOff(); shieldStop(); shineConnection:Disconnect(); gui:Destroy() end)\nend\n'
+    src = src.replace(closeblk, closeblk + hook, 1)
+else:
+    call = '''
 -- Cle personnelle verifiee par le bot (seul acces reseau du script : POST /v1/verify, aucun code distant)
 if not KeyGate.require("%s", {onInvalid = function()
 	pcall(function() if lib.OnUnload then lib.OnUnload() end end)
