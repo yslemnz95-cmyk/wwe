@@ -168,7 +168,12 @@ local methods = {
 	FindFirstAncestor = function(o, n) for p in ancestorsOf(o) do if p.Name == n then return p end end end,
 	FindFirstAncestorOfClass = function(o, c) for p in ancestorsOf(o) do if p.ClassName == c then return p end end end,
 	GetFullName = function(o) local t = {o.Name}; for p in ancestorsOf(o) do table.insert(t, 1, p.Name) end return table.concat(t, ".") end,
-	Destroy = function(o) o.Parent = nil; o.Destroying:Fire() end,
+	Destroy = function(o)
+		local p = rawget(o, "Parent")
+		if p then for i, c in ipairs(p.Children) do if c == o then table.remove(p.Children, i) break end end end
+		rawset(o, "Parent", nil)
+		o.Destroying:Fire()
+	end,
 	Clone = function(o) return newInst(o.ClassName) end,
 	GetPivot = function(o) return o.CFrame or cf(0,0,0) end,
 	GetBoundingBox = function(o) return cf(0,0,0), v3(10,10,10) end,

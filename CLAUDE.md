@@ -11,6 +11,7 @@ inconnues (les globales Roblox/executeur apparaissent a tort).
 | `yslemEgg_InstantTP_Standalone.lua` | Steal An Egg | Instant TP seul + choix du pet (icone, valeur) |
 | `yslemEgg_DeliveryStop_Standalone.lua` | Steal An Egg | Delivery Stop seul, stops modifiables (Stops, Pause, Distance, Go Fly/Run) |
 | `yslempet_EggTP.lua` | Ride a Pet (PlaceId 124216119978534) | tp vers les oeufs de la map + retour au ranch (drop/reprise devant le plot) |
+| `yslem_KeyGate.lua` | tous | fenetre de cle yslemStyle + verification aupres du bot (`POST /v1/verify`, contrat dans `docs/KEY_API.md`). Injection : `python3 tools/add_keygate.py --api https://URL --invite https://discord.gg/XXX` (a lancer seulement quand le bot est en ligne, sinon le script se bloque). Test : `python3 tools/mock/build_keygate.py && /tmp/luau_bin/luau tools/mock/keygate_all.lua` |
 | `yslem_GameScan.lua` | tous | module d'analyse du jeu, a coller TEMPORAIREMENT (voir plus bas) |
 | `friend/ShinEggFarm_yslem.lua` | Ride a Pet | script SHIN HUB d'un ami, UI rouge/noir yslemStyle, EN ANGLAIS, avec la methode COMPLETE de yslempet_EggTP (tp desync, prise confirmee, drop bouton/remote, reprise confirmee, vol 700%). Test logique : `python3 tools/mock/build_friend.py <normal|remote|nodrop|stop|lose> && /tmp/luau_bin/luau tools/mock/friend_all.lua` |
 | `tools/mock/` | tous | maquette Roblox + scenarios de test de `yslempet_EggTP.lua` |
@@ -45,6 +46,10 @@ remotes, monde, inventaire/stats, scripts. `yslempet_EggTP.lua` a deja ete analy
 NE JAMAIS inclure : `loadstring(game:HttpGet(...))`, WebSocket externe, jetons/cles, `HttpGet` vers des depots externes,
 desactivation d'anti-triche via `getconnections`, webhook Discord / kill-switch / backdoor RPC, `queue_on_teleport`
 (donc pas d'auto-load apres un server hop), remotes d'administration/staff. Pas d'agents (Agent tool) sauf demande.
+Exception voulue par yslem (key system) : le module `yslem_KeyGate.lua` fait UNE requete HTTPS vers le bot, `POST /v1/verify`,
+avec 4 champs (cle, UserId, nom du script, version). Pas de cle en dur, pas de code distant, aucun autre appel reseau. La
+revocation d'une cle par le bot arrete le script de ce joueur : c'est un controle de licence visible et documente
+(`docs/KEY_API.md`), pas un kill-switch cache.
 
 ## Notes jeu : Steal An Egg
 - Ligne de separation `World.Areas.SeparationLine` (X ~ 552) : gauche = base/zone sure, droite = gardes.
