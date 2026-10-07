@@ -33,14 +33,23 @@ src = open(a.target).read()
 if 'yslem KeyGate START' in src:
     sys.exit('KeyGate deja present dans ' + a.target)
 standalone = 'Standalone' in os.path.basename(a.target)
-if standalone:
+eggtp = 'yslempet_EggTP' in os.path.basename(a.target)
+if eggtp:
+    anchor = 'local lp   = Players.LocalPlayer\n'
+elif standalone:
     anchor = 'local localPlayer = Players.LocalPlayer\n'
 else:
     anchor = 'local lib = {handles = {}, states = {}}\n'
 if src.count(anchor) != 1:
     sys.exit('ancre introuvable ou ambigue : ' + anchor.strip())
 
-if standalone:
+if eggtp:
+    call = '\nlocal KeyGateStop = function() end\nif not KeyGate.require("%s", {onInvalid = function() KeyGateStop() end}) then return end\n' % a.name
+    dest = 'sg.Destroying:Connect(function()\n\tautoRunning = false\n\tif fxConn then fxConn:Disconnect() end\nend)\n'
+    if src.count(dest) != 1:
+        sys.exit('bloc Destroying introuvable ou ambigu')
+    src = src.replace(dest, dest + 'KeyGateStop = function()\n\tpcall(function() cancelMove = true; sg:Destroy() end)\nend\n', 1)
+elif standalone:
     call = '''
 local KeyGateStop = function() end
 if not KeyGate.require("%s", {onInvalid = function() KeyGateStop() end}) then return end
