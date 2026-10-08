@@ -379,7 +379,7 @@ end)()
 -- ===== yslem KeyGate END =====
 
 -- Cle personnelle verifiee par le bot (seul acces reseau du script : POST /v1/verify, aucun code distant)
-if not KeyGate.require("yslemEgg", {onInvalid = function()
+if not KeyGate.require("yslemHub", {onInvalid = function()
 	pcall(function() if lib.OnUnload then lib.OnUnload() end end)
 	pcall(function() local o = game:GetService("CoreGui"):FindFirstChild("MoonEggGui"); if o then o:Destroy() end end)
 	pcall(function() local o = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("MoonEggGui"); if o then o:Destroy() end end)
@@ -959,7 +959,7 @@ end
 			local sc = Instance.new("UIScale", f); sc.Scale = 0.8
 			local bad = 0
 			for _, ln in ipairs(lines) do if ln.Ok == false then bad = bad + 1 end end
-			local t = label(f, "MoonEgg", UDim2.new(1, -24, 0, 22), C.WHITE, Enum.Font.GothamBold)
+			local t = label(f, "yslemHub", UDim2.new(1, -24, 0, 22), C.WHITE, Enum.Font.GothamBold)
 			t.Position = UDim2.new(0, 14, 0, 8); t.TextSize = 15; t.ZIndex = 951; liveGrad(t)
 			local sub = label(f, bad == 0 and "Everything loaded" or (bad .. " problem" .. (bad > 1 and "s" or "") .. " found"),
 				UDim2.new(1, -24, 0, 12), bad == 0 and C.GREEN or C.GOLD, Enum.Font.GothamMedium)
@@ -2024,7 +2024,7 @@ end
 
 	function lib:CreateWindow(cfg)
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
-		local main = newWindow({name = "main", frameName = "Main", title = "MoonEgg", w = 288, h = 350,
+		local main = newWindow({name = "main", frameName = "Main", title = "yslemHub", w = 288, h = 350,
 			pos = UDim2.new(0.5, -144, 0.5, -175), isMain = true, z = 20})
 		local events = newWindow({name = "events", frameName = "MoonEggEvents", title = "Events · Dr Scramble", w = 252, h = 340,
 			pos = UDim2.new(1, -262, 0, 56), noTabs = true, z = 20, startCollapsed = true})
@@ -2162,7 +2162,7 @@ do
 			LeftCenterHidden = true,
 		}
 
-		sliced2 = v:CreateWindow({ Name = "yslemEgg - Steal An Egg", DefaultTab = "Farm" })
+		sliced2 = v:CreateWindow({ Name = "yslemHub - Steal An Egg", DefaultTab = "Farm" })
 		defaultTab = sliced2:GetDefaultTab()
 		Players = game:GetService("Players")
 		RunService = game:GetService("RunService")
@@ -5234,7 +5234,7 @@ do
 				end
 				A.Event("end", { ok = ok, reason = reason })
 				A.Active = false
-				local out = { "MoonEgg report: " .. (ok and "DELIVERED" or "FAILED") .. " (" .. tostring(reason) .. ") " .. string.format("%.1fs", os.clock() - A.T0) }
+				local out = { "yslemHub report: " .. (ok and "DELIVERED" or "FAILED") .. " (" .. tostring(reason) .. ") " .. string.format("%.1fs", os.clock() - A.T0) }
 
 				for _, line in ipairs(A.Meta) do
 					out[#out + 1] = line
@@ -30091,7 +30091,7 @@ do
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(255, 255, 255),
-		Text = "MoonEgg",
+		Text = "yslemHub",
 		ZIndex = 2,
 	}), { Color = ColorSequence.new(Color3.fromRGB(90, 150, 255), color3(190, 220, 255)) })
 

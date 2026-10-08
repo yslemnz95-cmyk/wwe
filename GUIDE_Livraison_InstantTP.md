@@ -1,6 +1,6 @@
 # Guide complet : la logique de livraison (Instant TP, Anti Guard, Delivery Stop, Normal)
 
-Ce guide décrit ce que fait réellement `yslemEgg_COMPLETE.lua`. Les numéros de ligne sont approximatifs (le fichier bouge).
+Ce guide décrit ce que fait réellement `yslemHub.lua`. Les numéros de ligne sont approximatifs (le fichier bouge).
 Rien ici n'a été testé en jeu par moi : c'est la lecture du code, pas un test.
 
 ---

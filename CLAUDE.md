@@ -7,7 +7,7 @@ inconnues (les globales Roblox/executeur apparaissent a tort).
 ## Projets
 | Fichier | Jeu | Role |
 |---|---|---|
-| `yslemEgg_COMPLETE.lua` | Steal An Egg | hub complet (UI MoonEgg, Instant TP sans Anti Guard, Delivery Stop, Normal) |
+| `yslemHub.lua` | Steal An Egg | hub complet yslemHub (anciennement yslemEgg COMPLETE ; UI, Instant TP sans Anti Guard, Delivery Stop, Normal) |
 | `yslemEgg_InstantTP_Standalone.lua` | Steal An Egg | Instant TP seul + choix du pet (icone, valeur) |
 | `yslemEgg_DeliveryStop_Standalone.lua` | Steal An Egg | Delivery Stop seul, stops modifiables (Stops, Pause, Distance, Go Fly/Run) |
 | `yslempet_EggTP.lua` | Ride a Pet (PlaceId 124216119978534) | tp vers les oeufs de la map + retour au ranch (drop/reprise devant le plot) |

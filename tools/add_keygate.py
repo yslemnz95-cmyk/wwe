@@ -1,4 +1,4 @@
-# Injecte yslem_KeyGate.lua dans yslemEgg_COMPLETE.lua (apres "local lib = {...}", avant la construction de l'UI).
+# Injecte yslem_KeyGate.lua dans yslemHub.lua (apres "local lib = {...}", avant la construction de l'UI).
 # usage: python3 tools/add_keygate.py --api https://URL_DU_BOT --invite https://discord.gg/XXXX [--channel "#key"] [--out fichier.lua]
 # Sans --out, le script est modifie en place (a faire seulement quand le bot est en ligne).
 import argparse, os, re, sys
@@ -8,9 +8,9 @@ ap = argparse.ArgumentParser()
 ap.add_argument('--api', required=True)
 ap.add_argument('--invite', required=True)
 ap.add_argument('--channel', default='#key')
-ap.add_argument('--target', default=os.path.join(root, 'yslemEgg_COMPLETE.lua'))
+ap.add_argument('--target', default=os.path.join(root, 'yslemHub.lua'))
 ap.add_argument('--out')
-ap.add_argument('--name', default='yslemEgg')
+ap.add_argument('--name', default='yslemHub')
 a = ap.parse_args()
 
 if not a.api.startswith('https://'):
