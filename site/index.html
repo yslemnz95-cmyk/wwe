@@ -6,7 +6,7 @@
 <title>Snap Plus — Activation Snap+ Premium</title>
 <meta name="description" content="Active les avantages Snap+ sur ton compte Snapchat avec une seule clé. Service indépendant par Snap Tech.">
 <meta name="theme-color" content="#070602">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff7a8'/%3E%3Cstop offset='.5' stop-color='%23ffdc00'/%3E%3Cstop offset='1' stop-color='%23ffa400'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='2' y='2' width='60' height='60' rx='18' fill='url(%23g)'/%3E%3Cpath d='M32 13C33.6 24 40 30.4 51 32C40 33.6 33.6 40 32 51C30.4 40 24 33.6 13 32C24 30.4 30.4 24 32 13Z' fill='%230b0900'/%3E%3Cpath d='M47 11v8M43 15h8' stroke='%230b0900' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff7a8'/%3E%3Cstop offset='.5' stop-color='%23ffdc00'/%3E%3Cstop offset='1' stop-color='%23ffa400'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='2' y='2' width='60' height='60' rx='18' fill='url(%23g)'/%3E%3Cpath d='M32 7C22.6 7 15 14.6 15 24L15 34C15 37.2 16.2 40.1 18.2 42.2L11.5 46.2C10.1 47 10.7 49 12.4 49H15.5C15.5 51.8 17.7 54 20.5 54C23.3 54 25.5 51.8 25.5 49H26.8C27.6 50.4 29.1 51.3 30.8 51.3H33.2C34.9 51.3 36.4 50.4 37.2 49H38.5C38.5 51.8 40.7 54 43.5 54C46.3 54 48.5 51.8 48.5 49H51.6C53.3 49 53.9 47 52.5 46.2L45.8 42.2C47.8 40.1 49 37.2 49 34L49 24C49 14.6 41.4 7 32 7Z' fill='%230b0900'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -33,7 +33,7 @@ b{color:var(--y1);font-weight:600}
   background-image:linear-gradient(rgba(255,206,0,.55) 1.5px,transparent 1.5px),linear-gradient(90deg,rgba(255,206,0,.55) 1.5px,transparent 1.5px);
   background-size:90px 90px;transform:perspective(420px) rotateX(64deg);transform-origin:50% 100%;
   -webkit-mask-image:linear-gradient(to top,#000 5%,transparent 70%);mask-image:linear-gradient(to top,#000 5%,transparent 70%);
-  animation:floor 2.6s linear infinite}
+  animation:floor 5s linear infinite}
 @keyframes floor{to{background-position:0 90px}}
 #fx{position:fixed;inset:0;z-index:1;pointer-events:none}
 main,footer{position:relative;z-index:2}
@@ -63,13 +63,13 @@ main,footer{position:relative;z-index:2}
 .stage>*{grid-area:1/1}
 .stage-glow{width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(255,200,0,.42),rgba(255,160,0,.12) 45%,transparent 70%);animation:breathe 4s ease-in-out infinite}
 @keyframes breathe{50%{transform:scale(1.15);opacity:.7}}
-.orbit{width:250px;height:250px;border-radius:50%;border:1.5px solid rgba(255,214,0,.3);animation:orbit 9s linear infinite}
+.orbit{width:250px;height:250px;border-radius:50%;border:1.5px solid rgba(255,214,0,.3);will-change:transform;animation:orbit 13s linear infinite}
 .orbit::before{content:"";position:absolute;top:-6px;left:50%;width:11px;height:11px;margin-left:-5.5px;border-radius:50%;background:var(--y1);box-shadow:0 0 14px 3px rgba(255,214,0,.8)}
 .orbit{position:relative}
-.orbit.o2{width:196px;height:196px;border-color:rgba(255,170,0,.24);animation:orbit2 6s linear infinite}
+.orbit.o2{width:196px;height:196px;border-color:rgba(255,170,0,.24);animation:orbit2 9s linear infinite}
 @keyframes orbit{from{transform:rotateX(74deg) rotateZ(0)}to{transform:rotateX(74deg) rotateZ(360deg)}}
 @keyframes orbit2{from{transform:rotateX(68deg) rotateY(22deg) rotateZ(0)}to{transform:rotateX(68deg) rotateY(22deg) rotateZ(-360deg)}}
-.coin{position:relative;width:120px;height:120px;transform-style:preserve-3d;animation:spin3d 6s cubic-bezier(.45,.05,.55,.95) infinite}
+.coin{position:relative;width:120px;height:120px;transform-style:preserve-3d;will-change:transform;animation:spin3d 8s cubic-bezier(.45,.05,.55,.95) infinite}
 @keyframes spin3d{0%{transform:translateY(6px) rotateX(10deg) rotateY(0)}50%{transform:translateY(-12px) rotateX(-8deg) rotateY(180deg)}100%{transform:translateY(6px) rotateX(10deg) rotateY(360deg)}}
 .coin i{position:absolute;inset:0;border-radius:34px;background:linear-gradient(135deg,#ffcc1a,#b57300)}
 .coin .face{position:absolute;inset:0;border-radius:34px;display:grid;place-items:center;overflow:hidden;
@@ -78,7 +78,7 @@ main,footer{position:relative;z-index:2}
 .coin .face svg{width:64%;height:64%;color:#120d00}
 .coin .front{transform:translateZ(10px)}
 .coin .back{transform:rotateY(180deg) translateZ(10px)}
-.coin .face::after{content:"";position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.7) 50%,transparent 58%);animation:gloss 6s ease-in-out infinite}
+.coin .face::after{content:"";position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.7) 50%,transparent 58%);animation:gloss 8s ease-in-out infinite}
 @keyframes gloss{0%,30%{transform:translateX(-60%)}60%,100%{transform:translateX(60%)}}
 
 .badge{display:inline-flex;align-items:center;gap:10px;padding:11px 24px;border-radius:999px;border:1px solid var(--stroke2);
@@ -97,11 +97,11 @@ main,footer{position:relative;z-index:2}
   background:linear-gradient(160deg,rgba(44,36,8,.62),rgba(14,11,3,.74) 60%);
   -webkit-backdrop-filter:blur(22px) saturate(150%);backdrop-filter:blur(22px) saturate(150%);
   box-shadow:0 50px 120px -40px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.06);
-  transform:perspective(1600px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+  transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
   transition:transform .45s cubic-bezier(.2,.7,.2,1),border-color .3s}
 .tilt.hover{transition-duration:.12s,.3s;border-color:var(--stroke2)}
 .tilt::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;
-  background:radial-gradient(520px circle at var(--mx,50%) var(--my,0%),rgba(255,230,120,.11),transparent 45%)}
+  background:radial-gradient(520px circle at var(--mx,50%) var(--my,0%),rgba(255,230,120,.19),transparent 45%)}
 .tilt.hover::after{opacity:1}
 
 /* ---------- redeem card ---------- */
@@ -242,8 +242,7 @@ main,footer{position:relative;z-index:2}
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="mark" viewBox="0 0 64 64">
-    <path fill="currentColor" d="M32 13C33.6 24 40 30.4 51 32C40 33.6 33.6 40 32 51C30.4 40 24 33.6 13 32C24 30.4 30.4 24 32 13Z"/>
-    <path fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" d="M47 11v8M43 15h8"/>
+    <path fill="currentColor" d="M32 5C21 5 10 15 10 26L10 37C10 40 11 43 13 45L6 49C5 50 5.5 52 7 52H11C11 55 13.2 57 16 57C18.8 57 21 55 21 52H23C23.8 53.5 25.3 54.5 27 54.5H37C38.7 54.5 40.2 53.5 41 52H43C43 55 45.2 57 48 57C50.8 57 53 55 53 52H57C58.5 52 59 50 58 49L51 45C53 43 54 40 54 37L54 26C54 15 43 5 32 5Z"/>
   </symbol>
 </svg>
 
@@ -392,7 +391,7 @@ main,footer{position:relative;z-index:2}
 
   /* coin thickness: stacked layers between the two faces */
   const coin = $('.coin');
-  if (coin) for (let z = -9; z <= 9; z++) {
+  if (coin) for (let z = -3; z <= 3; z++) {
     const l = document.createElement('i');
     l.style.transform = 'translateZ(' + z + 'px)';
     coin.insertBefore(l, coin.firstChild);
@@ -479,7 +478,7 @@ main,footer{position:relative;z-index:2}
   /* falling Snap+ tiles, flipping in 3D, with depth + mouse parallax */
   const cv = $('#fx'), ctx = cv.getContext && cv.getContext('2d');
   if (!ctx) return;
-  const STAR = 'M32 13C33.6 24 40 30.4 51 32C40 33.6 33.6 40 32 51C30.4 40 24 33.6 13 32C24 30.4 30.4 24 32 13Z';
+  const STAR = 'M32 5C21 5 10 15 10 26L10 37C10 40 11 43 13 45L6 49C5 50 5.5 52 7 52H11C11 55 13.2 57 16 57C18.8 57 21 55 21 52H23C23.8 53.5 25.3 54.5 27 54.5H37C38.7 54.5 40.2 53.5 41 52H43C43 55 45.2 57 48 57C50.8 57 53 55 53 52H57C58.5 52 59 50 58 49L51 45C53 43 54 40 54 37L54 26C54 15 43 5 32 5Z';
   const rr = (g, x, y, w, h, r) => {
     g.beginPath(); g.moveTo(x + r, y);
     g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
@@ -502,8 +501,6 @@ main,footer{position:relative;z-index:2}
     g.fillStyle = gl; g.fillRect(0, 0, 64, 34); g.restore();
     const ink = back ? 'rgba(70,40,0,.35)' : '#0b0900';
     g.fillStyle = ink; g.fill(new Path2D(STAR));
-    g.strokeStyle = ink; g.lineWidth = 3.2; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(47, 11); g.lineTo(47, 19); g.moveTo(43, 15); g.lineTo(51, 15); g.stroke();
     return c;
   };
   const FRONT = sprite(false), BACK = sprite(true);
@@ -527,23 +524,25 @@ main,footer{position:relative;z-index:2}
     W = innerWidth; H = innerHeight;
     cv.width = W * dpr; cv.height = H * dpr;
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
-    const n = Math.round(Math.min(36, Math.max(12, W * H / 42000)));
+    const n = Math.round(Math.min(16, Math.max(5, W * H / 75000)));
     while (items.length < n) items.push(spawn({ z: .2 + .8 * Math.pow(Math.random(), 1.5) }, false));
     items.length = n;
     items.forEach(it => { it.s = (18 + 50 * it.z) * (W < 700 ? .72 : 1); });
     items.sort((a, b) => a.z - b.z);
-    const nd = Math.round(Math.min(90, W * H / 16000));
+    const nd = Math.round(Math.min(40, W * H / 32000));
     while (dots.length < nd) dots.push({ x: rand(0, W), y: rand(0, H), z: rand(.2, 1), tw: rand(0, 6.28) });
     dots.length = nd;
   };
   resize();
   addEventListener('resize', resize);
 
-  let mx = 0, my = 0, tx = 0, ty = 0, last = performance.now();
+  let mx = 0, my = 0, tx = 0, ty = 0, last = 0;
   addEventListener('pointermove', e => { tx = e.clientX / W - .5; ty = e.clientY / H - .5; }, { passive: true });
 
   const frame = now => {
-    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (!reduce) requestAnimationFrame(frame);
+    if (now - last < 30) return; // ~33fps cap
+    const dt = Math.min(.05, last ? (now - last) / 1000 : .016); last = now;
     mx += (tx - mx) * .05; my += (ty - my) * .05;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
@@ -572,7 +571,6 @@ main,footer{position:relative;z-index:2}
       ctx.drawImage(c >= 0 ? FRONT : BACK, -d / 2, -d / 2, d, d);
     }
     ctx.globalAlpha = 1;
-    if (!reduce) requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
 })();
