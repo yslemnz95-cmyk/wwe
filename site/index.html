@@ -232,6 +232,11 @@ main,footer{position:relative;z-index:2}
   .track-copy p{font-size:17px}
   .foot{margin-top:84px}
 }
+@media (max-width:720px){
+  .nav,.glass{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  .nav{background:rgba(20,16,5,.92)}
+  .glass{background:linear-gradient(160deg,rgba(40,32,7,.94),rgba(11,9,3,.97) 60%)}
+}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   html{scroll-behavior:auto}
@@ -524,12 +529,13 @@ main,footer{position:relative;z-index:2}
     W = innerWidth; H = innerHeight;
     cv.width = W * dpr; cv.height = H * dpr;
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
-    const n = Math.round(Math.min(16, Math.max(5, W * H / 75000)));
+    const small = W < 700;
+    const n = Math.round(Math.min(small ? 9 : 16, Math.max(4, W * H / 90000)));
     while (items.length < n) items.push(spawn({ z: .2 + .8 * Math.pow(Math.random(), 1.5) }, false));
     items.length = n;
-    items.forEach(it => { it.s = (18 + 50 * it.z) * (W < 700 ? .72 : 1); });
+    items.forEach(it => { it.s = (18 + 50 * it.z) * (small ? .72 : 1); });
     items.sort((a, b) => a.z - b.z);
-    const nd = Math.round(Math.min(40, W * H / 32000));
+    const nd = Math.round(Math.min(small ? 22 : 40, W * H / 40000));
     while (dots.length < nd) dots.push({ x: rand(0, W), y: rand(0, H), z: rand(.2, 1), tw: rand(0, 6.28) });
     dots.length = nd;
   };
@@ -539,7 +545,14 @@ main,footer{position:relative;z-index:2}
   let mx = 0, my = 0, tx = 0, ty = 0, last = 0;
   addEventListener('pointermove', e => { tx = e.clientX / W - .5; ty = e.clientY / H - .5; }, { passive: true });
 
+  let running = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) running = false;
+    else if (!reduce) { running = true; last = 0; requestAnimationFrame(frame); }
+  });
+
   const frame = now => {
+    if (!running) return;
     if (!reduce) requestAnimationFrame(frame);
     if (now - last < 30) return; // ~33fps cap
     const dt = Math.min(.05, last ? (now - last) / 1000 : .016); last = now;
