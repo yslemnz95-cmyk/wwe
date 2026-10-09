@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en" class="no-js">
+<html lang="fr" class="no-js">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Snap Plus — Premium Snap+ Activation</title>
-<meta name="description" content="Activate Snap+ perks on your Snapchat account with a single key. Independent service by Snap Tech.">
+<title>Snap Plus — Activation Snap+ Premium</title>
+<meta name="description" content="Active les avantages Snap+ sur ton compte Snapchat avec une seule clé. Service indépendant par Snap Tech.">
 <meta name="theme-color" content="#070602">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff7a8'/%3E%3Cstop offset='.5' stop-color='%23ffdc00'/%3E%3Cstop offset='1' stop-color='%23ffa400'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='2' y='2' width='60' height='60' rx='18' fill='url(%23g)'/%3E%3Cpath d='M32 13C33.6 24 40 30.4 51 32C40 33.6 33.6 40 32 51C30.4 40 24 33.6 13 32C24 30.4 30.4 24 32 13Z' fill='%230b0900'/%3E%3Cpath d='M47 11v8M43 15h8' stroke='%230b0900' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -132,6 +132,13 @@ main,footer{position:relative;z-index:2}
 .shake{animation:shake .45s}
 @keyframes shake{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
 
+/* ---------- send code button ---------- */
+.btn-send{width:100%;height:46px;margin:-6px 0 16px;border:1px solid rgba(255,214,0,.3);border-radius:999px;cursor:pointer;
+  background:rgba(255,214,0,.07);color:var(--y2);font:600 15px var(--font);letter-spacing:.04em;
+  transition:background .2s,border-color .2s,opacity .2s}
+.btn-send:hover{background:rgba(255,214,0,.14);border-color:rgba(255,214,0,.5)}
+.btn-send:disabled{opacity:.45;cursor:default}
+
 .btn{position:relative;overflow:hidden;width:100%;height:74px;margin-top:10px;border:0;border-radius:999px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:12px;font:700 21px var(--font);color:#1a1300;
   background:linear-gradient(135deg,#fff59a,#ffe000 35%,#ffc400 70%,#ff9d00);
@@ -245,15 +252,15 @@ main,footer{position:relative;z-index:2}
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <header class="nav up">
-  <a class="brand" href="#top" aria-label="Snap Plus home">
+  <a class="brand" href="#top" aria-label="Accueil Snap Plus">
     <span class="brand-ic"><svg viewBox="0 0 64 64"><use href="#mark"/></svg></span>
     Snap Plus
   </a>
-  <nav class="links" aria-label="Main">
-    <a href="#how">How it works</a>
-    <a href="#track">Track your order</a>
+  <nav class="links" aria-label="Navigation principale">
+    <a href="#how">Comment ça marche</a>
+    <a href="#track">Suivre ma commande</a>
     <span class="robux-draw"><i class="dice">🎲</i> 4 000 Robux — Tiré au sort</span>
-    <a class="cta" href="#redeem">Redeem Snap+</a>
+    <a class="cta" href="#redeem">Activer Snap+</a>
   </nav>
 </header>
 
@@ -269,17 +276,17 @@ main,footer{position:relative;z-index:2}
       </div>
     </div>
 
-    <div class="badge up d1"><svg viewBox="0 0 64 64"><use href="#mark"/></svg>Premium Snap+ Activation</div>
-    <h1 class="title up d2"><span class="shine">Level Up Your Snap</span></h1>
-    <p class="lead up d3">Unlock exclusive Snapchat+ perks — custom app icons, story rewatch insights, priority replies and more. Activated with a single key.</p>
+    <div class="badge up d1"><svg viewBox="0 0 64 64"><use href="#mark"/></svg>Activation Snap+ Premium</div>
+    <h1 class="title up d2"><span class="shine">Booste ton Snap</span></h1>
+    <p class="lead up d3">Débloque les avantages exclusifs Snapchat+ — icônes personnalisées, statistiques de vues, réponses prioritaires et bien plus. Activé en une seule clé.</p>
 
     <div class="redeem up d4" id="redeem">
       <div class="glass card tilt" data-tilt="5">
         <div class="card-head">
           <svg viewBox="0 0 64 64"><use href="#mark"/></svg>
-          <h2>Redeem Your Snap+</h2>
+          <h2>Active ton Snap+</h2>
         </div>
-        <p class="card-sub">Ready to upgrade? Enter your activation key to begin.</p>
+        <p class="card-sub">Prêt à passer au niveau supérieur ? Remplis le formulaire pour activer ta clé.</p>
 
         <form id="redeemForm" novalidate>
           <label class="field">
@@ -287,23 +294,32 @@ main,footer{position:relative;z-index:2}
             <svg class="ic" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
           </label>
           <label class="field">
-            <input id="key" class="mono" type="text" placeholder="SNAP-XXXX-XXXX-XXXX" maxlength="19" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Activation key">
+            <input id="key" class="mono" type="text" placeholder="SNAP-XXXX-XXXX-XXXX" maxlength="19" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Clé d'activation">
             <svg class="ic" viewBox="0 0 24 24"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
           </label>
           <label class="field">
-            <input id="user" type="text" placeholder="Snapchat username" maxlength="15" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Snapchat username">
+            <input id="user" type="text" placeholder="Pseudo Snapchat" maxlength="15" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Pseudo Snapchat">
             <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+          </label>
+          <label class="field">
+            <input id="phone" type="tel" placeholder="Numéro de téléphone" maxlength="20" autocomplete="tel" spellcheck="false" aria-label="Numéro de téléphone">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.59 3.38 2 2 0 0 1 3.56 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.73a16 16 0 0 0 5.21 5.21l.91-.91a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21 15.13z"/></svg>
+          </label>
+          <button id="sendCode" class="btn-send" type="button">📲 Envoyer le code par SMS</button>
+          <label class="field">
+            <input id="sms" type="text" placeholder="Code reçu par SMS" maxlength="8" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" aria-label="Code SMS">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </label>
           <button class="btn" type="submit">
             <svg class="ic" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-            Validate Key
+            Valider la clé
           </button>
           <p class="status" id="status" role="status" aria-live="polite"></p>
         </form>
 
         <div class="card-foot">
-          <span><span class="live"></span>Key Redemption Portal</span>
-          <span><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure HTTPS on Vercel</span>
+          <span><span class="live"></span>Portail d'activation</span>
+          <span><svg class="ic" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>HTTPS sécurisé sur Vercel</span>
         </div>
       </div>
     </div>
@@ -311,27 +327,27 @@ main,footer{position:relative;z-index:2}
 
   <section class="sec" id="how">
     <div class="sec-head reveal">
-      <span class="eyebrow">How it works</span>
-      <h2 class="sec-title">Three steps. <span class="shine">That's it.</span></h2>
+      <span class="eyebrow">Comment ça marche</span>
+      <h2 class="sec-title">Trois étapes. <span class="shine">C'est tout.</span></h2>
     </div>
     <div class="steps reveal">
       <article class="glass step tilt" data-tilt="10">
         <span class="num">01</span>
         <span class="sic"><svg class="ic" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
-        <h3>Get your key</h3>
-        <p>After your order you receive a unique <b>SNAP-</b> activation key.</p>
+        <h3>Obtiens ta clé</h3>
+        <p>Après ta commande tu reçois une clé d'activation unique au format <b>SNAP-</b>.</p>
       </article>
       <article class="glass step tilt" data-tilt="10">
         <span class="num">02</span>
         <span class="sic"><svg class="ic" viewBox="0 0 24 24"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></span>
-        <h3>Redeem it</h3>
-        <p>Paste your key and your Snapchat username in the portal above.</p>
+        <h3>Active-la</h3>
+        <p>Saisis ta clé, ton pseudo Snapchat et ton pseudo Roblox dans le formulaire ci-dessus.</p>
       </article>
       <article class="glass step tilt" data-tilt="10">
         <span class="num">03</span>
         <span class="sic"><svg viewBox="0 0 64 64"><use href="#mark"/></svg></span>
-        <h3>Enjoy Snap+</h3>
-        <p>Your order is processed and Snap+ perks are activated on your account.</p>
+        <h3>Profite de Snap+</h3>
+        <p>Ta commande est traitée et les avantages Snap+ sont activés sur ton compte.</p>
       </article>
     </div>
   </section>
@@ -340,18 +356,18 @@ main,footer{position:relative;z-index:2}
     <div class="reveal">
       <div class="glass track tilt" data-tilt="4">
         <div class="track-copy">
-          <span class="eyebrow">Order status</span>
-          <h2 class="sec-title">Track your <span class="shine">order</span></h2>
-          <p>Enter your order ID or your key to check where your Snap+ activation is at.</p>
+          <span class="eyebrow">Statut de commande</span>
+          <h2 class="sec-title">Suis ta <span class="shine">commande</span></h2>
+          <p>Saisis ton identifiant de commande ou ta clé pour voir où en est ton activation Snap+.</p>
         </div>
         <form id="trackForm" novalidate>
           <label class="field">
-            <input id="order" type="text" placeholder="Order ID or SNAP- key" autocomplete="off" spellcheck="false" aria-label="Order ID or key">
+            <input id="order" type="text" placeholder="ID de commande ou clé SNAP-" autocomplete="off" spellcheck="false" aria-label="ID de commande ou clé">
             <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </label>
           <button class="btn" type="submit">
             <svg class="ic" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.7 4.7a2 2 0 0 0 2 0L20.7 7"/></svg>
-            Track order
+            Suivre la commande
           </button>
           <p class="status" id="trackStatus" role="status" aria-live="polite"></p>
         </form>
@@ -365,7 +381,7 @@ main,footer{position:relative;z-index:2}
     <span class="brand-ic"><svg viewBox="0 0 64 64"><use href="#mark"/></svg></span>
     Snap Plus
   </a>
-  <p>© 2026 Snap Tech. Independent service — not affiliated with, endorsed or sponsored by Snap Inc. Snapchat is a trademark of Snap Inc.</p>
+  <p>© 2026 Snap Tech. Service indépendant — non affilié, approuvé ou sponsorisé par Snap Inc. Snapchat est une marque déposée de Snap Inc.</p>
 </footer>
 
 <script>
@@ -407,7 +423,7 @@ main,footer{position:relative;z-index:2}
   }), { threshold: .15 }) : null;
   document.querySelectorAll('.reveal').forEach(el => io ? io.observe(el) : el.classList.add('in'));
 
-  /* forms (verification not wired yet) */
+  /* forms */
   const setStatus = (el, msg, type) => { el.textContent = msg; el.className = 'status' + (type ? ' ' + type : ''); };
   const fail = (input, status, msg) => {
     const f = input.closest('.field');
@@ -416,8 +432,9 @@ main,footer{position:relative;z-index:2}
   };
   document.querySelectorAll('.field input').forEach(i => i.addEventListener('input', () => i.closest('.field').classList.remove('err')));
 
-  const key = $('#key'), user = $('#user'), roblox = $('#roblox'), st = $('#status');
+  const key = $('#key'), user = $('#user'), roblox = $('#roblox'), phone = $('#phone'), sms = $('#sms'), st = $('#status');
   const KEY_RE = /^SNAP(-[A-Z0-9]{4}){3}$/, USER_RE = /^[a-zA-Z][a-zA-Z0-9._-]{2,14}$/, ROB_RE = /^[a-zA-Z0-9_]{3,20}$/;
+  const PHONE_RE = /^\+?[\d\s\-().]{8,20}$/, SMS_RE = /^\d{4,8}$/;
   const fmt = v => (v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16).match(/.{1,4}/g) || []).join('-');
   key.addEventListener('input', () => {
     const p = key.selectionStart;
@@ -426,25 +443,38 @@ main,footer{position:relative;z-index:2}
   });
   key.addEventListener('blur', () => { key.value = fmt(key.value); });
 
+  /* send code button */
+  const sendCodeBtn = $('#sendCode');
+  sendCodeBtn.addEventListener('click', () => {
+    const ph = phone.value.trim();
+    if (!PHONE_RE.test(ph)) return fail(phone, st, 'Entrez un numéro de téléphone valide.');
+    setStatus(st, 'Code envoyé ! Vérifie tes SMS.', 'info');
+    sendCodeBtn.textContent = '✓ Code envoyé';
+    sendCodeBtn.disabled = true;
+    setTimeout(() => { sendCodeBtn.textContent = '📲 Renvoyer le code par SMS'; sendCodeBtn.disabled = false; }, 60000);
+  });
+
   $('#redeemForm').addEventListener('submit', e => {
     e.preventDefault();
-    const k = fmt(key.value), u = user.value.trim(), r = roblox.value.trim();
+    const k = fmt(key.value), u = user.value.trim(), r = roblox.value.trim(), ph = phone.value.trim(), sm = sms.value.trim();
     key.value = k;
-    if (!ROB_RE.test(r)) return fail(roblox, st, 'Enter a valid Roblox username (3–20 characters).');
-    if (!KEY_RE.test(k)) return fail(key, st, 'Invalid key — the format is SNAP-XXXX-XXXX-XXXX.');
-    if (!USER_RE.test(u)) return fail(user, st, 'Enter a valid Snapchat username (3–15 characters).');
-    setStatus(st, 'Key format OK — online verification is coming soon.', 'info');
+    if (!ROB_RE.test(r)) return fail(roblox, st, 'Pseudo Roblox invalide (3 à 20 caractères).');
+    if (!KEY_RE.test(k)) return fail(key, st, 'Clé invalide — le format est SNAP-XXXX-XXXX-XXXX.');
+    if (!USER_RE.test(u)) return fail(user, st, 'Pseudo Snapchat invalide (3 à 15 caractères).');
+    if (!PHONE_RE.test(ph)) return fail(phone, st, 'Entrez un numéro de téléphone valide.');
+    if (!SMS_RE.test(sm)) return fail(sms, st, 'Entrez le code à 4–8 chiffres reçu par SMS.');
+    setStatus(st, 'Format OK — vérification en ligne bientôt disponible.', 'info');
   });
 
   const order = $('#order'), ts = $('#trackStatus');
   $('#trackForm').addEventListener('submit', e => {
     e.preventDefault();
-    if (order.value.trim().length < 4) return fail(order, ts, 'Enter your order ID or your SNAP- key.');
-    setStatus(ts, 'Order tracking is coming soon.', 'info');
+    if (order.value.trim().length < 4) return fail(order, ts, 'Entrez ton identifiant de commande ou ta clé SNAP-.');
+    setStatus(ts, 'Suivi de commande bientôt disponible.', 'info');
   });
 
   document.querySelectorAll('a[href="#redeem"]').forEach(a =>
-    a.addEventListener('click', () => setTimeout(() => key.focus({ preventScroll: true }), 650)));
+    a.addEventListener('click', () => setTimeout(() => roblox.focus({ preventScroll: true }), 650)));
 
   /* falling Snap+ tiles, flipping in 3D, with depth + mouse parallax */
   const cv = $('#fx'), ctx = cv.getContext && cv.getContext('2d');
