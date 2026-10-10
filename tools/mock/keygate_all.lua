@@ -126,7 +126,7 @@ local function newInst(class, parent)
 	o.Changed = signal(); o.Destroying = signal()
 	o.MouseButton1Click = signal(); o.MouseButton1Down = signal(); o.MouseButton1Up = signal(); o.MouseLeave = signal()
 	o.InputBegan = signal(); o.InputEnded = signal(); o.InputChanged = signal(); o.Activated = signal()
-	o.ChildAdded = signal(); o.FocusLost = signal(); o.Focused = signal()
+	o.ChildAdded = signal(); o.FocusLost = signal(); o.Focused = signal(); o.MouseEnter = signal()
 	if class == "Part" or class == "MeshPart" then
 		o.CFrame = cf(0,0,0); o.Size = v3(4,4,4); o.AssemblyLinearVelocity = v3(0,0,0); o.AssemblyAngularVelocity = v3(0,0,0); o.CanCollide = true; o.Anchored = false; o.CanQuery = true
 	end

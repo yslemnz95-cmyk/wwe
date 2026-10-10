@@ -79,6 +79,9 @@ advance(0.5)
 local gui = lib.Gui
 local main = gui:FindFirstChild("Main")
 check("main window exists", main ~= nil)
+local veil = main and main:FindFirstChild("Veil")
+check("opening: veil fades out", veil ~= nil and veil.BackgroundTransparency == 1)
+check("opening: window visible after the effect", main.Visible == true)
 check("main window widened", main.Size.X.Offset >= 400)
 check("no separate steal window", gui:FindFirstChild("SourcesHubSteal") == nil)
 check("no separate events window", gui:FindFirstChild("SourcesHubEvents") == nil)
@@ -214,6 +217,17 @@ check("main restored", main.Visible == true)
 lib.Notify("t", "text", 1); lib.Banner("banner", 1); lib.RiskBadge("risk", "txt", 1)
 lib.Splash({{Text = "ok", Ok = true}, {Text = "bad", Ok = false}})
 advance(1.2)
+
+-- closing effect: veil comes in, then the hub unloads and the gui is destroyed
+local unloaded = false
+lib.OnUnload = function() unloaded = true end
+local closeBtn = find(main, function(d) return d.ClassName == "TextButton" and d.Text == "X" end)
+closeBtn.MouseButton1Click:Fire()
+advance(0.1)
+check("closing: veil is coming in", veil.BackgroundTransparency < 1)
+check("closing: still not unloaded mid-effect", unloaded == false and gui.Parent ~= nil)
+advance(0.5)
+check("closing: hub unloaded and gui destroyed", unloaded == true and gui.Parent == nil)
 
 check("no runtime warnings", #M.warnings == 0)
 for _, wmsg in ipairs(M.warnings) do print(wmsg) end

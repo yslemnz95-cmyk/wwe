@@ -1049,6 +1049,13 @@ end
 			bgImg.Size = UDim2.fromOffset(bgSize, bgSize)
 			bgImg.ZIndex = 1
 		end
+		local veil
+		if cfg.isMain then
+			veil = Instance.new("Frame", frame)
+			veil.Name = "Veil"; veil.Size = UDim2.new(1, 0, 1, 0)
+			veil.BackgroundColor3 = C.BG; veil.BackgroundTransparency = 1; veil.BorderSizePixel = 0; veil.ZIndex = 900
+			corner(veil, 8)
+		end
 
 		local header, moon, title, close, mini, sep, tabBar, content, footerRight
 		local contentX, bodyTopV = 0, 46
@@ -1533,13 +1540,23 @@ end
 			if on and minimized and not cfg.isMain then minimized = false; mini.Text = "-" end
 			if on then
 				zTop = zTop + 1; frame.ZIndex = zTop
-				winScale.Scale = 0.9
+				winScale.Scale = veil and 0.84 or 0.9
 				frame.Visible = true
+				if veil then
+					veil.BackgroundTransparency = 0
+					TweenService:Create(veil, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+				end
 				TweenService:Create(winScale, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 			elseif frame.Visible then
-				TweenService:Create(winScale, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.88}):Play()
-				task.delay(0.17, function()
-					if closing == mine then frame.Visible = false; winScale.Scale = 1 end
+				if veil then
+					TweenService:Create(veil, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 0}):Play()
+				end
+				TweenService:Create(winScale, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Scale = veil and 0.82 or 0.88}):Play()
+				task.delay(0.21, function()
+					if closing == mine then
+						frame.Visible = false; winScale.Scale = 1
+						if veil then veil.BackgroundTransparency = 1 end
+					end
 				end)
 			end
 			w.wantOpen = on
@@ -1554,8 +1571,16 @@ end
 		function w.IsOpen() return frame.Visible and w.wantOpen ~= false end
 		close.MouseButton1Click:Connect(function()
 			if cfg.isMain then
-				pcall(function() if lib.OnUnload then lib.OnUnload() end end)
-				gui:Destroy()
+				if w.closingNow then return end
+				w.closingNow = true
+				if veil then
+					TweenService:Create(veil, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 0}):Play()
+				end
+				TweenService:Create(winScale, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Scale = 0.8}):Play()
+				task.delay(lib.NoAnim and 0 or 0.26, function()
+					pcall(function() if lib.OnUnload then lib.OnUnload() end end)
+					gui:Destroy()
+				end)
 			else
 				setMinimized(true)
 			end
@@ -2287,6 +2312,7 @@ end
 		lib.UI = {C = C, corner = corner, stroke = stroke, label = label, liveGrad = liveGrad,
 			addLivingStroke = addLivingStroke, makeSwitch = makeSwitch, gui = gui, Tween = TweenService, drag = drag}
 		lib.mainWindow = main
+		main.frame.Visible = false
 		local w = setmetatable({main = main, events = events}, Win)
 		w.defaultTab = setmetatable(main.AddTab(cfg.DefaultTab or "Main"), Tab)
 		w.defaultTab.window = main
@@ -2437,7 +2463,7 @@ end
 		local main = lib.mainWindow
 		buildConfigTab()
 		main.Select((cfg and cfg.MainTab and cfg.MainTab.name) or main.order[1])
-		main.frame.Visible = true
+		main.SetOpen(true)
 		buildDock()
 		
 		task.delay(3, function() lib.ParticlesOn = true end)
@@ -2537,6 +2563,9 @@ advance(0.5)
 local gui = lib.Gui
 local main = gui:FindFirstChild("Main")
 check("main window exists", main ~= nil)
+local veil = main and main:FindFirstChild("Veil")
+check("opening: veil fades out", veil ~= nil and veil.BackgroundTransparency == 1)
+check("opening: window visible after the effect", main.Visible == true)
 check("main window widened", main.Size.X.Offset >= 400)
 check("no separate steal window", gui:FindFirstChild("SourcesHubSteal") == nil)
 check("no separate events window", gui:FindFirstChild("SourcesHubEvents") == nil)
@@ -2672,6 +2701,17 @@ check("main restored", main.Visible == true)
 lib.Notify("t", "text", 1); lib.Banner("banner", 1); lib.RiskBadge("risk", "txt", 1)
 lib.Splash({{Text = "ok", Ok = true}, {Text = "bad", Ok = false}})
 advance(1.2)
+
+-- closing effect: veil comes in, then the hub unloads and the gui is destroyed
+local unloaded = false
+lib.OnUnload = function() unloaded = true end
+local closeBtn = find(main, function(d) return d.ClassName == "TextButton" and d.Text == "X" end)
+closeBtn.MouseButton1Click:Fire()
+advance(0.1)
+check("closing: veil is coming in", veil.BackgroundTransparency < 1)
+check("closing: still not unloaded mid-effect", unloaded == false and gui.Parent ~= nil)
+advance(0.5)
+check("closing: hub unloaded and gui destroyed", unloaded == true and gui.Parent == nil)
 
 check("no runtime warnings", #M.warnings == 0)
 for _, wmsg in ipairs(M.warnings) do print(wmsg) end
