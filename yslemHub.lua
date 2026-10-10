@@ -29286,6 +29286,7 @@ do
 		local obj = setmetatable({}, { __mode = "k" })
 		local tbl17 = {}
 		local connection = nil
+		local optimizerPausedAnim = false
 
 		local function slicedfn20(arg, arg2, arg3)
 			local ok, result = pcall(arg)
@@ -29320,6 +29321,10 @@ do
 			end)
 		end
 
+		local function ownChar()
+			return game:GetService("Players").LocalPlayer.Character or workspace
+		end
+
 		local function slicedfn22(arg)
 			if not flag5 or not arg.Parent then
 				return
@@ -29343,13 +29348,26 @@ do
 				if not (arg.Name == "face" and arg.Parent and arg.Parent.Name == "Head") then
 					slicedfn21(arg, "Transparency", 1)
 				end
+			elseif arg:IsA("Shirt") then
+				if not arg:IsDescendantOf(ownChar()) then slicedfn21(arg, "ShirtTemplate", "") end
+			elseif arg:IsA("Pants") then
+				if not arg:IsDescendantOf(ownChar()) then slicedfn21(arg, "PantsTemplate", "") end
+			elseif arg:IsA("ShirtGraphic") then
+				if not arg:IsDescendantOf(ownChar()) then slicedfn21(arg, "Graphic", "") end
 			elseif arg:IsA("MeshPart") then
+				if arg.Parent and arg.Parent:IsA("Accessory") and not arg:IsDescendantOf(ownChar()) then
+					-- hats / wings of other players cost a lot in a full server
+					slicedfn21(arg, "Transparency", 1)
+				end
 				slicedfn21(arg, "RenderFidelity", Enum.RenderFidelity.Performance)
 				slicedfn21(arg, "TextureID", "")
 				slicedfn21(arg, "CastShadow", false)
 				slicedfn21(arg, "Reflectance", 0)
 				slicedfn21(arg, "Material", Enum.Material.SmoothPlastic)
 			elseif arg:IsA("BasePart") then
+				if arg.Parent and arg.Parent:IsA("Accessory") and not arg:IsDescendantOf(ownChar()) then
+					slicedfn21(arg, "Transparency", 1)
+				end
 				slicedfn21(arg, "CastShadow", false)
 				slicedfn21(arg, "Reflectance", 0)
 				slicedfn21(arg, "Material", Enum.Material.SmoothPlastic)
@@ -29540,10 +29558,30 @@ do
 			Default = false,
 			Callback = function(arg)
 				if arg then
+					-- the hub's own animated strokes are paused too while the Optimizer is on
+					if MoonLib.AnimUser ~= false then
+						MoonLib.AnimUser = false
+						optimizerPausedAnim = true
+					end
 					slicedfn29()
 				else
+					if optimizerPausedAnim then
+						optimizerPausedAnim = false
+						if MoonLib.AnimUser == false then MoonLib.AnimUser = true end
+					end
 					task.spawn(slicedfn28)
 				end
+			end,
+		})
+
+		sliced14:CreateToggle({
+			Name = "Render Off (AFK)",
+			Note = "Turns the 3D view off (black screen) for the lowest CPU/GPU use while the hub keeps working",
+			Default = false,
+			Callback = function(arg)
+				pcall(function()
+					RunService:Set3dRenderingEnabled(arg ~= true)
+				end)
 			end,
 		})
 	end
