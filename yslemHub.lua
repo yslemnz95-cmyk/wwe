@@ -4942,7 +4942,7 @@ do
 				end
 
 				if type(setfpscap) == "function" then
-					pcall(setfpscap, math.clamp(math.floor(normal), 5, 1000))
+					pcall(setfpscap, normal >= 245 and 1000 or math.clamp(math.floor(normal), 5, 1000))
 				end
 			end,
 		}
@@ -29270,11 +29270,30 @@ do
 		end,
 	})
 
-	
+	do
+		-- user FPS cap: 30..240, 245 = unlimited (the delivery dip of Instant TP restores this value afterwards)
+		local ready = false
+		local function applyCap(v)
+			v = tonumber(v) or 240
+			if type(setfpscap) ~= "function" then return end
+			if tbl4.CarryCap and tbl4.CarryCap.Active then return end
+			pcall(setfpscap, v >= 245 and 1000 or math.clamp(math.floor(v), 30, 240))
+		end
+		tbl4.FpsCapHandle = sliced14:CreateSlider({
+			Name = "FPS Cap",
+			Note = "Limits the frame rate to save battery and heat (max = unlimited)",
+			Min = 30,
+			Max = 245,
+			Default = 245,
+			AllowDecimals = false,
+			Increment = 5,
+			Callback = function(arg)
+				if ready then applyCap(arg) end
+			end,
+		})
+		task.defer(function() ready = true end)
+	end
 
-	
-
-	
 	do
 		local Lighting = game:GetService("Lighting")
 		local slicedn14 = 0.003
