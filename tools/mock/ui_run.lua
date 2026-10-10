@@ -109,12 +109,27 @@ check("tabs Farm/Steal/Event/Config present", bFarm and bSteal and bEvent and bC
 check("raw names are not shown", not hasText(side, "StealPanel") and not hasText(side, "Events"))
 check("order Farm < Steal < Event < Config", bFarm.LayoutOrder < bSteal.LayoutOrder and bSteal.LayoutOrder < bEvent.LayoutOrder and bEvent.LayoutOrder < bConfig.LayoutOrder)
 check("tabs have no drawn icons", not bSteal:FindFirstChild("Icon") and not bEvent:FindFirstChild("Icon") and not bConfig:FindFirstChild("Icon"))
+check("tab buttons have the living stroke and gradient text", (function()
+	for _, b in ipairs({bFarm, bSteal, bEvent, bConfig}) do
+		local lb = find(b, function(d) return d.ClassName == "TextLabel" end)
+		if not (find(b, function(d) return d.ClassName == "UIStroke" end) and lb and find(lb, function(d) return d.ClassName == "UIGradient" end)) then return false end
+	end
+	return true
+end)())
+local whites = {}
+for _, d in ipairs(main:GetDescendants()) do
+	if (d.ClassName == "TextLabel" or d.ClassName == "TextButton" or d.ClassName == "TextBox") and d.Text ~= "" and d.Text ~= "\226\156\147" then
+		local c = d.TextColor3
+		if c.R >= 0.78 and c.G >= 0.78 and c.B >= 0.78 and not d:FindFirstChildOfClass("UIGradient") then whites[#whites + 1] = d.Name .. ":" .. d.Text end
+	end
+end
+check("no plain white writing left (" .. table.concat(whites, " | ") .. ")", #whites == 0)
 check("footer shows the hint and live stats", hasText(main, "RightShift to hide") and hasText(main, "60 FPS   0 ms"))
 
 -- search box filters the rows of the current tab
 local search = find(main, function(d) return d.Name == "Search" and d.ClassName == "TextBox" end)
 check("search box in the header (right side)", search ~= nil and search.Parent ~= nil and search.Parent.Name ~= "SideTabs" and find(side, function(d) return d.Name == "Search" end) == nil)
-check("search bar has a living stroke and a magnifier", find(search.Parent, function(d) return d.ClassName == "UIStroke" end) ~= nil and search.Parent.Name == "SearchBar" and search.TextSize >= 13 and search.Parent.Size.Y.Offset >= 28)
+check("search bar has a living stroke and a magnifier", find(search.Parent, function(d) return d.ClassName == "UIStroke" end) ~= nil and search.Parent.Name == "SearchBar" and search.TextSize >= 12 and search.Parent.Size.Y.Offset >= 22 and search.Parent.Size.X.Offset <= 150)
 check("page transition api", type(lib.mainWindow.Transition) == "function")
 lib.mainWindow.Select("StealPanel"); lib.mainWindow.Select("Farm"); advance(0.5)
 check("page veil + sweep exist", find(main, function(d) return d.Name == "PageVeil" end) ~= nil and find(main, function(d) return d.Name == "PageSweep" end) ~= nil)
@@ -214,8 +229,12 @@ check("invalid import is refused", hasText(cfgPage, "That is not a valid config"
 lib.mainWindow.Select("Farm"); advance(0.3)
 
 -- main minimise / restore
-lib.mainWindow.SetMinimized(true); advance(0.4)
+local fr = lib.mainWindow.frame
+local posBefore = fr.Position
+lib.mainWindow.SetMinimized(true); advance(0.5)
+check("minimized pill is centered at the top", fr.Position.X.Scale == 0.5 and fr.Position.X.Offset == -84 and fr.Position.Y.Scale == 0)
 lib.mainWindow.SetMinimized(false); advance(0.4)
+check("window goes back to its place after the pill", fr.Position.X.Offset == posBefore.X.Offset and fr.Position.Y.Offset == posBefore.Y.Offset)
 check("main restored", main.Visible == true)
 
 lib.Notify("t", "text", 1); lib.Banner("banner", 1); lib.RiskBadge("risk", "txt", 1)
@@ -230,7 +249,11 @@ closeBtn.MouseButton1Click:Fire()
 advance(0.1)
 check("closing: veil is coming in", veil.BackgroundTransparency < 1)
 check("closing: still not unloaded mid-effect", unloaded == false and gui.Parent ~= nil)
-advance(0.5)
+local ws = find(main, function(d) return d.ClassName == "UIScale" and d.Parent == main end)
+check("closing: window is being sucked in (shrinking)", ws == nil or ws.Scale < 1)
+advance(0.2)
+check("closing: still animating at 0.3s", gui.Parent ~= nil)
+advance(2.4)
 check("closing: hub unloaded and gui destroyed", unloaded == true and gui.Parent == nil)
 
 check("no runtime warnings", #M.warnings == 0)

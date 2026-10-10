@@ -53,7 +53,7 @@ CFrame = {new = cf, Angles = function() return cf(0,0,0) end, lookAt = function(
 
 UDim2 = {new = function(a,b,c,d) return {XS=a,XO=b,YS=c,YO=d, X={Scale=a,Offset=b}, Y={Scale=c,Offset=d}} end, fromOffset = function(a,b) return {X={Scale=0,Offset=a},Y={Scale=0,Offset=b}} end}
 UDim = {new = function(a,b) return {Scale=a,Offset=b} end}
-Color3 = {fromRGB = function(r,g,b) return {R=r,G=g,B=b} end, new = function(r,g,b) return {R=r,G=g,B=b} end}
+Color3 = {fromRGB = function(r,g,b) return {R=r/255,G=g/255,B=b/255} end, new = function(r,g,b) return {R=r,G=g,B=b} end}
 ColorSequence = {new = function(...) return {...} end}
 ColorSequenceKeypoint = {new = function(t, c) return {Time=t, Value=c} end}
 TweenInfo = {new = function(...) return {...} end}

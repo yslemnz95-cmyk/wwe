@@ -53,7 +53,7 @@ CFrame = {new = cf, Angles = function() return cf(0,0,0) end, lookAt = function(
 
 UDim2 = {new = function(a,b,c,d) return {XS=a,XO=b,YS=c,YO=d, X={Scale=a,Offset=b}, Y={Scale=c,Offset=d}} end, fromOffset = function(a,b) return {X={Scale=0,Offset=a},Y={Scale=0,Offset=b}} end}
 UDim = {new = function(a,b) return {Scale=a,Offset=b} end}
-Color3 = {fromRGB = function(r,g,b) return {R=r,G=g,B=b} end, new = function(r,g,b) return {R=r,G=g,B=b} end}
+Color3 = {fromRGB = function(r,g,b) return {R=r/255,G=g/255,B=b/255} end, new = function(r,g,b) return {R=r,G=g,B=b} end}
 ColorSequence = {new = function(...) return {...} end}
 ColorSequenceKeypoint = {new = function(t, c) return {Time=t, Value=c} end}
 TweenInfo = {new = function(...) return {...} end}
@@ -488,6 +488,7 @@ local function stroke(inst, col, th, tr)
 	s.Color = col or C.BORDER; s.Thickness = th or 1; s.Transparency = tr or 0
 	return s
 end
+local styleText
 local function label(parent, text, size, color, font, ax, ay)
 	local l = Instance.new("TextLabel", parent)
 	l.BackgroundTransparency = 1
@@ -497,6 +498,7 @@ local function label(parent, text, size, color, font, ax, ay)
 	l.Font = font or Enum.Font.GothamMedium
 	l.TextXAlignment = ax or Enum.TextXAlignment.Left
 	l.TextYAlignment = ay or Enum.TextYAlignment.Center
+	styleText(l)
 	return l
 end
 
@@ -554,6 +556,8 @@ local function registerLive(g, inst)
 	end
 end
 local function liveGrad(inst, animated, sweep)
+	local old = inst:FindFirstChild("TextGrad")
+	if old then old:Destroy() end
 	local g = Instance.new("UIGradient", inst)
 	g.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0,    C.DEEP4), ColorSequenceKeypoint.new(0.25, C.DEEP3),
@@ -579,6 +583,57 @@ local function addLivingStroke(parent, thickness, animated, sweep)
 	TH.reg(s, "stroke"); TH.reg(g, "strokegrad")
 	return s
 end
+-- yslemStyle text: near-white writing gets the red gradient (shimmering while its page is on screen)
+local _textG = {}
+local _textTick = 0
+lib.Shimmer = function(g) _sweep[#_sweep + 1] = g end
+local function nearWhite(c)
+	return c.R >= 0.78 and c.G >= 0.78 and c.B >= 0.78
+end
+styleText = function(inst, force)
+	if inst:FindFirstChildOfClass("UIGradient") then return end
+	if not force and inst.Text == "\226\156\147" then return end
+	if not force and not nearWhite(inst.TextColor3) then return end
+	local g = Instance.new("UIGradient", inst)
+	g.Name = "TextGrad"
+	local a, b = C.MOON2, Color3.fromRGB(255, 176, 176)
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(0.25, b), ColorSequenceKeypoint.new(0.5, a),
+		ColorSequenceKeypoint.new(0.75, b), ColorSequenceKeypoint.new(1, a)})
+	if not force then
+		inst:GetPropertyChangedSignal("TextColor3"):Connect(function()
+			g.Enabled = nearWhite(inst.TextColor3)
+		end)
+	end
+	_textG[#_textG + 1] = {g = g}
+	return g
+end
+RunService.RenderStepped:Connect(function()
+	_textTick = _textTick + 1
+	if _textTick % 4 ~= 0 or lib.AnimUser == false or lib.AnimAuto == false or lib.NoAnim then return end
+	local t = os.clock()
+	for k = #_textG, 1, -1 do
+		local e = _textG[k]
+		local g = e.g
+		if not g.Parent then
+			table.remove(_textG, k)
+		else
+			if e.root == nil then
+				local page, root = false, g.Parent
+				local p = g.Parent.Parent
+				while p and not p:IsA("ScreenGui") do
+					if not page and p:IsA("ScrollingFrame") then page = p end
+					root = p
+					p = p.Parent
+				end
+				e.page, e.root = page, root
+			end
+			if e.root.Visible and (not e.page or e.page.Visible) then
+				g.Offset = Vector2.new(math.sin(t * 1.3 + k * 0.37) * 0.8, 0)
+			end
+		end
+	end
+end)
 -- press feedback shared by every button of the hub
 local function pressFx(btn)
 	local sc = Instance.new("UIScale"); sc.Parent = btn
@@ -863,7 +918,7 @@ end
 			f.BackgroundColor3 = C.BG; f.BackgroundTransparency = 0.35
 			f.BorderSizePixel = 0; f.ZIndex = 920
 			f.Text = tostring(text or ""); f.Font = Enum.Font.GothamBold; f.TextSize = 10
-			f.TextColor3 = C.WHITE
+			f.TextColor3 = C.WHITE; styleText(f)
 			local pad = Instance.new("UIPadding", f)
 			pad.PaddingLeft = UDim.new(0, 12); pad.PaddingRight = UDim.new(0, 12)
 			corner(f, 12); addLivingStroke(f, 1.2); liveGrad(f)
@@ -1065,7 +1120,7 @@ end
 			header.Size = UDim2.new(1, 0, 0, 42)
 			header.BackgroundColor3 = C.HEADER; header.BorderSizePixel = 0
 			corner(header, 8)
-			local SW = math.clamp(cfg.w - 40 - 110 - 72, 118, 196)
+			local SW = math.clamp(cfg.w - 40 - 110 - 72, 96, 140)
 			moon = Instance.new("ImageLabel", header)
 			moon.Size = UDim2.new(0, 24, 0, 24); moon.Position = UDim2.new(0, 9, 0.5, -12)
 			moon.BackgroundTransparency = 1; moon.BorderSizePixel = 0
@@ -1103,26 +1158,27 @@ end
 			mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
 			mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
 			corner(mini, 6); addLivingStroke(mini, 1); pressFx(mini)
-			local SH = 30
+			local SH = 24
 			local bar = Instance.new("Frame", header)
 			bar.Name = "SearchBar"; bar.ZIndex = 50
 			bar.Size = UDim2.new(0, SW, 0, SH); bar.Position = UDim2.new(1, -(56 + 8 + SW), 0.5, -SH / 2)
 			bar.BackgroundColor3 = Color3.fromRGB(34, 8, 10); bar.BorderSizePixel = 0
-			corner(bar, 15); addLivingStroke(bar, 1.5, true, true)
+			corner(bar, 12); addLivingStroke(bar, 1.3, true, true)
 			local lens = Instance.new("Frame", bar)
-			lens.ZIndex = 51; lens.Size = UDim2.fromOffset(11, 11); lens.Position = UDim2.new(0, 10, 0.5, -7)
+			lens.ZIndex = 51; lens.Size = UDim2.fromOffset(9, 9); lens.Position = UDim2.new(0, 8, 0.5, -6)
 			lens.BackgroundTransparency = 1; lens.BorderSizePixel = 0
-			corner(lens, 6); stroke(lens, C.MOON2, 1.6)
+			corner(lens, 5); stroke(lens, C.MOON2, 1.5)
 			local handle = Instance.new("Frame", bar)
-			handle.ZIndex = 51; handle.Size = UDim2.fromOffset(6, 2); handle.Position = UDim2.new(0, 19, 0.5, 4)
+			handle.ZIndex = 51; handle.Size = UDim2.fromOffset(5, 2); handle.Position = UDim2.new(0, 15, 0.5, 3)
 			handle.Rotation = 45; handle.BackgroundColor3 = C.MOON2; handle.BorderSizePixel = 0
 			local search = Instance.new("TextBox", bar)
 			search.Name = "Search"; search.ZIndex = 52
-			search.Size = UDim2.new(1, -36, 1, 0); search.Position = UDim2.new(0, 30, 0, 0)
+			search.Size = UDim2.new(1, -30, 1, 0); search.Position = UDim2.new(0, 24, 0, 0)
 			search.BackgroundTransparency = 1; search.BorderSizePixel = 0
 			search.PlaceholderText = "Search..."; search.PlaceholderColor3 = Color3.fromRGB(200, 150, 150)
-			search.Text = ""; search.TextColor3 = Color3.fromRGB(255, 255, 255); search.TextSize = 14; search.Font = Enum.Font.GothamBold
+			search.Text = ""; search.TextColor3 = Color3.fromRGB(255, 255, 255); search.TextSize = 12; search.Font = Enum.Font.GothamBold
 			search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
+			styleText(search)
 			search.ClipsDescendants = true
 			search:GetPropertyChangedSignal("Text"):Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
 			search.FocusLost:Connect(function()
@@ -1132,7 +1188,7 @@ end
 			end)
 			search.Focused:Connect(function()
 				TweenService:Create(bar, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, SW + 48, 0, SH), Position = UDim2.new(1, -(56 + 8 + SW + 48), 0.5, -SH / 2)}):Play()
+					Size = UDim2.new(0, SW + 30, 0, SH), Position = UDim2.new(1, -(56 + 8 + SW + 30), 0.5, -SH / 2)}):Play()
 			end)
 			w.search = bar
 			w.searchBox = search
@@ -1158,7 +1214,8 @@ end
 				local sideLine = Instance.new("Frame", frame)
 				sideLine.Name = "SideLine"
 				sideLine.Size = UDim2.new(0, 1, 1, -(44 + footerH)); sideLine.Position = UDim2.new(0, contentX, 0, 44)
-				sideLine.BackgroundColor3 = C.BORDER; sideLine.BorderSizePixel = 0
+				sideLine.BackgroundColor3 = C.WHITE; sideLine.BorderSizePixel = 0
+				liveGrad(sideLine, true, true)
 				w.sideLine = sideLine
 				w.tabBar = tabBar
 			end
@@ -1166,13 +1223,23 @@ end
 			content.Size = UDim2.new(1, -contentX, 1, -(46 + footerH)); content.Position = UDim2.new(0, contentX, 0, 46)
 			content.BackgroundTransparency = 1; content.ClipsDescendants = true
 			w.content = content
+			if content.DescendantAdded then
+				content.DescendantAdded:Connect(function(d)
+					if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+						task.defer(function()
+							if d.Parent and d.Text ~= "" then styleText(d) end
+						end)
+					end
+				end)
+			end
 
 			local footer = Instance.new("Frame", frame)
 			footer.Name = "Footer"
 			footer.Size = UDim2.new(1, 0, 0, footerH); footer.Position = UDim2.new(0, 0, 1, -footerH)
 			footer.BackgroundColor3 = C.HEADER; footer.BackgroundTransparency = 0.1; footer.BorderSizePixel = 0
 			local fline = Instance.new("Frame", footer)
-			fline.Size = UDim2.new(1, 0, 0, 1); fline.BackgroundColor3 = C.BORDER; fline.BorderSizePixel = 0
+			fline.Size = UDim2.new(1, 0, 0, 1); fline.BackgroundColor3 = C.WHITE; fline.BorderSizePixel = 0
+			liveGrad(fline, true, true)
 			local fl = label(footer, "RightShift to hide", UDim2.new(0.5, -10, 1, 0), C.DIM, Enum.Font.GothamMedium)
 			fl.Position = UDim2.new(0, 10, 0, 0); fl.TextSize = 8.5
 			footerRight = label(footer, "60 FPS   0 ms", UDim2.new(0.5, -10, 1, 0), C.MOON2, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
@@ -1214,6 +1281,7 @@ end
 		ovClear.Size = UDim2.new(0, 46, 0, 20); ovClear.Position = UDim2.new(1, -104, 0, 3)
 		ovClear.BackgroundColor3 = Color3.fromRGB(24, 26, 35); ovClear.Text = "Clear"; ovClear.TextSize = 10
 		ovClear.TextColor3 = C.SILVER; ovClear.Font = Enum.Font.GothamBold; ovClear.BorderSizePixel = 0; ovClear.ZIndex = 301
+		styleText(ovClear)
 		corner(ovClear, 8); addLivingStroke(ovClear, 1); pressFx(ovClear)
 		local ovDone = Instance.new("TextButton", ovHead)
 		ovDone.Size = UDim2.new(0, 46, 0, 20); ovDone.Position = UDim2.new(1, -54, 0, 3)
@@ -1523,8 +1591,9 @@ end
 					hudLabel.Text = hudFps .. " FPS   " .. hudPing .. " ms"
 					hudLabel.Visible = true; hudHint.Visible = true
 					header.BackgroundTransparency = 1
-					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, 168, 0, 42), BackgroundTransparency = 0.12}):Play()
+					w.restorePos = frame.Position
+					TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+						Size = UDim2.new(0, 168, 0, 42), Position = UDim2.new(0.5, -84, 0, 12), BackgroundTransparency = 0.12}):Play()
 				else
 					hudLabel.Visible = false; hudHint.Visible = false
 					title.Visible = true; mini.Visible = true; close.Visible = true; bgImg.Visible = true
@@ -1532,8 +1601,8 @@ end
 					if w.search then w.search.Visible = true end
 					if subtitle then subtitle.Visible = true end
 					header.BackgroundTransparency = 0
-					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
-						Size = UDim2.new(0, cfg.w, 0, fullH), BackgroundTransparency = 0}):Play()
+					TweenService:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+						Size = UDim2.new(0, cfg.w, 0, fullH), Position = w.restorePos or cfg.pos, BackgroundTransparency = 0}):Play()
 					content.Visible = true; sep.Visible = true
 					if tabBar then tabBar.Visible = true end
 					if w.sideLine then w.sideLine.Visible = true end
@@ -1611,22 +1680,56 @@ end
 			end
 		end
 		function w.IsOpen() return frame.Visible and w.wantOpen ~= false end
+		local function suckClose()
+			if w.closingNow then return end
+			w.closingNow = true
+			local function finish()
+				if w.finished then return end
+				w.finished = true
+				pcall(function() if lib.OnUnload then lib.OnUnload() end end)
+				pcall(function()
+					local genv = typeof(getgenv) == "function" and getgenv() or _G
+					if type(genv.SourcesHubSaeCleanup) == "function" then genv.SourcesHubSaeCleanup() end
+				end)
+				pcall(function() gui:Destroy() end)
+			end
+			task.delay(1.8, finish)
+			if lib.NoAnim then finish(); return end
+			task.spawn(function()
+				local ok = pcall(function()
+					ov.Visible = false
+					local block = Instance.new("TextButton", frame)
+					block.Size = UDim2.new(1, 0, 1, 0); block.BackgroundTransparency = 1; block.Text = ""; block.ZIndex = 950
+					local sx, sy = frame.Size.X.Offset, frame.Size.Y.Offset
+					local p0 = frame.Position
+					local ax, ay = p0.X.Offset + sx / 2, p0.Y.Offset + sy / 2
+					frame.AnchorPoint = Vector2.new(0.5, 0.5)
+					frame.Position = UDim2.new(p0.X.Scale, ax, p0.Y.Scale, ay)
+					local tx, ty = 0.5, 26
+					local elapsed = 0
+					local dur = 0.75
+					while true do
+						local t = math.min(elapsed / dur, 1)
+						local e = t * t * t
+						local k = t * t * (3 - 2 * t)
+						winScale.Scale = 1 - 0.97 * e
+						frame.Position = UDim2.new(p0.X.Scale + (tx - p0.X.Scale) * k, ax * (1 - k), p0.Y.Scale + (0 - p0.Y.Scale) * k, ay + (ty - ay) * k)
+						if veil then veil.BackgroundTransparency = 1 - math.min(t * 1.6, 1) end
+						if t >= 1 then break end
+						elapsed = elapsed + math.min(tonumber(task.wait()) or 0.016, 0.1)
+					end
+				end)
+				finish()
+			end)
+		end
 		close.MouseButton1Click:Connect(function()
 			if cfg.isMain then
-				if w.closingNow then return end
-				w.closingNow = true
-				if veil then
-					TweenService:Create(veil, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 0}):Play()
-				end
-				TweenService:Create(winScale, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Scale = 0.8}):Play()
-				task.delay(lib.NoAnim and 0 or 0.26, function()
-					pcall(function() if lib.OnUnload then lib.OnUnload() end end)
-					gui:Destroy()
-				end)
+				suckClose()
 			else
 				setMinimized(true)
 			end
 		end)
+		w.Close = suckClose
 		drag(header, frame)
 
 		-- tabs
@@ -1682,15 +1785,18 @@ end
 				btn.Size = UDim2.new(1, 0, 0, 30)
 				btn.BackgroundColor3 = C.ROW; btn.BackgroundTransparency = 1
 				btn.Text = ""; btn.AutoButtonColor = false; btn.BorderSizePixel = 0; btn.LayoutOrder = TAB_ORDER[name] or (10 + #w.order)
-				corner(btn, 6)
-				local bl = label(btn, display or name, UDim2.new(1, -14, 1, 0), C.TABIDLE, Enum.Font.GothamBold)
-				bl.Position = UDim2.new(0, 12, 0, 0); bl.TextSize = 11; bl.TextTruncate = Enum.TextTruncate.AtEnd
+				local bl = label(btn, display or name, UDim2.new(1, -14, 1, 0), C.WHITE, Enum.Font.GothamBold)
+				bl.Position = UDim2.new(0, 12, 0, 0); bl.TextSize = 12; bl.TextTruncate = Enum.TextTruncate.AtEnd
+				bl.TextTransparency = 0.3
+				corner(btn, 10)
+				local btnStroke = addLivingStroke(btn, 1.2, true, true)
+				btnStroke.Transparency = 0.6
 				local bar = Instance.new("Frame", btn)
 				bar.Size = UDim2.new(0, 3, 0, 16); bar.Position = UDim2.new(0, 0, 0.5, -8)
 				bar.BackgroundColor3 = C.MOON2; bar.BorderSizePixel = 0; bar.BackgroundTransparency = 1
 				corner(bar, 2)
 				pressFx(btn)
-				tab.btn = btn; tab.btnLabel = bl; tab.bar = bar
+				tab.btn = btn; tab.btnLabel = bl; tab.bar = bar; tab.btnStroke = btnStroke
 				btn.MouseEnter:Connect(function() if not tab.isOn then TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundTransparency = 0.7}):Play() end end)
 				btn.MouseLeave:Connect(function() if not tab.isOn then TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end end)
 				btn.MouseButton1Click:Connect(function() w.Select(name) end)
@@ -1723,7 +1829,8 @@ end
 					TweenService:Create(t.btn, TweenInfo.new(0.15), {
 						BackgroundColor3 = on and C.ON_BG or C.ROW,
 						BackgroundTransparency = on and 0.2 or 1}):Play()
-					TweenService:Create(t.btnLabel, TweenInfo.new(0.15), {TextColor3 = on and C.WHITE or C.TABIDLE}):Play()
+					TweenService:Create(t.btnLabel, TweenInfo.new(0.15), {TextTransparency = on and 0 or 0.3}):Play()
+					if t.btnStroke then TweenService:Create(t.btnStroke, TweenInfo.new(0.15), {Transparency = on and 0 or 0.6}):Play() end
 					TweenService:Create(t.bar, TweenInfo.new(0.18), {BackgroundTransparency = on and 0 or 1}):Play()
 				end
 			end
@@ -2090,7 +2197,7 @@ end
 		noteLabel(row, cfg.Note)
 		local box = Instance.new("TextButton", row)
 		box.Size = UDim2.new(0, 116, 0, 20); box.Position = UDim2.new(1, -124, 0, 4)
-		box.BackgroundColor3 = Color3.fromRGB(12, 18, 32); box.TextColor3 = C.WHITE
+		box.BackgroundColor3 = Color3.fromRGB(12, 18, 32); box.TextColor3 = C.WHITE; styleText(box)
 		box.Text = tostring(value); box.TextSize = 9.5; box.Font = Enum.Font.GothamBold; box.BorderSizePixel = 0
 		box.TextTruncate = Enum.TextTruncate.AtEnd
 		corner(box, 6); addLivingStroke(box, 1)
@@ -2149,7 +2256,7 @@ end
 		noteLabel(row, cfg.Note)
 		local box = Instance.new("TextButton", row)
 		box.Size = UDim2.new(0, 86, 0, 20); box.Position = UDim2.new(1, -94, 0, 4)
-		box.BackgroundColor3 = Color3.fromRGB(12, 18, 32); box.TextColor3 = C.WHITE
+		box.BackgroundColor3 = Color3.fromRGB(12, 18, 32); box.TextColor3 = C.WHITE; styleText(box)
 		box.TextSize = 9.5; box.Font = Enum.Font.GothamBold; box.BorderSizePixel = 0; box.Name = "Value"
 		corner(box, 6); addLivingStroke(box, 1)
 		box.TextXAlignment = Enum.TextXAlignment.Left
@@ -2204,7 +2311,7 @@ end
 		nameLabel(row, cfg.Name, -130)
 		local tb = Instance.new("TextBox", row)
 		tb.Size = UDim2.new(0, 116, 0, 20); tb.Position = UDim2.new(1, -124, 0, 4)
-		tb.BackgroundColor3 = Color3.fromRGB(12, 18, 32); tb.TextColor3 = C.WHITE
+		tb.BackgroundColor3 = Color3.fromRGB(12, 18, 32); tb.TextColor3 = C.WHITE; styleText(tb)
 		tb.PlaceholderText = cfg.Placeholder or ""; tb.PlaceholderColor3 = C.DIM
 		tb.Text = value; tb.TextSize = 9.5; tb.Font = Enum.Font.GothamMedium; tb.BorderSizePixel = 0
 		tb.ClearTextOnFocus = false
@@ -2353,7 +2460,7 @@ end
 		lib.eventsWindow = main
 		lib.newWindow = newWindow
 		lib.UI = {C = C, corner = corner, stroke = stroke, label = label, liveGrad = liveGrad,
-			addLivingStroke = addLivingStroke, makeSwitch = makeSwitch, gui = gui, Tween = TweenService, drag = drag}
+			addLivingStroke = addLivingStroke, makeSwitch = makeSwitch, gui = gui, Tween = TweenService, drag = drag, Shimmer = lib.Shimmer}
 		lib.mainWindow = main
 		main.frame.Visible = false
 		local w = setmetatable({main = main, events = events}, Win)
@@ -2489,7 +2596,7 @@ end
 		local tb = Instance.new("TextBox", row)
 		tb.Name = "ConfigBox"
 		tb.Size = UDim2.new(1, -16, 1, -16); tb.Position = UDim2.new(0, 8, 0, 8)
-		tb.BackgroundColor3 = C.BG; tb.TextColor3 = C.WHITE
+		tb.BackgroundColor3 = C.BG; tb.TextColor3 = C.WHITE; styleText(tb)
 		tb.PlaceholderText = "Paste a shared config here"; tb.PlaceholderColor3 = C.DIM
 		tb.Text = ""; tb.TextSize = 10; tb.Font = Enum.Font.GothamMedium; tb.BorderSizePixel = 0
 		tb.ClearTextOnFocus = false; tb.TextWrapped = true; tb.MultiLine = true
@@ -2636,12 +2743,27 @@ check("tabs Farm/Steal/Event/Config present", bFarm and bSteal and bEvent and bC
 check("raw names are not shown", not hasText(side, "StealPanel") and not hasText(side, "Events"))
 check("order Farm < Steal < Event < Config", bFarm.LayoutOrder < bSteal.LayoutOrder and bSteal.LayoutOrder < bEvent.LayoutOrder and bEvent.LayoutOrder < bConfig.LayoutOrder)
 check("tabs have no drawn icons", not bSteal:FindFirstChild("Icon") and not bEvent:FindFirstChild("Icon") and not bConfig:FindFirstChild("Icon"))
+check("tab buttons have the living stroke and gradient text", (function()
+	for _, b in ipairs({bFarm, bSteal, bEvent, bConfig}) do
+		local lb = find(b, function(d) return d.ClassName == "TextLabel" end)
+		if not (find(b, function(d) return d.ClassName == "UIStroke" end) and lb and find(lb, function(d) return d.ClassName == "UIGradient" end)) then return false end
+	end
+	return true
+end)())
+local whites = {}
+for _, d in ipairs(main:GetDescendants()) do
+	if (d.ClassName == "TextLabel" or d.ClassName == "TextButton" or d.ClassName == "TextBox") and d.Text ~= "" and d.Text ~= "\226\156\147" then
+		local c = d.TextColor3
+		if c.R >= 0.78 and c.G >= 0.78 and c.B >= 0.78 and not d:FindFirstChildOfClass("UIGradient") then whites[#whites + 1] = d.Name .. ":" .. d.Text end
+	end
+end
+check("no plain white writing left (" .. table.concat(whites, " | ") .. ")", #whites == 0)
 check("footer shows the hint and live stats", hasText(main, "RightShift to hide") and hasText(main, "60 FPS   0 ms"))
 
 -- search box filters the rows of the current tab
 local search = find(main, function(d) return d.Name == "Search" and d.ClassName == "TextBox" end)
 check("search box in the header (right side)", search ~= nil and search.Parent ~= nil and search.Parent.Name ~= "SideTabs" and find(side, function(d) return d.Name == "Search" end) == nil)
-check("search bar has a living stroke and a magnifier", find(search.Parent, function(d) return d.ClassName == "UIStroke" end) ~= nil and search.Parent.Name == "SearchBar" and search.TextSize >= 13 and search.Parent.Size.Y.Offset >= 28)
+check("search bar has a living stroke and a magnifier", find(search.Parent, function(d) return d.ClassName == "UIStroke" end) ~= nil and search.Parent.Name == "SearchBar" and search.TextSize >= 12 and search.Parent.Size.Y.Offset >= 22 and search.Parent.Size.X.Offset <= 150)
 check("page transition api", type(lib.mainWindow.Transition) == "function")
 lib.mainWindow.Select("StealPanel"); lib.mainWindow.Select("Farm"); advance(0.5)
 check("page veil + sweep exist", find(main, function(d) return d.Name == "PageVeil" end) ~= nil and find(main, function(d) return d.Name == "PageSweep" end) ~= nil)
@@ -2741,8 +2863,12 @@ check("invalid import is refused", hasText(cfgPage, "That is not a valid config"
 lib.mainWindow.Select("Farm"); advance(0.3)
 
 -- main minimise / restore
-lib.mainWindow.SetMinimized(true); advance(0.4)
+local fr = lib.mainWindow.frame
+local posBefore = fr.Position
+lib.mainWindow.SetMinimized(true); advance(0.5)
+check("minimized pill is centered at the top", fr.Position.X.Scale == 0.5 and fr.Position.X.Offset == -84 and fr.Position.Y.Scale == 0)
 lib.mainWindow.SetMinimized(false); advance(0.4)
+check("window goes back to its place after the pill", fr.Position.X.Offset == posBefore.X.Offset and fr.Position.Y.Offset == posBefore.Y.Offset)
 check("main restored", main.Visible == true)
 
 lib.Notify("t", "text", 1); lib.Banner("banner", 1); lib.RiskBadge("risk", "txt", 1)
@@ -2757,7 +2883,11 @@ closeBtn.MouseButton1Click:Fire()
 advance(0.1)
 check("closing: veil is coming in", veil.BackgroundTransparency < 1)
 check("closing: still not unloaded mid-effect", unloaded == false and gui.Parent ~= nil)
-advance(0.5)
+local ws = find(main, function(d) return d.ClassName == "UIScale" and d.Parent == main end)
+check("closing: window is being sucked in (shrinking)", ws == nil or ws.Scale < 1)
+advance(0.2)
+check("closing: still animating at 0.3s", gui.Parent ~= nil)
+advance(2.4)
 check("closing: hub unloaded and gui destroyed", unloaded == true and gui.Parent == nil)
 
 check("no runtime warnings", #M.warnings == 0)
