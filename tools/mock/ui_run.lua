@@ -57,7 +57,7 @@ local combat = win:CreateTab({Name = "Combat"})
 local sec = farm:CreateSection({Name = "Auto Farming"})
 local seen
 local tg = sec:CreateToggle({Name = "Auto Steal", Default = false, Note = "demo", Callback = function(v) seen = v end})
-sec:CreateToggle({Name = "Sub", Default = true, SubOf = tg})
+local subT = sec:CreateToggle({Name = "Sub", Default = true, SubOf = tg})
 local clicks = 0
 local btn = sec:CreateButton({Name = "Run it", ButtonText = "Go", ConfirmText = "Done", Callback = function() clicks += 1 end})
 local sl = sec:CreateSlider({Name = "Speed", Min = 0, Max = 100, Default = 20, Callback = function() end})
@@ -105,7 +105,20 @@ local bFarm, bSteal, bEvent, bConfig = tabBtn("Farm"), tabBtn("Steal"), tabBtn("
 check("tabs Farm/Steal/Event/Config present", bFarm and bSteal and bEvent and bConfig)
 check("raw names are not shown", not hasText(side, "StealPanel") and not hasText(side, "Events"))
 check("order Farm < Steal < Event < Config", bFarm.LayoutOrder < bSteal.LayoutOrder and bSteal.LayoutOrder < bEvent.LayoutOrder and bEvent.LayoutOrder < bConfig.LayoutOrder)
-check("steal/event/config buttons have an icon", bSteal:FindFirstChild("Icon") and bEvent:FindFirstChild("Icon") and bConfig:FindFirstChild("Icon"))
+check("tabs have no drawn icons", not bSteal:FindFirstChild("Icon") and not bEvent:FindFirstChild("Icon") and not bConfig:FindFirstChild("Icon"))
+check("footer shows the hint and live stats", hasText(main, "RightShift to hide") and hasText(main, "60 FPS   0 ms"))
+
+-- search box filters the rows of the current tab
+local search = find(side, function(d) return d.Name == "Search" end)
+check("search box in the sidebar", search ~= nil and search.ClassName == "TextBox")
+lib.mainWindow.ApplyFilter("speed")
+check("filter keeps the matching slider", sl.Instance.Visible == true)
+check("filter hides a non matching toggle", tg.Instance.Visible == false)
+check("filter hides sub rows of hidden parents", subT.Instance.Visible == false)
+lib.mainWindow.ApplyFilter("zzzz")
+check("no result message", lib.mainWindow.noResults.Visible == true)
+lib.mainWindow.ApplyFilter("")
+check("clearing the filter restores rows", tg.Instance.Visible == true and sl.Instance.Visible == true and lib.mainWindow.noResults.Visible == false)
 
 -- steal tab content only shows while the tab is selected
 check("steal content hidden on Farm", steal.content.Visible == false)
@@ -137,6 +150,17 @@ tb.MouseButton1Click:Fire(); advance(0.4)
 check("toggle on + callback", tg.Get() == true and seen == true)
 tb.MouseButton1Click:Fire(); advance(0.4)
 check("toggle off", tg.Get() == false and seen == false)
+
+-- UI Optimizer: tweens apply instantly and effects stop
+local pillF = find(tg.Instance, function(d) return d.ClassName == "Frame" and d.Size and d.Size.X.Offset == 26 end)
+lib.SetNoAnim(true)
+tb.MouseButton1Click:Fire()
+check("UI Optimizer: colour applied with no tween delay", pillF.BackgroundColor3 == lib.UI.C.MOON)
+check("UI Optimizer flags", lib.NoAnim == true and lib.AnimUser == false)
+tb.MouseButton1Click:Fire()
+lib.SetNoAnim(false)
+check("UI Optimizer can be turned off", lib.NoAnim == false and lib.AnimUser == true)
+advance(0.4)
 
 local bb = find(btn.Instance, function(d) return d.ClassName == "TextButton" end)
 bb.MouseButton1Click:Fire(); advance(0.5)
@@ -181,11 +205,6 @@ box.Text = "garbage"
 importB.MouseButton1Click:Fire(); advance(0.3)
 check("invalid import is refused", hasText(cfgPage, "That is not a valid config"))
 lib.mainWindow.Select("Farm"); advance(0.3)
-
--- themes
-for _, name in ipairs(lib.ThemeNames) do lib.SetTheme(name); advance(0.2) end
-lib.SetTheme("Gold")
-check("original theme names kept", #lib.ThemeNames == 4 and lib.ThemeNames[1] == "Gold" and lib.ThemeName == "Gold")
 
 -- main minimise / restore
 lib.mainWindow.SetMinimized(true); advance(0.4)

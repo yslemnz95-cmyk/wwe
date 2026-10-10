@@ -126,7 +126,7 @@ local function newInst(class, parent)
 	o.Changed = signal(); o.Destroying = signal()
 	o.MouseButton1Click = signal(); o.MouseButton1Down = signal(); o.MouseButton1Up = signal(); o.MouseLeave = signal()
 	o.InputBegan = signal(); o.InputEnded = signal(); o.InputChanged = signal(); o.Activated = signal()
-	o.ChildAdded = signal(); o.FocusLost = signal(); o.Focused = signal()
+	o.ChildAdded = signal(); o.FocusLost = signal(); o.Focused = signal(); o.MouseEnter = signal()
 	if class == "Part" or class == "MeshPart" then
 		o.CFrame = cf(0,0,0); o.Size = v3(4,4,4); o.AssemblyLinearVelocity = v3(0,0,0); o.AssemblyAngularVelocity = v3(0,0,0); o.CanCollide = true; o.Anchored = false; o.CanQuery = true
 	end
@@ -327,7 +327,16 @@ local lib = {handles = {}, states = {}}
 
 do
 	local UIS = game:GetService("UserInputService")
-	local TweenService = game:GetService("TweenService")
+	local RealTween = game:GetService("TweenService")
+	local TweenService = {Create = function(_, inst, info, props)
+		if lib.NoAnim then
+			return {
+				Play = function() for k, v in pairs(props) do pcall(function() inst[k] = v end) end end,
+				Cancel = function() end, Pause = function() end,
+			}
+		end
+		return RealTween:Create(inst, info, props)
+	end}
 	local HttpService = game:GetService("HttpService")
 	local RunService = game:GetService("RunService")
 	local Players = game:GetService("Players")
@@ -679,7 +688,7 @@ local function makeCheck(parent, initial)
 	btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
 
 	local function ripple()
-		if not lib.ParticlesOn then return end
+		if not lib.ParticlesOn or lib.NoAnim then return end
 		local r = Instance.new("Frame", pill)
 		r.AnchorPoint = Vector2.new(0.5, 0.5); r.Position = UDim2.new(0.5, 0, 0.5, 0)
 		r.Size = UDim2.fromOffset(26, 26); r.BackgroundTransparency = 1; r.BorderSizePixel = 0; r.ZIndex = 50
@@ -822,11 +831,17 @@ end
 			local f = Instance.new("Frame", toastHost)
 			f.Size = UDim2.new(1, 0, 0, 46); f.BackgroundColor3 = C.BG; f.BackgroundTransparency = 0.1
 			f.BorderSizePixel = 0; f.ZIndex = 901
-			corner(f, 12); addLivingStroke(f, 1)
-			local t = label(f, tostring(title or ""), UDim2.new(1, -16, 0, 16), C.WHITE, Enum.Font.GothamBold)
-			t.Position = UDim2.new(0, 10, 0, 5); t.TextSize = 11; t.ZIndex = 902; liveGrad(t)
-			local d = label(f, tostring(text or ""), UDim2.new(1, -16, 0, 22), C.SILVER, Enum.Font.GothamMedium)
-			d.Position = UDim2.new(0, 10, 0, 21); d.TextSize = 9.5; d.TextWrapped = true
+			corner(f, 10); addLivingStroke(f, 1)
+			local tbar = Instance.new("Frame", f)
+			tbar.Size = UDim2.new(0, 3, 1, -12); tbar.Position = UDim2.new(0, 0, 0, 6)
+			tbar.BackgroundColor3 = C.MOON2; tbar.BorderSizePixel = 0; tbar.ZIndex = 902
+			corner(tbar, 2)
+			local tsc = Instance.new("UIScale", f); tsc.Scale = 0.9
+			TweenService:Create(tsc, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+			local t = label(f, tostring(title or ""), UDim2.new(1, -20, 0, 16), C.WHITE, Enum.Font.GothamBold)
+			t.Position = UDim2.new(0, 14, 0, 5); t.TextSize = 11; t.ZIndex = 902; liveGrad(t)
+			local d = label(f, tostring(text or ""), UDim2.new(1, -20, 0, 22), C.SILVER, Enum.Font.GothamMedium)
+			d.Position = UDim2.new(0, 14, 0, 21); d.TextSize = 9.5; d.TextWrapped = true
 			d.TextYAlignment = Enum.TextYAlignment.Top; d.ZIndex = 902
 			task.delay(tonumber(dur) or 4, function() pcall(function() f:Destroy() end) end)
 		end)
@@ -882,6 +897,19 @@ end
 	end
 
 	lib.SoundOn = true
+	-- UI Optimizer: stops the shimmer sweeps and makes every interface tween instant
+	lib.NoAnim = false
+	lib.SetNoAnim = function(on)
+		on = on == true
+		lib.NoAnim = on
+		lib.AnimUser = not on
+		if on then
+			for k = 1, #_sweep do
+				local g = _sweep[k]
+				if g.Parent then g.Offset = Vector2.new(0, 0) end
+			end
+		end
+	end
 	local sounds = {}
 	lib.Sound = function(kind)
 		if lib.SoundOn == false or not lib.ParticlesOn then return end
@@ -988,50 +1016,6 @@ end
 
 	-- sidebar order and little drawn icons (no external images needed)
 	local TAB_ORDER = {Farm = 1, StealPanel = 2, Events = 3, Config = 999}
-	local TAB_ICON = {StealPanel = "egg", Events = "diamond", Config = "sliders"}
-	local function drawTabIcon(btn, kind)
-		local box = Instance.new("Frame", btn)
-		box.Name = "Icon"; box.BackgroundTransparency = 1
-		box.Size = UDim2.fromOffset(18, 18); box.Position = UDim2.new(0, 9, 0.5, -9)
-		if kind == "egg" then
-			local e = Instance.new("Frame", box)
-			e.Size = UDim2.fromOffset(12, 16); e.Position = UDim2.new(0.5, -6, 0.5, -8)
-			e.BackgroundColor3 = C.MOON2; e.BorderSizePixel = 0
-			local ec = Instance.new("UICorner", e); ec.CornerRadius = UDim.new(0.5, 0)
-			local eg = Instance.new("UIGradient", e); eg.Rotation = 90
-			eg.Color = ColorSequence.new(C.WHITE, C.MOON)
-			local spot = Instance.new("Frame", e)
-			spot.Size = UDim2.fromOffset(3, 3); spot.Position = UDim2.new(0, 3, 0, 4)
-			spot.BackgroundColor3 = C.WHITE; spot.BorderSizePixel = 0
-			corner(spot, 2)
-		elseif kind == "diamond" then
-			local d = Instance.new("Frame", box)
-			d.Size = UDim2.fromOffset(11, 11); d.Position = UDim2.new(0.5, -5, 0.5, -5)
-			d.Rotation = 45; d.BackgroundColor3 = C.MOON; d.BackgroundTransparency = 0.5; d.BorderSizePixel = 0
-			stroke(d, C.MOON2, 1.5)
-			local dot = Instance.new("Frame", box)
-			dot.Size = UDim2.fromOffset(4, 4); dot.Position = UDim2.new(0.5, -2, 0.5, -2)
-			dot.BackgroundColor3 = C.WHITE; dot.BorderSizePixel = 0
-			corner(dot, 2)
-		elseif kind == "sliders" then
-			local knobs = {10, 3, 8}
-			for i = 1, 3 do
-				local y = 3 + (i - 1) * 6
-				local line = Instance.new("Frame", box)
-				line.Size = UDim2.fromOffset(16, 2); line.Position = UDim2.new(0, 1, 0, y)
-				line.BackgroundColor3 = C.MOON2; line.BorderSizePixel = 0
-				local knob = Instance.new("Frame", box)
-				knob.Size = UDim2.fromOffset(5, 5); knob.Position = UDim2.new(0, knobs[i], 0, y - 1)
-				knob.BackgroundColor3 = C.WHITE; knob.BorderSizePixel = 0
-				corner(knob, 2)
-			end
-		else
-			local b = Instance.new("Frame", box)
-			b.Size = UDim2.fromOffset(5, 5); b.Position = UDim2.new(0, 4, 0.5, -2)
-			b.BackgroundColor3 = C.DEEP4; b.BorderSizePixel = 0
-			corner(b, 2)
-		end
-	end
 	
 	local function newWindow(cfg)
 		local w = {tabs = {}, order = {}, current = nil, name = cfg.name, isMain = cfg.isMain == true, newLook = true}
@@ -1066,8 +1050,9 @@ end
 			bgImg.ZIndex = 1
 		end
 
-		local header, moon, title, close, mini, sep, tabBar, content
+		local header, moon, title, close, mini, sep, tabBar, content, footerRight
 		local contentX, bodyTopV = 0, 46
+		local footerH = cfg.isMain and 20 or 0
 		do
 			header = Instance.new("Frame", frame)
 			header.Size = UDim2.new(1, 0, 0, 42)
@@ -1119,7 +1104,7 @@ end
 				contentX = 108
 				tabBar = Instance.new("ScrollingFrame", frame)
 				tabBar.Name = "SideTabs"
-				tabBar.Size = UDim2.new(0, contentX, 1, -44); tabBar.Position = UDim2.new(0, 0, 0, 44)
+				tabBar.Size = UDim2.new(0, contentX, 1, -(44 + footerH)); tabBar.Position = UDim2.new(0, 0, 0, 44)
 				tabBar.BackgroundColor3 = C.ROW; tabBar.BackgroundTransparency = 0.45; tabBar.BorderSizePixel = 0
 				tabBar.ScrollBarThickness = 0
 				tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -1129,22 +1114,50 @@ end
 				tl2.Padding = UDim.new(0, 3); tl2.SortOrder = Enum.SortOrder.LayoutOrder
 				local tp2 = Instance.new("UIPadding", tabBar)
 				tp2.PaddingTop = UDim.new(0, 6); tp2.PaddingLeft = UDim.new(0, 4); tp2.PaddingRight = UDim.new(0, 4)
+				local search = Instance.new("TextBox", tabBar)
+				search.Name = "Search"; search.LayoutOrder = 0
+				search.Size = UDim2.new(1, 0, 0, 26)
+				search.BackgroundColor3 = C.BG; search.BorderSizePixel = 0
+				search.PlaceholderText = "Search"; search.PlaceholderColor3 = C.DIM
+				search.Text = ""; search.TextColor3 = C.WHITE; search.TextSize = 10.5; search.Font = Enum.Font.GothamMedium
+				search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
+				corner(search, 6); addLivingStroke(search, 1)
+				local sp = Instance.new("UIPadding", search); sp.PaddingLeft = UDim.new(0, 8); sp.PaddingRight = UDim.new(0, 6)
+				search:GetPropertyChangedSignal("Text"):Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
+				search.FocusLost:Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
+				w.search = search
 				local sideLine = Instance.new("Frame", frame)
 				sideLine.Name = "SideLine"
-				sideLine.Size = UDim2.new(0, 1, 1, -44); sideLine.Position = UDim2.new(0, contentX, 0, 44)
+				sideLine.Size = UDim2.new(0, 1, 1, -(44 + footerH)); sideLine.Position = UDim2.new(0, contentX, 0, 44)
 				sideLine.BackgroundColor3 = C.BORDER; sideLine.BorderSizePixel = 0
 				w.sideLine = sideLine
 				w.tabBar = tabBar
 			end
 			content = Instance.new("Frame", frame)
-			content.Size = UDim2.new(1, -contentX, 1, -46); content.Position = UDim2.new(0, contentX, 0, 46)
+			content.Size = UDim2.new(1, -contentX, 1, -(46 + footerH)); content.Position = UDim2.new(0, contentX, 0, 46)
 			content.BackgroundTransparency = 1; content.ClipsDescendants = true
 			w.content = content
+
+			local footer = Instance.new("Frame", frame)
+			footer.Name = "Footer"
+			footer.Size = UDim2.new(1, 0, 0, footerH); footer.Position = UDim2.new(0, 0, 1, -footerH)
+			footer.BackgroundColor3 = C.HEADER; footer.BackgroundTransparency = 0.1; footer.BorderSizePixel = 0
+			local fline = Instance.new("Frame", footer)
+			fline.Size = UDim2.new(1, 0, 0, 1); fline.BackgroundColor3 = C.BORDER; fline.BorderSizePixel = 0
+			local fl = label(footer, "RightShift to hide", UDim2.new(0.5, -10, 1, 0), C.DIM, Enum.Font.GothamMedium)
+			fl.Position = UDim2.new(0, 10, 0, 0); fl.TextSize = 8.5
+			footerRight = label(footer, "60 FPS   0 ms", UDim2.new(0.5, -10, 1, 0), C.MOON2, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+			footerRight.Position = UDim2.new(0.5, 0, 0, 0); footerRight.TextSize = 8.5
+			w.footer = footer
+
+			local noRes = label(content, "No matching feature", UDim2.new(1, 0, 0, 30), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+			noRes.Position = UDim2.new(0, 0, 0, 40); noRes.TextSize = 11; noRes.Visible = false; noRes.ZIndex = 5
+			w.noResults = noRes
 		end
 
 		-- picker overlay (single / multi select) covering the content area
 		local ov = Instance.new("Frame", frame)
-		ov.Size = UDim2.new(1, -contentX, 1, -bodyTopV); ov.Position = UDim2.new(0, contentX, 0, bodyTopV)
+		ov.Size = UDim2.new(1, -contentX, 1, -(bodyTopV + footerH)); ov.Position = UDim2.new(0, contentX, 0, bodyTopV)
 		ov.BackgroundColor3 = C.BG; ov.BorderSizePixel = 0; ov.Visible = false; ov.ZIndex = 300
 		local ovHead = Instance.new("Frame", ov)
 		ovHead.Size = UDim2.new(1, 0, 0, 26); ovHead.BackgroundTransparency = 1; ovHead.ZIndex = 301
@@ -1288,10 +1301,11 @@ end
 			task.spawn(function()
 				while frame.Parent do
 					task.wait(0.5)
+					pcall(function()
+						hudPing = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5)
+					end)
+					if footerRight then footerRight.Text = hudFps .. " FPS   " .. hudPing .. " ms" end
 					if minimized then
-						pcall(function()
-							hudPing = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5)
-						end)
 						hudLabel.Text = hudFps .. " FPS   " .. hudPing .. " ms"
 					end
 				end
@@ -1456,6 +1470,7 @@ end
 					if tabBar then tabBar.Visible = false end
 					if w.sideLine then w.sideLine.Visible = false end
 					title.Visible = false; mini.Visible = false; close.Visible = false; bgImg.Visible = false
+					if w.footer then w.footer.Visible = false end
 					if subtitle then subtitle.Visible = false end
 					hudLabel.Text = hudFps .. " FPS   " .. hudPing .. " ms"
 					hudLabel.Visible = true; hudHint.Visible = true
@@ -1465,6 +1480,7 @@ end
 				else
 					hudLabel.Visible = false; hudHint.Visible = false
 					title.Visible = true; mini.Visible = true; close.Visible = true; bgImg.Visible = true
+					if w.footer then w.footer.Visible = true end
 					if subtitle then subtitle.Visible = true end
 					header.BackgroundTransparency = 0
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
@@ -1547,6 +1563,40 @@ end
 		drag(header, frame)
 
 		-- tabs
+		function w.ApplyFilter(q)
+			q = string.lower(tostring(q or ""))
+			w.query = q
+			local tab = w.tabs[w.current or ""]
+			if not tab then return end
+			local anyShown = false
+			for _, sl in ipairs(tab.slots or {}) do
+				if not sl.sub and sl.holder.Parent then
+					local nm = sl.holder:GetAttribute("sname") or ""
+					local show = q == "" or string.find(nm, q, 1, true) ~= nil
+					sl.holder.Visible = show
+					if show then anyShown = true end
+					if sl.info then
+						if not show then
+							for _, hh in ipairs(sl.info.subs) do hh.Visible = false end
+						elseif sl.info.refresh then
+							sl.info.refresh()
+						end
+					end
+				end
+			end
+			for _, sc in ipairs(tab.secs or {}) do
+				if q == "" then
+					sc.head.Visible = true; sc.body.Visible = sc.IsOpen()
+				else
+					local any = false
+					for _, sl in ipairs(tab.slots or {}) do
+						if not sl.sub and sl.holder.Parent == sc.body and sl.holder.Visible then any = true; break end
+					end
+					sc.head.Visible = any; sc.body.Visible = any
+				end
+			end
+			if w.noResults then w.noResults.Visible = q ~= "" and not anyShown end
+		end
 		function w.AddTab(name, hidden, display)
 			local tab = {name = name, sections = {}, window = w}
 			local page = Instance.new("ScrollingFrame", content)
@@ -1566,15 +1616,16 @@ end
 				btn.BackgroundColor3 = C.ROW; btn.BackgroundTransparency = 1
 				btn.Text = ""; btn.AutoButtonColor = false; btn.BorderSizePixel = 0; btn.LayoutOrder = TAB_ORDER[name] or (10 + #w.order)
 				corner(btn, 6)
-				drawTabIcon(btn, TAB_ICON[name])
-				local bl = label(btn, display or name, UDim2.new(1, -38, 1, 0), C.TABIDLE, Enum.Font.GothamBold)
-				bl.Position = UDim2.new(0, 32, 0, 0); bl.TextSize = 11; bl.TextTruncate = Enum.TextTruncate.AtEnd
+				local bl = label(btn, display or name, UDim2.new(1, -14, 1, 0), C.TABIDLE, Enum.Font.GothamBold)
+				bl.Position = UDim2.new(0, 12, 0, 0); bl.TextSize = 11; bl.TextTruncate = Enum.TextTruncate.AtEnd
 				local bar = Instance.new("Frame", btn)
 				bar.Size = UDim2.new(0, 3, 0, 16); bar.Position = UDim2.new(0, 0, 0.5, -8)
 				bar.BackgroundColor3 = C.MOON2; bar.BorderSizePixel = 0; bar.BackgroundTransparency = 1
 				corner(bar, 2)
 				pressFx(btn)
 				tab.btn = btn; tab.btnLabel = bl; tab.bar = bar
+				btn.MouseEnter:Connect(function() if not tab.isOn then TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundTransparency = 0.7}):Play() end end)
+				btn.MouseLeave:Connect(function() if not tab.isOn then TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end end)
 				btn.MouseButton1Click:Connect(function() w.Select(name) end)
 			end
 			if hidden then page.Parent = nil end
@@ -1587,9 +1638,11 @@ end
 			if not target then return end
 			local firstSelect = w.current == nil
 			w.current = name
+			if w.ApplyFilter and w.query and w.query ~= "" then task.defer(function() w.ApplyFilter(w.query) end) end
 			for n, t in pairs(w.tabs) do
 				local on = n == name
 				if t.holder and t.holder.Parent then t.holder.Visible = on end
+				t.isOn = on
 				if on and not t.page.Visible and not firstSelect then
 					t.basePos = t.basePos or t.page.Position
 					t.page.Position = t.basePos + UDim2.fromOffset(18, 0)
@@ -1641,8 +1694,12 @@ end
 		row.BackgroundColor3 = C.ROW; row.BackgroundTransparency = 0.35; row.BorderSizePixel = 0
 		corner(row, 10); addLivingStroke(row, 1)
 		local info = {order = order, children = 0, holder = holder, subs = {}, open = false}
+		self.tab.slots = self.tab.slots or {}
+		table.insert(self.tab.slots, {holder = holder, info = info, sub = subOf ~= nil})
 		do
 			row.BackgroundTransparency = 0.15
+			row.MouseEnter:Connect(function() TweenService:Create(row, TweenInfo.new(0.12), {BackgroundTransparency = 0.04}):Play() end)
+			row.MouseLeave:Connect(function() TweenService:Create(row, TweenInfo.new(0.18), {BackgroundTransparency = 0.15}):Play() end)
 			local edge = Instance.new("Frame", row)
 			edge.Name = "Edge"; edge.Size = UDim2.new(0, 3, 1, -12); edge.Position = UDim2.new(0, 0, 0, 6)
 			edge.BackgroundColor3 = C.MOON2; edge.BackgroundTransparency = 1; edge.BorderSizePixel = 0
@@ -1658,8 +1715,9 @@ end
 
 	local function nameLabel(row, text, width)
 		local l = label(row, tostring(text), UDim2.new(1, width or -62, 0, 18), C.WHITE, Enum.Font.GothamBold)
-		l.Position = UDim2.new(0, 10, 0, 5); l.TextSize = 10.5; l.TextTruncate = Enum.TextTruncate.AtEnd
+		l.Position = UDim2.new(0, 10, 0, 5); l.TextSize = 11.5; l.TextTruncate = Enum.TextTruncate.AtEnd
 		liveGrad(l)
+		if row.Parent then row.Parent:SetAttribute("sname", string.lower(tostring(text))) end
 		return l
 	end
 	local function noteLabel(row, text)
@@ -1677,6 +1735,7 @@ end
 			if btn then btn.Visible = #info.subs > 0; btn.Text = ">"; btn.Rotation = show and 90 or 0 end
 		end
 		handle._setArrow = function(b) btn = b; handle._refreshSubs() end
+		info.refresh = handle._refreshSubs
 	end
 	local function arrowButton(row, handle, info, x)
 		local b = Instance.new("TextButton", row)
@@ -1853,6 +1912,9 @@ end
 		local tx = label(row, tostring(cfg.Text or ""), UDim2.new(1, 0, 0, 0), C.SILVER, Enum.Font.GothamMedium)
 		tx.TextSize = 10; tx.TextWrapped = true; tx.AutomaticSize = Enum.AutomaticSize.Y
 		tx.TextYAlignment = Enum.TextYAlignment.Top; tx.LayoutOrder = 2
+		holder:SetAttribute("sname", string.lower(tostring(cfg.Name or "") .. " " .. tostring(cfg.Text or "")))
+		self.tab.slots = self.tab.slots or {}
+		table.insert(self.tab.slots, {holder = holder, sub = cfg.SubOf ~= nil})
 		local h = {Instance = holder}
 		local text = tostring(cfg.Text or "")
 		function h.Set(_, t) text = tostring(t); tx.Text = text end
@@ -1880,15 +1942,15 @@ end
 		valBox.TextSize = 10.5; valBox.TextXAlignment = Enum.TextXAlignment.Right; valBox.ClearTextOnFocus = false
 		valBox.Text = ""
 		local track = Instance.new("Frame", row)
-		track.Size = UDim2.new(1, -20, 0, 5); track.Position = UDim2.new(0, 10, 1, -11)
+		track.Size = UDim2.new(1, -20, 0, 6); track.Position = UDim2.new(0, 10, 1, -12)
 		track.BackgroundColor3 = C.TRACKOFF; track.BorderSizePixel = 0; corner(track, 3)
 		local fill = Instance.new("Frame", track)
 		fill.Size = UDim2.new(0, 0, 1, 0); fill.BackgroundColor3 = C.ACCENT; fill.BorderSizePixel = 0; corner(fill, 3)
 		local fg = Instance.new("UIGradient", fill)
 		fg.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C.DEEP2), ColorSequenceKeypoint.new(1, C.ACCENT2)})
 		local thumb = Instance.new("Frame", track)
-		thumb.Size = UDim2.new(0, 12, 0, 12); thumb.AnchorPoint = Vector2.new(0.5, 0.5)
-		thumb.BackgroundColor3 = C.WHITE; thumb.BorderSizePixel = 0; corner(thumb, 6); stroke(thumb, C.ACCENT, 1.5)
+		thumb.Size = UDim2.new(0, 14, 0, 14); thumb.AnchorPoint = Vector2.new(0.5, 0.5)
+		thumb.BackgroundColor3 = C.WHITE; thumb.BorderSizePixel = 0; corner(thumb, 7); stroke(thumb, C.ACCENT, 2)
 		local h = {Instance = holder}
 		local function fmt(v)
 			if cfg.ValueFormat then
@@ -1964,6 +2026,10 @@ end
 		box.Text = tostring(value); box.TextSize = 9.5; box.Font = Enum.Font.GothamBold; box.BorderSizePixel = 0
 		box.TextTruncate = Enum.TextTruncate.AtEnd
 		corner(box, 6); addLivingStroke(box, 1)
+		box.TextXAlignment = Enum.TextXAlignment.Left
+		local bpad = Instance.new("UIPadding", box); bpad.PaddingLeft = UDim.new(0, 8); bpad.PaddingRight = UDim.new(0, 18)
+		local chev = label(box, ">", UDim2.new(0, 14, 1, 0), C.MOON2, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+		chev.Position = UDim2.new(1, -16, 0, 0); chev.TextSize = 10; chev.Rotation = 90
 		local h = {Instance = holder}
 		local subs = newSignalList()
 		local function set(_, v, fire)
@@ -2018,6 +2084,10 @@ end
 		box.BackgroundColor3 = Color3.fromRGB(12, 18, 32); box.TextColor3 = C.WHITE
 		box.TextSize = 9.5; box.Font = Enum.Font.GothamBold; box.BorderSizePixel = 0; box.Name = "Value"
 		corner(box, 6); addLivingStroke(box, 1)
+		box.TextXAlignment = Enum.TextXAlignment.Left
+		local bpad = Instance.new("UIPadding", box); bpad.PaddingLeft = UDim.new(0, 8); bpad.PaddingRight = UDim.new(0, 18)
+		local chev = label(box, ">", UDim2.new(0, 14, 1, 0), C.MOON2, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+		chev.Position = UDim2.new(1, -16, 0, 0); chev.TextSize = 10; chev.Rotation = 90
 		local h = {Instance = holder}
 		local subs = newSignalList()
 		local function count() local n = 0; for _ in pairs(selected) do n = n + 1 end; return n end
@@ -2121,8 +2191,15 @@ end
 		sec.body = body
 		local open = cfg.Expanded ~= false
 		body.Visible = open; arrow.Rotation = open and 90 or 0
+		arrow.TextColor3 = C.MOON2
+		local hline = Instance.new("Frame", head)
+		hline.Size = UDim2.new(1, -4, 0, 1); hline.Position = UDim2.new(0, 2, 1, -1)
+		hline.BackgroundColor3 = C.BORDER; hline.BackgroundTransparency = 0.35; hline.BorderSizePixel = 0
+		target.secs = target.secs or {}
+		table.insert(target.secs, {head = head, body = body, IsOpen = function() return open end})
 		head.MouseButton1Click:Connect(function()
-			open = not open; body.Visible = open; arrow.Rotation = open and 90 or 0
+			open = not open; body.Visible = open
+			TweenService:Create(arrow, TweenInfo.new(0.16), {Rotation = open and 90 or 0}):Play()
 		end)
 		return sec
 	end
@@ -2303,7 +2380,7 @@ end
 				if tv == "boolean" or tv == "number" or tv == "string" or tv == "table" then
 					local h = lib.handles[key]
 					if key == "Theme" then
-						if tv == "string" then pcall(lib.SetTheme, v); n = n + 1 end
+						-- themes were removed: ignore the key
 					elseif h and type(h.Set) == "function" then
 						if pcall(h.Set, h, v, true) then n = n + 1 end
 					elseif key:sub(1, 6) == "State>" then
@@ -2438,7 +2515,7 @@ local combat = win:CreateTab({Name = "Combat"})
 local sec = farm:CreateSection({Name = "Auto Farming"})
 local seen
 local tg = sec:CreateToggle({Name = "Auto Steal", Default = false, Note = "demo", Callback = function(v) seen = v end})
-sec:CreateToggle({Name = "Sub", Default = true, SubOf = tg})
+local subT = sec:CreateToggle({Name = "Sub", Default = true, SubOf = tg})
 local clicks = 0
 local btn = sec:CreateButton({Name = "Run it", ButtonText = "Go", ConfirmText = "Done", Callback = function() clicks += 1 end})
 local sl = sec:CreateSlider({Name = "Speed", Min = 0, Max = 100, Default = 20, Callback = function() end})
@@ -2486,7 +2563,20 @@ local bFarm, bSteal, bEvent, bConfig = tabBtn("Farm"), tabBtn("Steal"), tabBtn("
 check("tabs Farm/Steal/Event/Config present", bFarm and bSteal and bEvent and bConfig)
 check("raw names are not shown", not hasText(side, "StealPanel") and not hasText(side, "Events"))
 check("order Farm < Steal < Event < Config", bFarm.LayoutOrder < bSteal.LayoutOrder and bSteal.LayoutOrder < bEvent.LayoutOrder and bEvent.LayoutOrder < bConfig.LayoutOrder)
-check("steal/event/config buttons have an icon", bSteal:FindFirstChild("Icon") and bEvent:FindFirstChild("Icon") and bConfig:FindFirstChild("Icon"))
+check("tabs have no drawn icons", not bSteal:FindFirstChild("Icon") and not bEvent:FindFirstChild("Icon") and not bConfig:FindFirstChild("Icon"))
+check("footer shows the hint and live stats", hasText(main, "RightShift to hide") and hasText(main, "60 FPS   0 ms"))
+
+-- search box filters the rows of the current tab
+local search = find(side, function(d) return d.Name == "Search" end)
+check("search box in the sidebar", search ~= nil and search.ClassName == "TextBox")
+lib.mainWindow.ApplyFilter("speed")
+check("filter keeps the matching slider", sl.Instance.Visible == true)
+check("filter hides a non matching toggle", tg.Instance.Visible == false)
+check("filter hides sub rows of hidden parents", subT.Instance.Visible == false)
+lib.mainWindow.ApplyFilter("zzzz")
+check("no result message", lib.mainWindow.noResults.Visible == true)
+lib.mainWindow.ApplyFilter("")
+check("clearing the filter restores rows", tg.Instance.Visible == true and sl.Instance.Visible == true and lib.mainWindow.noResults.Visible == false)
 
 -- steal tab content only shows while the tab is selected
 check("steal content hidden on Farm", steal.content.Visible == false)
@@ -2518,6 +2608,17 @@ tb.MouseButton1Click:Fire(); advance(0.4)
 check("toggle on + callback", tg.Get() == true and seen == true)
 tb.MouseButton1Click:Fire(); advance(0.4)
 check("toggle off", tg.Get() == false and seen == false)
+
+-- UI Optimizer: tweens apply instantly and effects stop
+local pillF = find(tg.Instance, function(d) return d.ClassName == "Frame" and d.Size and d.Size.X.Offset == 26 end)
+lib.SetNoAnim(true)
+tb.MouseButton1Click:Fire()
+check("UI Optimizer: colour applied with no tween delay", pillF.BackgroundColor3 == lib.UI.C.MOON)
+check("UI Optimizer flags", lib.NoAnim == true and lib.AnimUser == false)
+tb.MouseButton1Click:Fire()
+lib.SetNoAnim(false)
+check("UI Optimizer can be turned off", lib.NoAnim == false and lib.AnimUser == true)
+advance(0.4)
 
 local bb = find(btn.Instance, function(d) return d.ClassName == "TextButton" end)
 bb.MouseButton1Click:Fire(); advance(0.5)
@@ -2562,11 +2663,6 @@ box.Text = "garbage"
 importB.MouseButton1Click:Fire(); advance(0.3)
 check("invalid import is refused", hasText(cfgPage, "That is not a valid config"))
 lib.mainWindow.Select("Farm"); advance(0.3)
-
--- themes
-for _, name in ipairs(lib.ThemeNames) do lib.SetTheme(name); advance(0.2) end
-lib.SetTheme("Gold")
-check("original theme names kept", #lib.ThemeNames == 4 and lib.ThemeNames[1] == "Gold" and lib.ThemeName == "Gold")
 
 -- main minimise / restore
 lib.mainWindow.SetMinimized(true); advance(0.4)
