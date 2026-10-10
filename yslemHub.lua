@@ -7395,26 +7395,37 @@ do
 				end
 
 				if tbl4.SafeCarry.GoMethod == "TP" then
-					-- Go Method TP: short hops (size and pause from the hop engine), shield on the whole way,
-					-- rewind / respawn detection, retries with a longer pause, tween fallback if the server keeps pulling back
+					-- Go Method TP: hops sized by the hop engine, shield on the whole way, the pause and the hop size
+					-- adapt to the server (kept between eggs), the target follows the egg, stuck / rewind / respawn
+					-- detection, a second pass if the take fails, flight fallback if the server keeps pulling back
 					local sc = tbl4.SafeCarry
-					local function hopTo(target, label)
-						local gap = math.max(tonumber(sc.HopGap) or 0.1, 0.06)
+					local tune = tbl4.GoTp
+					if not tune then
+						tune = { Gap = math.max(tonumber(sc.HopGap) or 0.1, 0.06), Scale = 1, Wins = 0 }
+						tbl4.GoTp = tune
+					end
+					local function eggPos()
+						local ok, cf = pcall(function() return arg.CFrame end)
+						return ok and typeof(cf) == "CFrame" and cf.Position or position
+					end
+					local function hopTo(getTarget, label)
 						local fails = 0
 						local lastImpulse = tbl4.Analyzer.ImpulseAt
 						local guardClock = os.clock()
+						local stuck = 0
 						while true do
 							if slicedfn13(arg2) or os.clock() - guardClock > 25 then return false end
 							local root = tbl4.Root()
 							if not root then return false end
+							local target = getTarget()
 							local here = root.Position
 							local left = target - here
 							if left.Magnitude <= 6 then return true end
 							str2 = label
-							local step = math.clamp(tbl4.WalkSpeed() * (tonumber(sc.HopRatio) or 1.5), 40, 90)
+							local step = math.clamp(tbl4.WalkSpeed() * (tonumber(sc.HopRatio) or 1.5) * tune.Scale, 30, 90)
 							local nextPos = left.Magnitude <= step and target or here + left.Unit * step
 							local held = 0
-							while held < gap do
+							while held < tune.Gap do
 								local r = tbl4.Root()
 								if not r then return false end
 								pcall(function()
@@ -7428,35 +7439,76 @@ do
 							if not after then return false end
 							local impulsed = tbl4.Analyzer.ImpulseAt > lastImpulse
 							lastImpulse = math.max(lastImpulse, tbl4.Analyzer.ImpulseAt)
-							local pulled = impulsed or after.AssemblyLinearVelocity.Magnitude > 150 or (after.Position - nextPos).Magnitude > 10
+							local off = (after.Position - nextPos).Magnitude
+							local pulled = impulsed or after.AssemblyLinearVelocity.Magnitude > 150 or off > 10
 							if pulled then
+								-- the server pulled us back: smaller hops and a longer pause, remembered for the next eggs
 								fails += 1
+								tune.Wins = 0
+								tune.Gap = math.min(tune.Gap * 1.5, 0.5)
+								tune.Scale = math.max(tune.Scale * 0.8, 0.5)
 								if fails >= 3 then return false end
-								gap = math.min(gap * 1.6, 0.5)
 								task.wait(0.15)
+							elseif (after.Position - here).Magnitude < math.min(step, left.Magnitude) * 0.4 then
+								-- the hop did not move us (blocked / frozen): do not loop forever
+								stuck += 1
+								if stuck >= 4 then return false end
+							else
+								stuck = 0
+								tune.Wins += 1
+								-- a clean streak: go back toward the configured values
+								if tune.Wins >= 4 then
+									tune.Wins = 0
+									tune.Gap = math.max(tune.Gap * 0.9, math.max(tonumber(sc.HopGap) or 0.1, 0.06))
+									tune.Scale = math.min(tune.Scale * 1.1, 1)
+								end
 							end
 						end
 					end
-					local arrived = false
-					tbl4.Shield("gotp_egg", true)
-					pcall(function()
-						local startRoot = tbl4.Root()
-						if not startRoot then return end
-						if tbl4.InsideBase() and not tbl4.InsideBase(position) then
-							local home = stealHome()
-							if home and not hopTo(Vector3.new(home.X, startRoot.Position.Y, home.Z), "Leaving the base") then return end
-						end
-						arrived = hopTo(position + Vector3.new(0, 3, 0), "Teleporting to the egg")
-					end)
-					task.delay(0.4, function() tbl4.Shield("gotp_egg", nil) end)
-					if slicedfn13(arg2) then return false end
-					if not arrived then
-						-- the server keeps rewinding the hops: finish the trip with the normal flight
+					local function goToEgg()
+						local arrived = false
+						tbl4.Shield("gotp_egg", true)
+						pcall(function()
+							local startRoot = tbl4.Root()
+							if not startRoot then return end
+							if tbl4.InsideBase() and not tbl4.InsideBase(eggPos()) then
+								local home = stealHome()
+								local homeY = startRoot.Position.Y
+								if home and not hopTo(function() return Vector3.new(home.X, homeY, home.Z) end, "Leaving the base") then return end
+							end
+							arrived = hopTo(function() return eggPos() + Vector3.new(0, 3, 0) end, "Teleporting to the egg")
+						end)
+						task.delay(0.4, function() tbl4.Shield("gotp_egg", nil) end)
+						return arrived
+					end
+					local function flyToEgg()
 						str2 = "Flying to the egg"
-						if not slicedfn33(position + Vector3.new(0, 3, 0), arg2, nil, 400) then
+						return slicedfn33(eggPos() + Vector3.new(0, 3, 0), arg2, nil, 400)
+					end
+					if not goToEgg() then
+						if slicedfn13(arg2) then return false end
+						-- the server keeps rewinding the hops: finish the trip with the normal flight
+						if not flyToEgg() then return false end
+					end
+					str2 = "Taking the egg"
+					local took = slicedfn44(arg, arg2, 0.6, nil)
+					if not took and not slicedfn13(arg2) then
+						took = slicedfn30(arg, arg2)
+					end
+					if not took and not slicedfn13(arg2) and not slicedfn36(arg.Uid, arg2) then
+						-- second pass: we may have been pulled away or the egg moved, hop back once and retry
+						local root = tbl4.Root()
+						if root and (root.Position - eggPos()).Magnitude > 8 and goToEgg() and not slicedfn13(arg2) then
+							str2 = "Taking the egg"
+							took = slicedfn44(arg, arg2, 0.6, nil) or slicedfn30(arg, arg2)
+						end
+						if not took then
+							tbl18[arg.Uid] = os.clock() + slicedn6
 							return false
 						end
 					end
+					tbl4.Steal.LastFinishedAt = os.clock()
+					return true
 				else
 					if tbl4.InsideBase() and not tbl4.InsideBase(position) then
 						local sliced19 = stealHome()
