@@ -2303,6 +2303,44 @@ end
 		return n
 	end
 
+	-- ---------- usage stats (Sources Hub site) ----------
+	-- One-way POST to the Sources Hub stats site (members online, total executions): Roblox id and name, game name,
+	-- script name and version, once at start and once a minute. The answer is ignored: nothing is loaded or executed
+	-- from the site. Config > Usage stats has the switch (on by default) and says what is sent.
+	local STATS_URL = "https://sourceshub-stats.netlify.app/api/ping"
+	local STATS_SITE = "https://sourceshub-stats.netlify.app"
+	local STATS_KEY = "Config>Usage stats>Share usage stats"
+	local statsGame
+	local function statsSend(kind)
+		if store[STATS_KEY] == false then return end
+		local genv = typeof(getgenv) == "function" and getgenv() or _G
+		local send = genv.request or genv.http_request or (type(genv.syn) == "table" and genv.syn.request) or nil
+		local lp = Players.LocalPlayer
+		if type(send) ~= "function" or not lp then return end
+		if not statsGame then
+			statsGame = "Unknown game"
+			pcall(function() statsGame = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+		end
+		task.spawn(function()
+			pcall(function()
+				send({
+					Url = STATS_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"},
+					Body = HttpService:JSONEncode({uid = lp.UserId, name = lp.Name, place = game.PlaceId, game = statsGame, script = "SourcesHub", v = 1, t = kind}),
+				})
+			end)
+		end)
+	end
+	local function statsStart()
+		statsSend("start")
+		task.spawn(function()
+			while gui.Parent do
+				task.wait(60)
+				if gui.Parent then statsSend("beat") end
+			end
+		end)
+	end
+	lib.StatsSend = statsSend
+
 	local function buildConfigTab()
 		local main = lib.mainWindow
 		local raw = main.AddTab("Config", false, "Config")
@@ -2338,6 +2376,12 @@ end
 			if n then say("Imported " .. n .. " settings"); tb.Text = "" else say(err) end
 		end})
 		status = sec:CreateText({Name = "Status", Text = "Ready"})
+		local stat = tab:CreateSection({Name = "Usage stats", Expanded = true})
+		stat:CreateText({Name = "What is sent", Text = "Your Roblox name and id, the game name, the script name and version: once at start, then once a minute. The Sources Hub site uses it to show members online and total executions. Nothing else is sent and nothing is loaded from the site."})
+		stat:CreateToggle({Name = "Share usage stats", Default = true, Callback = function() end})
+		stat:CreateButton({Name = "Stats site", ButtonText = "Copy link", ConfirmText = "Copied", Callback = function()
+			pcall(function() setclipboard(STATS_SITE) end)
+		end})
 	end
 
 	function lib:Finalize(cfg)
@@ -2346,6 +2390,7 @@ end
 		main.Select((cfg and cfg.MainTab and cfg.MainTab.name) or main.order[1])
 		main.SetOpen(true)
 		buildDock()
+		task.delay(2, statsStart)
 		
 		task.delay(3, function() lib.ParticlesOn = true end)
 		UIS.InputBegan:Connect(function(inp, gp)

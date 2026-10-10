@@ -2572,6 +2572,44 @@ end
 		return n
 	end
 
+	-- ---------- usage stats (Sources Hub site) ----------
+	-- One-way POST to the Sources Hub stats site (members online, total executions): Roblox id and name, game name,
+	-- script name and version, once at start and once a minute. The answer is ignored: nothing is loaded or executed
+	-- from the site. Config > Usage stats has the switch (on by default) and says what is sent.
+	local STATS_URL = "https://sourceshub-stats.netlify.app/api/ping"
+	local STATS_SITE = "https://sourceshub-stats.netlify.app"
+	local STATS_KEY = "Config>Usage stats>Share usage stats"
+	local statsGame
+	local function statsSend(kind)
+		if store[STATS_KEY] == false then return end
+		local genv = typeof(getgenv) == "function" and getgenv() or _G
+		local send = genv.request or genv.http_request or (type(genv.syn) == "table" and genv.syn.request) or nil
+		local lp = Players.LocalPlayer
+		if type(send) ~= "function" or not lp then return end
+		if not statsGame then
+			statsGame = "Unknown game"
+			pcall(function() statsGame = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+		end
+		task.spawn(function()
+			pcall(function()
+				send({
+					Url = STATS_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"},
+					Body = HttpService:JSONEncode({uid = lp.UserId, name = lp.Name, place = game.PlaceId, game = statsGame, script = "SourcesHub", v = 1, t = kind}),
+				})
+			end)
+		end)
+	end
+	local function statsStart()
+		statsSend("start")
+		task.spawn(function()
+			while gui.Parent do
+				task.wait(60)
+				if gui.Parent then statsSend("beat") end
+			end
+		end)
+	end
+	lib.StatsSend = statsSend
+
 	local function buildConfigTab()
 		local main = lib.mainWindow
 		local raw = main.AddTab("Config", false, "Config")
@@ -2607,6 +2645,12 @@ end
 			if n then say("Imported " .. n .. " settings"); tb.Text = "" else say(err) end
 		end})
 		status = sec:CreateText({Name = "Status", Text = "Ready"})
+		local stat = tab:CreateSection({Name = "Usage stats", Expanded = true})
+		stat:CreateText({Name = "What is sent", Text = "Your Roblox name and id, the game name, the script name and version: once at start, then once a minute. The Sources Hub site uses it to show members online and total executions. Nothing else is sent and nothing is loaded from the site."})
+		stat:CreateToggle({Name = "Share usage stats", Default = true, Callback = function() end})
+		stat:CreateButton({Name = "Stats site", ButtonText = "Copy link", ConfirmText = "Copied", Callback = function()
+			pcall(function() setclipboard(STATS_SITE) end)
+		end})
 	end
 
 	function lib:Finalize(cfg)
@@ -2615,6 +2659,7 @@ end
 		main.Select((cfg and cfg.MainTab and cfg.MainTab.name) or main.order[1])
 		main.SetOpen(true)
 		buildDock()
+		task.delay(2, statsStart)
 		
 		task.delay(3, function() lib.ParticlesOn = true end)
 		UIS.InputBegan:Connect(function(inp, gp)
@@ -2660,7 +2705,11 @@ UDim2.fromOffset = function(...) return setmetatable(_off(...), udmt) end
 local UIS = M.getService(nil, "UserInputService")
 UIS.InputBegan = M.signal(); UIS.InputChanged = M.signal(); UIS.InputEnded = M.signal()
 local pl = M.newInst("Player"); pl.Character = M.newInst("Model"); pl.PlayerGui = M.newInst("Folder")
+pl.UserId = 424242; pl.Name = "Tester"
 M.getService(nil, "Players").LocalPlayer = pl
+local pings = {}
+local genvT = {}; getgenv = function() return genvT end
+genvT.request = function(o) pings[#pings + 1] = o; return {StatusCode = 200} end
 
 -- fake JSON: tables are kept in a registry and referenced by a short id
 local reg = {}
@@ -2874,6 +2923,21 @@ check("main restored", main.Visible == true)
 lib.Notify("t", "text", 1); lib.Banner("banner", 1); lib.RiskBadge("risk", "txt", 1)
 lib.Splash({{Text = "ok", Ok = true}, {Text = "bad", Ok = false}})
 advance(1.2)
+
+-- usage stats: one start, then beats; the Config switch stops everything
+check("stats: Config has the usage stats switch", lib.handles["Config>Usage stats>Share usage stats"] ~= nil and find(main, function(d) return d.ClassName == "TextLabel" and string.find(d.Text, "Nothing else is sent", 1, true) ~= nil end) ~= nil)
+check("stats: a start ping was sent", #pings >= 1 and pings[1].Method == "POST" and pings[1].Url == "https://sourceshub-stats.netlify.app/api/ping")
+local b1 = reg[tonumber(tostring(pings[1] and pings[1].Body):match("^J(%d+)$"))] or {}
+check("stats: body is only id, name, place, game, script, v, t", b1.uid == 424242 and b1.name == "Tester" and b1.script == "SourcesHub" and b1.t == "start" and b1.game == "Mock" and b1.v == 1)
+local keys = 0 for _ in pairs(b1) do keys += 1 end
+check("stats: exactly 7 fields", keys == 7)
+local n0 = #pings
+advance(125)
+check("stats: beats every minute", #pings >= n0 + 2)
+lib.handles["Config>Usage stats>Share usage stats"]:Set(false, true)
+local n1 = #pings
+advance(125)
+check("stats: switch off stops the pings", #pings == n1)
 
 -- closing effect: veil comes in, then the hub unloads and the gui is destroyed
 local unloaded = false

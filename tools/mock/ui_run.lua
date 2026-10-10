@@ -26,7 +26,11 @@ UDim2.fromOffset = function(...) return setmetatable(_off(...), udmt) end
 local UIS = M.getService(nil, "UserInputService")
 UIS.InputBegan = M.signal(); UIS.InputChanged = M.signal(); UIS.InputEnded = M.signal()
 local pl = M.newInst("Player"); pl.Character = M.newInst("Model"); pl.PlayerGui = M.newInst("Folder")
+pl.UserId = 424242; pl.Name = "Tester"
 M.getService(nil, "Players").LocalPlayer = pl
+local pings = {}
+local genvT = {}; getgenv = function() return genvT end
+genvT.request = function(o) pings[#pings + 1] = o; return {StatusCode = 200} end
 
 -- fake JSON: tables are kept in a registry and referenced by a short id
 local reg = {}
@@ -240,6 +244,21 @@ check("main restored", main.Visible == true)
 lib.Notify("t", "text", 1); lib.Banner("banner", 1); lib.RiskBadge("risk", "txt", 1)
 lib.Splash({{Text = "ok", Ok = true}, {Text = "bad", Ok = false}})
 advance(1.2)
+
+-- usage stats: one start, then beats; the Config switch stops everything
+check("stats: Config has the usage stats switch", lib.handles["Config>Usage stats>Share usage stats"] ~= nil and find(main, function(d) return d.ClassName == "TextLabel" and string.find(d.Text, "Nothing else is sent", 1, true) ~= nil end) ~= nil)
+check("stats: a start ping was sent", #pings >= 1 and pings[1].Method == "POST" and pings[1].Url == "https://sourceshub-stats.netlify.app/api/ping")
+local b1 = reg[tonumber(tostring(pings[1] and pings[1].Body):match("^J(%d+)$"))] or {}
+check("stats: body is only id, name, place, game, script, v, t", b1.uid == 424242 and b1.name == "Tester" and b1.script == "SourcesHub" and b1.t == "start" and b1.game == "Mock" and b1.v == 1)
+local keys = 0 for _ in pairs(b1) do keys += 1 end
+check("stats: exactly 7 fields", keys == 7)
+local n0 = #pings
+advance(125)
+check("stats: beats every minute", #pings >= n0 + 2)
+lib.handles["Config>Usage stats>Share usage stats"]:Set(false, true)
+local n1 = #pings
+advance(125)
+check("stats: switch off stops the pings", #pings == n1)
 
 -- closing effect: veil comes in, then the hub unloads and the gui is destroyed
 local unloaded = false

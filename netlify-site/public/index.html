@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sources Hub</title>
+<meta name="description" content="Membres en ligne et executions de Sources Hub">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+:root{color-scheme:dark;--bg:#050000;--card:#0d0202;--line:#3a0a0a;--red:#dc2828;--red2:#ff5a5a;--pink:#ffb0b0;--dim:#9a7070;--ok:#3cdc78;--bad:#f05a5a}
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+@keyframes spin{to{--a:360deg}}
+@keyframes shine{to{background-position:200% 0}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(60,220,120,.6)}50%{box-shadow:0 0 0 7px rgba(60,220,120,0)}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--pink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{min-height:100vh;background:radial-gradient(900px 520px at 85% -10%,#2f0606 0,transparent 60%),radial-gradient(700px 400px at -10% 110%,#240404 0,transparent 55%),var(--bg)}
+.glow{position:relative;border-radius:18px;background:var(--card)}
+.glow::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+ background:conic-gradient(from var(--a),#2a0505,var(--red),#ffd0d0,var(--red),#2a0505);animation:spin 6s linear infinite;
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.txt{background:linear-gradient(90deg,var(--red2),#ffe0e0,var(--red2));background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 5s linear infinite}
+.wrap{max-width:1080px;margin:0 auto;padding:18px 16px 56px}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:6px 0 22px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand img{width:56px;height:56px;border-radius:16px;display:block}
+.brand h1{margin:0;font-size:26px;letter-spacing:.3px}
+.brand span{display:block;color:var(--dim);font-size:13px}
+.links{display:flex;gap:10px;flex-wrap:wrap}
+a.btn,button{font:inherit;color:var(--pink);background:#140404;border:1px solid var(--line);border-radius:12px;padding:8px 14px;text-decoration:none;cursor:pointer}
+a.btn:hover,button:hover{border-color:var(--red)}
+.hero{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-bottom:14px}
+.big{padding:20px 22px}
+.big small{display:block;color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px}
+.big b{display:block;font-size:46px;line-height:1.05;font-variant-numeric:tabular-nums}
+.big em{font-style:normal;color:var(--dim);font-size:13px}
+.live{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ok);margin-right:8px;animation:pulse 2s infinite}
+.row{display:grid;gap:14px;grid-template-columns:3fr 2fr;margin-bottom:14px}
+@media(max-width:780px){.row{grid-template-columns:1fr}}
+.panel{padding:18px 20px;min-width:0}
+.panel h2{margin:0 0 14px;font-size:12px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:1.2px}
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px}
+.bars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px;min-width:0}
+.bars i{width:100%;border-radius:8px 8px 0 0;background:linear-gradient(var(--red2),var(--red));min-height:3px}
+.bars span{font-size:11px;color:var(--dim);white-space:nowrap}
+.bars u{text-decoration:none;font-size:12px;font-variant-numeric:tabular-nums}
+.list>div{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:9px 0;border-bottom:1px solid #1c0606}
+.list>div:last-child{border:0}
+.meter{grid-column:1/-1;height:6px;border-radius:4px;background:#1a0505;overflow:hidden}
+.meter i{display:block;height:100%;background:linear-gradient(90deg,var(--red),var(--red2));border-radius:4px}
+.muted{color:var(--dim)}
+footer{margin-top:26px;color:var(--dim);font-size:12px;text-align:center}
+#admin{margin-top:14px}
+.hidden{display:none!important}
+input{font:inherit;color:var(--pink);background:#140404;border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-width:0}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;text-align:left;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid #1c0606;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.scroll{overflow-x:auto}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#4a2a2a}.dot.on{background:var(--ok)}
+.err{color:var(--bad);min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <img src="/logo.svg" alt="Sources Hub" width="56" height="56">
+      <div><h1 class="txt">Sources Hub</h1><span>Statistiques en direct</span></div>
+    </div>
+    <div class="links">
+      <a class="btn" href="https://discord.gg/sourceshubs" target="_blank" rel="noopener">discord.gg/sourceshubs</a>
+      <button id="adminBtn">Admin</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="big glow"><small>Membres en ligne</small><b class="txt" id="online">-</b><em><i class="live"></i>actifs ces 2 dernieres minutes</em></div>
+    <div class="big glow"><small>Executions au total</small><b class="txt" id="total">-</b><em id="members">-</em></div>
+    <div class="big glow"><small>Executions aujourd'hui</small><b class="txt" id="today">-</b><em>depuis minuit (UTC)</em></div>
+  </section>
+
+  <section class="row">
+    <div class="panel glow"><h2>Executions - 7 derniers jours</h2><div class="bars" id="bars"></div></div>
+    <div class="panel glow"><h2>Par jeu</h2><div class="list" id="games"><span class="muted">Chargement...</span></div></div>
+  </section>
+
+  <section id="admin" class="panel glow hidden">
+    <h2>Admin</h2>
+    <div id="loginBox" style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="tok" type="password" placeholder="Jeton admin" autocomplete="off" style="flex:1;min-width:180px">
+      <button id="go">Entrer</button>
+    </div>
+    <div id="loginErr" class="err"></div>
+    <div id="adminData" class="hidden">
+      <h2 style="margin-top:6px">Membres</h2>
+      <div class="scroll"><table><thead><tr><th>Membre</th><th>Jeu</th><th>Script</th><th>Executions</th><th>Derniere activite</th></tr></thead><tbody id="mBody"></tbody></table></div>
+      <h2 style="margin-top:18px">Dernieres executions</h2>
+      <div class="scroll"><table><thead><tr><th>Heure</th><th>Membre</th><th>Jeu</th><th>Script</th><th>v</th></tr></thead><tbody id="fBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <footer>Les scripts Sources Hub envoient le pseudo, le jeu et le nom du script pour ces statistiques (option desactivable dans l'onglet Config).</footer>
+</div>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
+function n(v){return Number(v||0).toLocaleString("fr-FR")}
+function ago(ts){if(!ts)return"-";var s=Math.max(0,Math.floor((Date.now()-ts)/1000));if(s<60)return s+" s";if(s<3600)return Math.floor(s/60)+" min";if(s<86400)return Math.floor(s/3600)+" h";return Math.floor(s/86400)+" j"}
+function anim(node,to){var from=Number(node.dataset.v||0);node.dataset.v=to;var t0=performance.now();(function f(t){var k=Math.min((t-t0)/600,1),e=1-Math.pow(1-k,3);node.textContent=n(Math.round(from+(to-from)*e));if(k<1)requestAnimationFrame(f)})(t0)}
+function load(){
+  fetch("/api/stats",{cache:"no-store"}).then(function(r){return r.json()}).then(function(s){
+    anim($("online"),s.online);anim($("total"),s.total);anim($("today"),s.today);
+    $("members").textContent=n(s.members)+" membres au total";
+    var max=Math.max.apply(null,s.last7.map(function(d){return d.runs}).concat([1])),b=$("bars");b.textContent="";
+    s.last7.forEach(function(d){var c=el("div");c.appendChild(el("u","",n(d.runs)));var i=el("i");i.style.height=Math.max(3,Math.round(d.runs/max*100))+"px";c.appendChild(i);c.appendChild(el("span","",d.day.slice(5)));b.appendChild(c)});
+    var g=$("games");g.textContent="";var gm=Math.max.apply(null,s.games.map(function(x){return x.runs}).concat([1]));
+    if(!s.games.length)g.appendChild(el("span","muted","Aucune execution pour l'instant"));
+    s.games.forEach(function(x){var d=el("div");d.appendChild(el("span","",x.game));d.appendChild(el("span","muted",n(x.runs)+" exec - "+n(x.online)+" en ligne"));var m=el("div","meter"),i=el("i");i.style.width=Math.round(x.runs/gm*100)+"%";m.appendChild(i);d.appendChild(m);g.appendChild(d)})
+  }).catch(function(){})
+}
+load();setInterval(load,10000);
+
+var token=null;
+$("adminBtn").onclick=function(){$("admin").classList.toggle("hidden");if(!$("admin").classList.contains("hidden"))$("tok").focus()};
+function admin(){
+  fetch("/api/admin",{headers:{Authorization:"Bearer "+token},cache:"no-store"}).then(function(r){if(r.status===401)throw new Error("401");return r.json()}).then(function(d){
+    $("loginErr").textContent="";$("loginBox").classList.add("hidden");$("adminData").classList.remove("hidden");
+    var m=$("mBody");m.textContent="";
+    d.members.forEach(function(u){var tr=el("tr"),td=el("td"),dot=el("span","dot"+(u.online?" on":""));td.appendChild(dot);td.appendChild(document.createTextNode(u.name+" ("+u.uid+")"));tr.appendChild(td);
+      tr.appendChild(el("td","",u.game));tr.appendChild(el("td","",u.script+" v"+u.v));tr.appendChild(el("td","",n(u.runs)));tr.appendChild(el("td","muted",ago(u.last)));m.appendChild(tr)});
+    var f=$("fBody");f.textContent="";
+    d.feed.forEach(function(e){var tr=el("tr");tr.appendChild(el("td","",new Date(e.ts).toLocaleString("fr-FR")));tr.appendChild(el("td","",e.name+" ("+e.uid+")"));tr.appendChild(el("td","",e.game));tr.appendChild(el("td","",e.script));tr.appendChild(el("td","muted",String(e.v)));f.appendChild(tr)})
+  }).catch(function(){token=null;$("loginErr").textContent="Jeton refuse"})
+}
+$("go").onclick=function(){token=$("tok").value.trim();if(token)admin()};
+$("tok").onkeydown=function(e){if(e.key==="Enter")$("go").onclick()};
+setInterval(function(){if(token)admin()},15000);
+})();
+</script>
+</body>
+</html>
