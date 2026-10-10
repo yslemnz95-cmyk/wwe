@@ -1,0 +1,11 @@
+#SNAPSHOT v1
+#GAME Ride a Pet PlaceId=124216119978534 GameId=1
+#DATE 2026-10-10 10:00:00
+BUTTON|ImageButton|GUI/Main/BasketTracker/Handler/EggFrame/Drop|DROP EGG|1
+PROMPT|ProximityPrompt|WS/RenderedEggs/Dino/Prompt|Pick Up / Dino / hold=0.5|1
+REMOTE|RemoteEvent|RS/Remotes/Basket/BasketDrop||1
+REMOTE|RemoteEvent|RS/Remotes/Game/EggPickup||1
+REMOTE|RemoteEvent|RS/Remotes/Game/NewThing||1
+SCRIPT|LocalScript|PS/NewTracker||1
+STAT|IntValue|leaderstats/Speed||1
+WORLD|Folder|WS/Plots||1

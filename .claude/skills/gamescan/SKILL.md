@@ -13,3 +13,5 @@ description: Analyser un jeu Roblox nouveau ou un bug qui depend du jeu avec le 
 4. Utiliser les noms reels trouves, puis RETIRER le bloc et le bouton : le projet final n'embarque jamais l'analyse.
 5. Noter les faits utiles dans CLAUDE.md (section "Notes jeu").
 Ne rien deduire de noms supposes : si un nom n'est pas dans le rapport ou CLAUDE.md, le dire.
+
+Pour une mise a jour du jeu ("Game update") : voir le skill `gameupdate` (inventaire complet `GameScan.snapshot()` + comparaison `tools/gamediff.py`).

@@ -1,7 +1,7 @@
 # Sources Hub stats (site Vercel)
 
 Projet Vercel `sourceshub-stats` (id prj_2VCPUuzkJFOlbCQkJpp9MRAIHPVb) -> https://sourceshub-stats.vercel.app
-Page statique dans `public/`, fonctions dans `api/`, stockage Vercel Blob prive (`sourceshub-data`, region fra1, jeton `BLOB_READ_WRITE_TOKEN` lie au projet).
+Static page dans `public/`, fonctions dans `api/`, stockage Vercel Blob prive (`sourceshub-data`, region fra1, jeton `BLOB_READ_WRITE_TOKEN` lie au projet).
 
 | Route | Role |
 |---|---|

@@ -1,0 +1,4 @@
+{
+  "ride a pet": ["yslempet_EggTP.lua", "friend/ShinEggFarm_yslem.lua"],
+  "steal an egg": ["yslemHub.lua", "SourcesHub.lua", "yslemEgg_InstantTP_Standalone.lua", "yslemEgg_DeliveryStop_Standalone.lua"]
+}

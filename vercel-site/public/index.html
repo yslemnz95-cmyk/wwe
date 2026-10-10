@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sources Hub</title>
-<meta name="description" content="Membres en ligne et executions de Sources Hub">
+<meta name="description" content="Live members online and total executions for Sources Hub">
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 <style>
 :root{color-scheme:dark;--bg:#050000;--card:#0d0202;--line:#3a0a0a;--red:#dc2828;--red2:#ff5a5a;--pink:#ffb0b0;--dim:#9a7070;--ok:#3cdc78;--bad:#f05a5a}
@@ -66,7 +66,7 @@ td{padding:7px 8px;border-bottom:1px solid #1c0606;white-space:nowrap;max-width:
   <header>
     <div class="brand">
       <img src="/logo.svg" alt="Sources Hub" width="56" height="56">
-      <div><h1 class="txt">Sources Hub</h1><span>Statistiques en direct</span></div>
+      <div><h1 class="txt">Sources Hub</h1><span>Live statistics</span></div>
     </div>
     <div class="links">
       <a class="btn" href="https://discord.gg/sourceshubs" target="_blank" rel="noopener">discord.gg/sourceshubs</a>
@@ -75,50 +75,50 @@ td{padding:7px 8px;border-bottom:1px solid #1c0606;white-space:nowrap;max-width:
   </header>
 
   <section class="hero">
-    <div class="big glow"><small>Membres en ligne</small><b class="txt" id="online">-</b><em><i class="live"></i>actifs ces 2 dernieres minutes</em></div>
-    <div class="big glow"><small>Executions au total</small><b class="txt" id="total">-</b><em id="members">-</em></div>
-    <div class="big glow"><small>Executions aujourd'hui</small><b class="txt" id="today">-</b><em>depuis minuit (UTC)</em></div>
+    <div class="big glow"><small>Members online</small><b class="txt" id="online">-</b><em><i class="live"></i>active in the last 2 minutes</em></div>
+    <div class="big glow"><small>Total executions</small><b class="txt" id="total">-</b><em id="members">-</em></div>
+    <div class="big glow"><small>Executions today</small><b class="txt" id="today">-</b><em>since midnight (UTC)</em></div>
   </section>
 
   <section class="row">
-    <div class="panel glow"><h2>Executions - 7 derniers jours</h2><div class="bars" id="bars"></div></div>
-    <div class="panel glow"><h2>Par jeu</h2><div class="list" id="games"><span class="muted">Chargement...</span></div></div>
+    <div class="panel glow"><h2>Executions - last 7 days</h2><div class="bars" id="bars"></div></div>
+    <div class="panel glow"><h2>By game</h2><div class="list" id="games"><span class="muted">Loading...</span></div></div>
   </section>
 
   <section id="admin" class="panel glow hidden">
     <h2>Admin</h2>
     <div id="loginBox" style="display:flex;gap:8px;flex-wrap:wrap">
-      <input id="tok" type="password" placeholder="Jeton admin" autocomplete="off" style="flex:1;min-width:180px">
-      <button id="go">Entrer</button>
+      <input id="tok" type="password" placeholder="Admin token" autocomplete="off" style="flex:1;min-width:180px">
+      <button id="go">Enter</button>
     </div>
     <div id="loginErr" class="err"></div>
     <div id="adminData" class="hidden">
-      <h2 style="margin-top:6px">Membres</h2>
-      <div class="scroll"><table><thead><tr><th>Membre</th><th>Jeu</th><th>Script</th><th>Executions</th><th>Derniere activite</th></tr></thead><tbody id="mBody"></tbody></table></div>
-      <h2 style="margin-top:18px">Dernieres executions</h2>
-      <div class="scroll"><table><thead><tr><th>Heure</th><th>Membre</th><th>Jeu</th><th>Script</th><th>v</th></tr></thead><tbody id="fBody"></tbody></table></div>
+      <h2 style="margin-top:6px">Members</h2>
+      <div class="scroll"><table><thead><tr><th>Member</th><th>Game</th><th>Script</th><th>Executions</th><th>Last seen</th></tr></thead><tbody id="mBody"></tbody></table></div>
+      <h2 style="margin-top:18px">Latest executions</h2>
+      <div class="scroll"><table><thead><tr><th>Time</th><th>Member</th><th>Game</th><th>Script</th><th>v</th></tr></thead><tbody id="fBody"></tbody></table></div>
     </div>
   </section>
 
-  <footer>Les scripts Sources Hub envoient le pseudo, le jeu et le nom du script pour ces statistiques (option desactivable dans l'onglet Config).</footer>
+  <footer>Sources Hub scripts send the Roblox name, the game and the script name for these statistics (can be turned off in the Config tab).</footer>
 </div>
 
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
-function n(v){return Number(v||0).toLocaleString("fr-FR")}
-function ago(ts){if(!ts)return"-";var s=Math.max(0,Math.floor((Date.now()-ts)/1000));if(s<60)return s+" s";if(s<3600)return Math.floor(s/60)+" min";if(s<86400)return Math.floor(s/3600)+" h";return Math.floor(s/86400)+" j"}
+function n(v){return Number(v||0).toLocaleString("en-US")}
+function ago(ts){if(!ts)return"-";var s=Math.max(0,Math.floor((Date.now()-ts)/1000));if(s<60)return s+" s";if(s<3600)return Math.floor(s/60)+" min";if(s<86400)return Math.floor(s/3600)+" h";return Math.floor(s/86400)+" d"}
 function anim(node,to){var from=Number(node.dataset.v||0);node.dataset.v=to;var t0=performance.now();(function f(t){var k=Math.min((t-t0)/600,1),e=1-Math.pow(1-k,3);node.textContent=n(Math.round(from+(to-from)*e));if(k<1)requestAnimationFrame(f)})(t0)}
 function load(){
   fetch("/api/stats",{cache:"no-store"}).then(function(r){return r.json()}).then(function(s){
     anim($("online"),s.online);anim($("total"),s.total);anim($("today"),s.today);
-    $("members").textContent=n(s.members)+" membres au total";
+    $("members").textContent=n(s.members)+" members in total";
     var max=Math.max.apply(null,s.last7.map(function(d){return d.runs}).concat([1])),b=$("bars");b.textContent="";
     s.last7.forEach(function(d){var c=el("div");c.appendChild(el("u","",n(d.runs)));var i=el("i");i.style.height=Math.max(3,Math.round(d.runs/max*100))+"px";c.appendChild(i);c.appendChild(el("span","",d.day.slice(5)));b.appendChild(c)});
     var g=$("games");g.textContent="";var gm=Math.max.apply(null,s.games.map(function(x){return x.runs}).concat([1]));
-    if(!s.games.length)g.appendChild(el("span","muted","Aucune execution pour l'instant"));
-    s.games.forEach(function(x){var d=el("div");d.appendChild(el("span","",x.game));d.appendChild(el("span","muted",n(x.runs)+" exec - "+n(x.online)+" en ligne"));var m=el("div","meter"),i=el("i");i.style.width=Math.round(x.runs/gm*100)+"%";m.appendChild(i);d.appendChild(m);g.appendChild(d)})
+    if(!s.games.length)g.appendChild(el("span","muted","No executions yet"));
+    s.games.forEach(function(x){var d=el("div");d.appendChild(el("span","",x.game));d.appendChild(el("span","muted",n(x.runs)+" runs - "+n(x.online)+" online"));var m=el("div","meter"),i=el("i");i.style.width=Math.round(x.runs/gm*100)+"%";m.appendChild(i);d.appendChild(m);g.appendChild(d)})
   }).catch(function(){})
 }
 load();setInterval(load,10000);
@@ -132,8 +132,8 @@ function admin(){
     d.members.forEach(function(u){var tr=el("tr"),td=el("td"),dot=el("span","dot"+(u.online?" on":""));td.appendChild(dot);td.appendChild(document.createTextNode(u.name+" ("+u.uid+")"));tr.appendChild(td);
       tr.appendChild(el("td","",u.game));tr.appendChild(el("td","",u.script+" v"+u.v));tr.appendChild(el("td","",n(u.runs)));tr.appendChild(el("td","muted",ago(u.last)));m.appendChild(tr)});
     var f=$("fBody");f.textContent="";
-    d.feed.forEach(function(e){var tr=el("tr");tr.appendChild(el("td","",new Date(e.ts).toLocaleString("fr-FR")));tr.appendChild(el("td","",e.name+" ("+e.uid+")"));tr.appendChild(el("td","",e.game));tr.appendChild(el("td","",e.script));tr.appendChild(el("td","muted",String(e.v)));f.appendChild(tr)})
-  }).catch(function(){token=null;$("loginErr").textContent="Jeton refuse"})
+    d.feed.forEach(function(e){var tr=el("tr");tr.appendChild(el("td","",new Date(e.ts).toLocaleString("en-US")));tr.appendChild(el("td","",e.name+" ("+e.uid+")"));tr.appendChild(el("td","",e.game));tr.appendChild(el("td","",e.script));tr.appendChild(el("td","muted",String(e.v)));f.appendChild(tr)})
+  }).catch(function(){token=null;$("loginErr").textContent="Token rejected"})
 }
 $("go").onclick=function(){token=$("tok").value.trim();if(token)admin()};
 $("tok").onkeydown=function(e){if(e.key==="Enter")$("go").onclick()};
