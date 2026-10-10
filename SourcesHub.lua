@@ -716,9 +716,56 @@ end
 
 	-- ---------- window ----------
 	local windows = {}
+
+	-- sidebar order and little drawn icons (no external images needed)
+	local TAB_ORDER = {Farm = 1, StealPanel = 2, Events = 3, Config = 999}
+	local TAB_ICON = {StealPanel = "egg", Events = "diamond", Config = "sliders"}
+	local function drawTabIcon(btn, kind)
+		local box = Instance.new("Frame", btn)
+		box.Name = "Icon"; box.BackgroundTransparency = 1
+		box.Size = UDim2.fromOffset(18, 18); box.Position = UDim2.new(0, 9, 0.5, -9)
+		if kind == "egg" then
+			local e = Instance.new("Frame", box)
+			e.Size = UDim2.fromOffset(12, 16); e.Position = UDim2.new(0.5, -6, 0.5, -8)
+			e.BackgroundColor3 = C.MOON2; e.BorderSizePixel = 0
+			local ec = Instance.new("UICorner", e); ec.CornerRadius = UDim.new(0.5, 0)
+			local eg = Instance.new("UIGradient", e); eg.Rotation = 90
+			eg.Color = ColorSequence.new(C.WHITE, C.MOON)
+			local spot = Instance.new("Frame", e)
+			spot.Size = UDim2.fromOffset(3, 3); spot.Position = UDim2.new(0, 3, 0, 4)
+			spot.BackgroundColor3 = C.WHITE; spot.BorderSizePixel = 0
+			corner(spot, 2)
+		elseif kind == "diamond" then
+			local d = Instance.new("Frame", box)
+			d.Size = UDim2.fromOffset(11, 11); d.Position = UDim2.new(0.5, -5, 0.5, -5)
+			d.Rotation = 45; d.BackgroundColor3 = C.MOON; d.BackgroundTransparency = 0.5; d.BorderSizePixel = 0
+			stroke(d, C.MOON2, 1.5)
+			local dot = Instance.new("Frame", box)
+			dot.Size = UDim2.fromOffset(4, 4); dot.Position = UDim2.new(0.5, -2, 0.5, -2)
+			dot.BackgroundColor3 = C.WHITE; dot.BorderSizePixel = 0
+			corner(dot, 2)
+		elseif kind == "sliders" then
+			local knobs = {10, 3, 8}
+			for i = 1, 3 do
+				local y = 3 + (i - 1) * 6
+				local line = Instance.new("Frame", box)
+				line.Size = UDim2.fromOffset(16, 2); line.Position = UDim2.new(0, 1, 0, y)
+				line.BackgroundColor3 = C.MOON2; line.BorderSizePixel = 0
+				local knob = Instance.new("Frame", box)
+				knob.Size = UDim2.fromOffset(5, 5); knob.Position = UDim2.new(0, knobs[i], 0, y - 1)
+				knob.BackgroundColor3 = C.WHITE; knob.BorderSizePixel = 0
+				corner(knob, 2)
+			end
+		else
+			local b = Instance.new("Frame", box)
+			b.Size = UDim2.fromOffset(5, 5); b.Position = UDim2.new(0, 4, 0.5, -2)
+			b.BackgroundColor3 = C.DEEP4; b.BorderSizePixel = 0
+			corner(b, 2)
+		end
+	end
 	
 	local function newWindow(cfg)
-		local w = {tabs = {}, order = {}, current = nil, name = cfg.name, isMain = cfg.isMain == true}
+		local w = {tabs = {}, order = {}, current = nil, name = cfg.name, isMain = cfg.isMain == true, newLook = true}
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
 		local H = math.min(cfg.h, math.max(240, vp.Y - 60))
 		local frame = Instance.new("Frame", gui)
@@ -730,13 +777,13 @@ end
 		frame.ClipsDescendants = true
 		frame.Active = true
 		frame.ZIndex = cfg.z or 20
-		corner(frame, cfg.isMain and 8 or 20)
-		addLivingStroke(frame, 1.5, true, cfg.isMain)
+		corner(frame, 8)
+		addLivingStroke(frame, 1.5, true, true)
 		local winScale = Instance.new("UIScale", frame)
 		w.frame = frame
 
 		local bgImg, subtitle
-		if cfg.isMain then
+		do
 			bgImg = Instance.new("ImageLabel", frame)
 			bgImg.Name = "Bg"
 			bgImg.BackgroundTransparency = 1; bgImg.BorderSizePixel = 0
@@ -752,7 +799,7 @@ end
 
 		local header, moon, title, close, mini, sep, tabBar, content
 		local contentX, bodyTopV = 0, 46
-		if cfg.isMain then
+		do
 			header = Instance.new("Frame", frame)
 			header.Size = UDim2.new(1, 0, 0, 42)
 			header.BackgroundColor3 = C.HEADER; header.BorderSizePixel = 0
@@ -771,6 +818,15 @@ end
 				title.Size = UDim2.new(1, -112, 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
 				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -112, 0, 12), C.DIM, Enum.Font.GothamMedium)
 				subtitle.Position = UDim2.new(0, 40, 0, 25); subtitle.TextSize = 9; subtitle.TextTruncate = Enum.TextTruncate.AtEnd
+				if cfg.subtitleCopy then
+					subtitle.TextColor3 = C.MOON2
+					local sb = Instance.new("TextButton", subtitle)
+					sb.Size = UDim2.new(1, 0, 1, 0); sb.BackgroundTransparency = 1; sb.Text = ""
+					sb.MouseButton1Click:Connect(function()
+						pcall(function() setclipboard(cfg.subtitleCopy) end)
+						if lib.Notify then lib.Notify("Discord", "Link copied: " .. cfg.subtitleCopy, 2.5) end
+					end)
+				end
 			else
 				title.Size = UDim2.new(1, -112, 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
 			end
@@ -790,80 +846,31 @@ end
 			sep.BackgroundColor3 = C.WHITE; sep.BorderSizePixel = 0
 			liveGrad(sep, true, true)
 
-			contentX = 108
-			tabBar = Instance.new("ScrollingFrame", frame)
-			tabBar.Name = "SideTabs"
-			tabBar.Size = UDim2.new(0, contentX, 1, -44); tabBar.Position = UDim2.new(0, 0, 0, 44)
-			tabBar.BackgroundColor3 = C.ROW; tabBar.BackgroundTransparency = 0.45; tabBar.BorderSizePixel = 0
-			tabBar.ScrollBarThickness = 0
-			tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
-			tabBar.AutomaticCanvasSize = Enum.AutomaticSize.Y
-			tabBar.ScrollingDirection = Enum.ScrollingDirection.Y
-			local tl2 = Instance.new("UIListLayout", tabBar)
-			tl2.Padding = UDim.new(0, 3); tl2.SortOrder = Enum.SortOrder.LayoutOrder
-			local tp2 = Instance.new("UIPadding", tabBar)
-			tp2.PaddingTop = UDim.new(0, 6); tp2.PaddingLeft = UDim.new(0, 4); tp2.PaddingRight = UDim.new(0, 4)
-			local sideLine = Instance.new("Frame", frame)
-			sideLine.Name = "SideLine"
-			sideLine.Size = UDim2.new(0, 1, 1, -44); sideLine.Position = UDim2.new(0, contentX, 0, 44)
-			sideLine.BackgroundColor3 = C.BORDER; sideLine.BorderSizePixel = 0
-			w.sideLine = sideLine
-			w.tabBar = tabBar
+			if not cfg.noTabs then
+				contentX = 108
+				tabBar = Instance.new("ScrollingFrame", frame)
+				tabBar.Name = "SideTabs"
+				tabBar.Size = UDim2.new(0, contentX, 1, -44); tabBar.Position = UDim2.new(0, 0, 0, 44)
+				tabBar.BackgroundColor3 = C.ROW; tabBar.BackgroundTransparency = 0.45; tabBar.BorderSizePixel = 0
+				tabBar.ScrollBarThickness = 0
+				tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
+				tabBar.AutomaticCanvasSize = Enum.AutomaticSize.Y
+				tabBar.ScrollingDirection = Enum.ScrollingDirection.Y
+				local tl2 = Instance.new("UIListLayout", tabBar)
+				tl2.Padding = UDim.new(0, 3); tl2.SortOrder = Enum.SortOrder.LayoutOrder
+				local tp2 = Instance.new("UIPadding", tabBar)
+				tp2.PaddingTop = UDim.new(0, 6); tp2.PaddingLeft = UDim.new(0, 4); tp2.PaddingRight = UDim.new(0, 4)
+				local sideLine = Instance.new("Frame", frame)
+				sideLine.Name = "SideLine"
+				sideLine.Size = UDim2.new(0, 1, 1, -44); sideLine.Position = UDim2.new(0, contentX, 0, 44)
+				sideLine.BackgroundColor3 = C.BORDER; sideLine.BorderSizePixel = 0
+				w.sideLine = sideLine
+				w.tabBar = tabBar
+			end
 			content = Instance.new("Frame", frame)
 			content.Size = UDim2.new(1, -contentX, 1, -46); content.Position = UDim2.new(0, contentX, 0, 46)
 			content.BackgroundTransparency = 1; content.ClipsDescendants = true
 			w.content = content
-		else
-			header = Instance.new("Frame", frame)
-			header.Size = UDim2.new(1, 0, 0, 42)
-			header.BackgroundColor3 = C.BG; header.BorderSizePixel = 0
-			corner(header, 20)
-			moon = Instance.new("ImageLabel", header)
-			moon.Size = UDim2.new(0, 22, 0, 22); moon.Position = UDim2.new(0, 10, 0.5, -11)
-			moon.BackgroundTransparency = 1; moon.BorderSizePixel = 0
-			moon.Image = "rbxassetid://111331179075915"
-			moon.ScaleType = Enum.ScaleType.Fit
-			title = Instance.new("TextLabel", header)
-			title.BackgroundTransparency = 1
-			title.Size = UDim2.new(1, -110, 1, 0); title.Position = UDim2.new(0, 38, 0, 0)
-			title.Text = cfg.title; title.TextSize = 14; title.Font = Enum.Font.GothamBold
-			title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
-			title.TextTruncate = Enum.TextTruncate.AtEnd
-			liveGrad(title, true)
-			close = Instance.new("TextButton", header)
-			close.Size = UDim2.new(0, 20, 0, 20); close.Position = UDim2.new(1, -28, 0.5, -10)
-			close.BackgroundColor3 = Color3.fromRGB(58, 20, 20); close.Text = "X"; close.TextSize = 11
-			close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold; close.BorderSizePixel = 0
-			corner(close, 7); addLivingStroke(close, 1); pressFx(close)
-			mini = Instance.new("TextButton", header)
-			mini.Size = UDim2.new(0, 20, 0, 20); mini.Position = UDim2.new(1, -52, 0.5, -10)
-			mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
-			mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
-			corner(mini, 7); addLivingStroke(mini, 1); pressFx(mini)
-			sep = Instance.new("Frame", frame)
-			sep.Size = UDim2.new(1, -24, 0, 1); sep.Position = UDim2.new(0, 12, 0, 42)
-			sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
-
-			local bodyTop = 46
-			if not cfg.noTabs then
-				tabBar = Instance.new("ScrollingFrame", frame)
-				tabBar.Size = UDim2.new(1, -12, 0, 26); tabBar.Position = UDim2.new(0, 6, 0, 48)
-				tabBar.BackgroundTransparency = 1; tabBar.BorderSizePixel = 0
-				tabBar.ScrollBarThickness = 0
-				tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
-				tabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
-				tabBar.ScrollingDirection = Enum.ScrollingDirection.X
-				local tl2 = Instance.new("UIListLayout", tabBar)
-				tl2.FillDirection = Enum.FillDirection.Horizontal
-				tl2.Padding = UDim.new(0, 5); tl2.VerticalAlignment = Enum.VerticalAlignment.Center
-				bodyTop = 80
-			end
-			w.tabBar = tabBar
-			content = Instance.new("Frame", frame)
-			content.Size = UDim2.new(1, 0, 1, -bodyTop); content.Position = UDim2.new(0, 0, 0, bodyTop)
-			content.BackgroundTransparency = 1; content.ClipsDescendants = true
-			w.content = content
-			bodyTopV = bodyTop
 		end
 
 		-- picker overlay (single / multi select) covering the content area
@@ -892,7 +899,7 @@ end
 		local ovl = Instance.new("UIListLayout", ovList)
 		ovl.Padding = UDim.new(0, 3); ovl.SortOrder = Enum.SortOrder.LayoutOrder
 		local ovp = Instance.new("UIPadding", ovList)
-		ovp.PaddingLeft = UDim.new(0, 24); ovp.PaddingRight = UDim.new(0, 6); ovp.PaddingTop = UDim.new(0, 4)
+		ovp.PaddingLeft = UDim.new(0, 8); ovp.PaddingRight = UDim.new(0, 8); ovp.PaddingTop = UDim.new(0, 4)
 		ovDone.MouseButton1Click:Connect(function() ov.Visible = false end)
 		local clearFn
 		ovClear.MouseButton1Click:Connect(function() if clearFn then clearFn() end end)
@@ -902,46 +909,44 @@ end
 			ovTitle.Text = opts.title
 			for _, c in ipairs(ovList:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
 			ovClear.Visible = opts.multi == true
-			local marks = {}
+			local marks, rowsOf = {}, {}
 			local function refreshMarks()
 				for opt, m in pairs(marks) do
-					m.BackgroundColor3 = opts.isOn(opt) and C.MOON or Color3.fromRGB(10, 14, 22)
+					local on = opts.isOn(opt)
+					m.BackgroundColor3 = on and C.MOON or Color3.fromRGB(10, 14, 22)
+					local rr = rowsOf[opt]
+					if rr then
+						rr.row.BackgroundColor3 = on and C.ON_BG or C.ROW
+						rr.edge.BackgroundTransparency = on and 0 or 1
+					end
 				end
 			end
 			clearFn = function() if opts.onClear then opts.onClear() end; refreshMarks() end
 			for i, opt in ipairs(opts.options) do
 				local r = Instance.new("Frame", ovList)
-				r.Size = UDim2.new(1, 0, 0, 28); r.BackgroundColor3 = C.ROW; r.BackgroundTransparency = 0.35
+				r.Size = UDim2.new(1, 0, 0, 30); r.BackgroundColor3 = C.ROW; r.BackgroundTransparency = 0.15
 				r.BorderSizePixel = 0; r.ZIndex = 301; r.LayoutOrder = i
 				corner(r, 8); addLivingStroke(r, 1)
-				-- tree branch: trunk segment, stub and node dot to the left of the row
-				local trunkTop = i == 1 and 14 or -4
-				local trunkBottom = i == #opts.options and 14 or 32
-				local seg = Instance.new("Frame", r)
-				seg.Size = UDim2.new(0, 1, 0, trunkBottom - trunkTop); seg.Position = UDim2.new(0, -14, 0, trunkTop)
-				seg.BackgroundColor3 = C.DEEP4; seg.BorderSizePixel = 0; seg.ZIndex = 301
-				local stub = Instance.new("Frame", r)
-				stub.Size = UDim2.new(0, 10, 0, 1); stub.Position = UDim2.new(0, -14, 0, 14)
-				stub.BackgroundColor3 = C.DEEP4; stub.BorderSizePixel = 0; stub.ZIndex = 301
-				local node = Instance.new("Frame", r)
-				node.Size = UDim2.new(0, 5, 0, 5); node.Position = UDim2.new(0, -6, 0, 12)
-				node.BackgroundColor3 = C.MOON2; node.BorderSizePixel = 0; node.ZIndex = 302
-				corner(node, 3)
-				local off = 8
+				local edge = Instance.new("Frame", r)
+				edge.Size = UDim2.new(0, 3, 1, -10); edge.Position = UDim2.new(0, 0, 0, 5)
+				edge.BackgroundColor3 = C.MOON2; edge.BackgroundTransparency = 1; edge.BorderSizePixel = 0; edge.ZIndex = 302
+				corner(edge, 2)
+				rowsOf[opt] = {row = r, edge = edge}
+				local off = 12
 				local ic = iconOf(opt)
 				if ic then
 					local img = Instance.new("ImageLabel", r)
-					img.Size = UDim2.fromOffset(22, 22); img.Position = UDim2.new(0, 5, 0.5, -11)
+					img.Size = UDim2.fromOffset(22, 22); img.Position = UDim2.new(0, 8, 0.5, -11)
 					img.BackgroundTransparency = 1; img.Image = ic; img.ZIndex = 302
-					off = 32
+					off = 36
 				end
-				local ol = label(r, tostring(opt), UDim2.new(1, -off - 34, 1, 0), C.SILVER, Enum.Font.GothamMedium)
-				ol.Position = UDim2.new(0, off, 0, 0); ol.TextSize = 10.5; ol.ZIndex = 302
+				local ol = label(r, tostring(opt), UDim2.new(1, -off - 38, 1, 0), C.WHITE, Enum.Font.GothamMedium)
+				ol.Position = UDim2.new(0, off, 0, 0); ol.TextSize = 11; ol.ZIndex = 302
 				ol.TextTruncate = Enum.TextTruncate.AtEnd
 				local mark = Instance.new("Frame", r)
-				mark.Size = UDim2.new(0, 16, 0, 16); mark.Position = UDim2.new(1, -26, 0.5, -8)
+				mark.Size = UDim2.new(0, 18, 0, 18); mark.Position = UDim2.new(1, -28, 0.5, -9)
 				mark.BorderSizePixel = 0; mark.ZIndex = 302
-				corner(mark, opts.multi and 4 or 8); addLivingStroke(mark, 1)
+				corner(mark, opts.multi and 5 or 9); addLivingStroke(mark, 1)
 				marks[opt] = mark
 				local b = Instance.new("TextButton", r)
 				b.Size = UDim2.new(1, 0, 1, 0); b.BackgroundTransparency = 1; b.Text = ""; b.ZIndex = 303
@@ -1273,7 +1278,7 @@ end
 		drag(header, frame)
 
 		-- tabs
-		function w.AddTab(name, hidden)
+		function w.AddTab(name, hidden, display)
 			local tab = {name = name, sections = {}, window = w}
 			local page = Instance.new("ScrollingFrame", content)
 			page.Name = name; page.Size = UDim2.new(1, 0, 1, 0)
@@ -1290,10 +1295,11 @@ end
 				local btn = Instance.new("TextButton", tabBar)
 				btn.Size = UDim2.new(1, 0, 0, 30)
 				btn.BackgroundColor3 = C.ROW; btn.BackgroundTransparency = 1
-				btn.Text = ""; btn.AutoButtonColor = false; btn.BorderSizePixel = 0; btn.LayoutOrder = #w.order + 1
+				btn.Text = ""; btn.AutoButtonColor = false; btn.BorderSizePixel = 0; btn.LayoutOrder = TAB_ORDER[name] or (10 + #w.order)
 				corner(btn, 6)
-				local bl = label(btn, name, UDim2.new(1, -14, 1, 0), C.TABIDLE, Enum.Font.GothamBold)
-				bl.Position = UDim2.new(0, 12, 0, 0); bl.TextSize = 11; bl.TextTruncate = Enum.TextTruncate.AtEnd
+				drawTabIcon(btn, TAB_ICON[name])
+				local bl = label(btn, display or name, UDim2.new(1, -38, 1, 0), C.TABIDLE, Enum.Font.GothamBold)
+				bl.Position = UDim2.new(0, 32, 0, 0); bl.TextSize = 11; bl.TextTruncate = Enum.TextTruncate.AtEnd
 				local bar = Instance.new("Frame", btn)
 				bar.Size = UDim2.new(0, 3, 0, 16); bar.Position = UDim2.new(0, 0, 0.5, -8)
 				bar.BackgroundColor3 = C.MOON2; bar.BorderSizePixel = 0; bar.BackgroundTransparency = 1
@@ -1314,6 +1320,7 @@ end
 			w.current = name
 			for n, t in pairs(w.tabs) do
 				local on = n == name
+				if t.holder and t.holder.Parent then t.holder.Visible = on end
 				if on and not t.page.Visible and not firstSelect then
 					t.basePos = t.basePos or t.page.Position
 					t.page.Position = t.basePos + UDim2.fromOffset(18, 0)
@@ -1365,7 +1372,7 @@ end
 		row.BackgroundColor3 = C.ROW; row.BackgroundTransparency = 0.35; row.BorderSizePixel = 0
 		corner(row, 10); addLivingStroke(row, 1)
 		local info = {order = order, children = 0, holder = holder, subs = {}, open = false}
-		if self.window and self.window.isMain then
+		do
 			row.BackgroundTransparency = 0.15
 			local edge = Instance.new("Frame", row)
 			edge.Name = "Edge"; edge.Size = UDim2.new(0, 3, 1, -12); edge.Position = UDim2.new(0, 0, 0, 6)
@@ -1481,7 +1488,6 @@ end
 	end
 
 	function Section:CreateButton(cfg)
-		if not (self.window and self.window.isMain) then return self:_createButtonOld(cfg) end
 		local hasNote = cfg.Note and cfg.Note ~= ""
 		local holder, row = self:_slot(hasNote and 38 or 28, cfg.SubOf)
 		local bw = cfg.ButtonWidth or 64
@@ -1829,13 +1835,13 @@ end
 		local page = target.page
 		target.secCount = (target.secCount or 0) + 1
 		local head = Instance.new("TextButton", page)
-		head.Size = UDim2.new(1, 0, 0, win.isMain and 28 or 22); head.BackgroundTransparency = 1; head.Text = ""
+		head.Size = UDim2.new(1, 0, 0, 28); head.BackgroundTransparency = 1; head.Text = ""
 		head.LayoutOrder = target.secCount * 10
 		local accent = Instance.new("Frame", head)
-		accent.Size = UDim2.new(0, 3, 0, win.isMain and 14 or 11); accent.Position = UDim2.new(0, 2, 0.5, win.isMain and -7 or -5)
+		accent.Size = UDim2.new(0, 3, 0, 14); accent.Position = UDim2.new(0, 2, 0.5, -7)
 		accent.BackgroundColor3 = C.MOON; accent.BorderSizePixel = 0; corner(accent, 2)
-		local lbl = label(head, win.isMain and tostring(cfg.Name) or string.upper(cfg.Name), UDim2.new(1, -30, 1, 0), win.isMain and C.WHITE or C.DIM, Enum.Font.GothamBold)
-		lbl.TextSize = win.isMain and 12.5 or 9; lbl.Position = UDim2.new(0, 12, 0, 0)
+		local lbl = label(head, tostring(cfg.Name), UDim2.new(1, -30, 1, 0), C.WHITE, Enum.Font.GothamBold)
+		lbl.TextSize = 12.5; lbl.Position = UDim2.new(0, 12, 0, 0)
 		local arrow = label(head, ">", UDim2.new(0, 16, 1, 0), C.DIM, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
 		arrow.Position = UDim2.new(1, -18, 0, 0); arrow.TextSize = 10
 		local body = Instance.new("Frame", page)
@@ -1860,15 +1866,36 @@ end
 
 	-- ---------- extra tool windows (same look/API as the Events window) ----------
 	lib.NewToolWindow = function(cfg)
-		local win = newWindow({name = cfg.name, frameName = cfg.frameName, title = cfg.title, w = cfg.w or 252, h = cfg.h or 340,
-			pos = cfg.pos or UDim2.new(0, 12, 0, 56), noTabs = true, z = 20, startCollapsed = true})
-		local raw = win.AddTab(cfg.tabName or "Tool")
+		local main = lib.mainWindow
+		local key = cfg.tabName or "Tool"
+		local raw = main.tabs[key]
+		if not raw then raw = main.AddTab(key, false, cfg.tabTitle or cfg.title) end
+		-- a fresh holder and page every time: the logic may tear the panel down and rebuild it
+		if raw.holder and raw.holder.Parent then raw.holder:Destroy() end
+		if raw.page and raw.page.Parent then raw.page:Destroy() end
+		local holder = Instance.new("Frame", main.content)
+		holder.Name = "Embed_" .. key
+		holder.Size = UDim2.new(1, 0, 1, 0); holder.BackgroundTransparency = 1; holder.ClipsDescendants = true
+		holder.Visible = main.current == key
+		local page = Instance.new("ScrollingFrame", holder)
+		page.Name = key; page.Size = UDim2.new(1, 0, 1, 0)
+		page.BackgroundTransparency = 1; page.BorderSizePixel = 0; page.ScrollBarThickness = 3
+		page.ScrollBarImageColor3 = C.ACCENT; page.CanvasSize = UDim2.new(0, 0, 0, 0)
+		page.AutomaticCanvasSize = Enum.AutomaticSize.Y; page.Visible = main.current == key
+		local pl = Instance.new("UIListLayout", page)
+		pl.Padding = UDim.new(0, 5); pl.SortOrder = Enum.SortOrder.LayoutOrder
+		local pp = Instance.new("UIPadding", page)
+		pp.PaddingTop = UDim.new(0, 4); pp.PaddingLeft = UDim.new(0, 6); pp.PaddingRight = UDim.new(0, 6)
+		pp.PaddingBottom = UDim.new(0, 10)
+		raw.page = page; raw.holder = holder; raw.basePos = nil
 		local tab = setmetatable(raw, Tab)
-		tab.window = win
-		win.Select(cfg.tabName or "Tool")
-		win.tab = tab
-		win.frame.Visible = false
+		tab.window = main
+		local win = {tab = tab, content = holder, frame = holder, name = cfg.name, title = Instance.new("TextLabel")}
+		win.OnClose = newSignalList()
 		win.wantOpen = false
+		function win.SetOpen(on) win.wantOpen = on == true; win.OnClose.Fire(on == true) end
+		function win.IsOpen() return win.wantOpen end
+		function win.Select() main.Select(key) end
 		return win
 	end
 
@@ -1906,16 +1933,10 @@ end
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
 		local mw = math.min(480, math.max(340, vp.X - 24))
 		local mh = math.min(370, math.max(240, vp.Y - 60))
-		local main = newWindow({name = "main", frameName = "Main", title = "Sources Hub", subtitle = "Steal An Egg", w = mw, h = mh,
+		local main = newWindow({name = "main", frameName = "Main", title = "Sources Hub", subtitle = "discord.gg/sourceshubs", subtitleCopy = "discord.gg/sourceshubs", w = mw, h = mh,
 			pos = UDim2.new(0.5, -math.floor(mw / 2), 0.5, -math.floor(mh / 2)), isMain = true, z = 20})
-		local events = newWindow({name = "events", frameName = "SourcesHubEvents", title = "Events · Dr Scramble", w = 252, h = 340,
-			pos = UDim2.new(1, -262, 0, 56), noTabs = true, z = 20, startCollapsed = true})
-		events.AddTab("Events")
-		events.Select("Events")
-		events.frame.Visible = store["Window>Events"] == true
-		events.OnClose.Connect(function(on) setStored("Window>Events", on) end)
-		if store["Window>Events"] ~= false then events.SetOpen(true) end
-		lib.eventsWindow = events
+		local events = main
+		lib.eventsWindow = main
 		lib.newWindow = newWindow
 		lib.UI = {C = C, corner = corner, stroke = stroke, label = label, liveGrad = liveGrad,
 			addLivingStroke = addLivingStroke, makeSwitch = makeSwitch, gui = gui, Tween = TweenService, drag = drag}
@@ -1923,6 +1944,7 @@ end
 		local w = setmetatable({main = main, events = events}, Win)
 		w.defaultTab = setmetatable(main.AddTab(cfg.DefaultTab or "Main"), Tab)
 		w.defaultTab.window = main
+		main.AddTab("Events", false, "Event")
 		return w
 	end
 
@@ -1999,8 +2021,75 @@ end
 		end
 	end
 
+	local function importConfig(text)
+		text = (tostring(text or ""):gsub("^%s+", ""))
+		text = (text:gsub("%s+$", ""))
+		local body = text:match("^SHCFG1:(.+)$") or text
+		local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+		if not ok or type(data) ~= "table" then return nil, "That is not a valid config" end
+		local n = 0
+		for key, v in pairs(data) do
+			if type(key) == "string" and key ~= "GuideSeen" and key ~= "Dock>Locked" then
+				local tv = type(v)
+				if tv == "boolean" or tv == "number" or tv == "string" or tv == "table" then
+					local h = lib.handles[key]
+					if key == "Theme" then
+						if tv == "string" then pcall(lib.SetTheme, v); n = n + 1 end
+					elseif h and type(h.Set) == "function" then
+						if pcall(h.Set, h, v, true) then n = n + 1 end
+					elseif key:sub(1, 6) == "State>" then
+						local st = lib.states[key:sub(7)]
+						if st then pcall(st.Set, st, v); n = n + 1 end
+					else
+						store[key] = v; n = n + 1
+					end
+				end
+			end
+		end
+		saveSoon()
+		return n
+	end
+
+	local function buildConfigTab()
+		local main = lib.mainWindow
+		local raw = main.AddTab("Config", false, "Config")
+		raw.window = main
+		local tab = setmetatable(raw, Tab)
+		local sec = tab:CreateSection({Name = "Share config", Expanded = true})
+		sec:CreateText({Name = "How it works", Text = "Press Copy and send the text to a friend. They paste it in the box and press Import: every setting is applied at once."})
+		local status
+		local function say(t) if status then status:Set(t) end end
+		sec:CreateButton({Name = "Copy my config", ButtonText = "Copy", ConfirmText = "Copied", Callback = function()
+			local out = {}
+			for k, v in pairs(store) do
+				if k ~= "GuideSeen" and k ~= "Dock>Locked" then out[k] = v end
+			end
+			local ok, json = pcall(function() return HttpService:JSONEncode(out) end)
+			if not ok then say("Could not read the config"); return end
+			local text = "SHCFG1:" .. json
+			local copied = pcall(function() setclipboard(text) end)
+			say(copied and ("Copied " .. #text .. " characters") or "Clipboard is not available on this executor")
+		end})
+		local _, row = sec:_slot(56)
+		local tb = Instance.new("TextBox", row)
+		tb.Name = "ConfigBox"
+		tb.Size = UDim2.new(1, -16, 1, -16); tb.Position = UDim2.new(0, 8, 0, 8)
+		tb.BackgroundColor3 = C.BG; tb.TextColor3 = C.WHITE
+		tb.PlaceholderText = "Paste a shared config here"; tb.PlaceholderColor3 = C.DIM
+		tb.Text = ""; tb.TextSize = 10; tb.Font = Enum.Font.GothamMedium; tb.BorderSizePixel = 0
+		tb.ClearTextOnFocus = false; tb.TextWrapped = true; tb.MultiLine = true
+		tb.TextXAlignment = Enum.TextXAlignment.Left; tb.TextYAlignment = Enum.TextYAlignment.Top
+		corner(tb, 6); addLivingStroke(tb, 1)
+		sec:CreateButton({Name = "Import pasted config", ButtonText = "Import", ConfirmText = "Done", Callback = function()
+			local n, err = importConfig(tb.Text)
+			if n then say("Imported " .. n .. " settings"); tb.Text = "" else say(err) end
+		end})
+		status = sec:CreateText({Name = "Status", Text = "Ready"})
+	end
+
 	function lib:Finalize(cfg)
 		local main = lib.mainWindow
+		buildConfigTab()
 		main.Select((cfg and cfg.MainTab and cfg.MainTab.name) or main.order[1])
 		main.frame.Visible = true
 		buildDock()
@@ -23911,11 +24000,12 @@ do
 			style.Light = strokeColor
 		end
 		-- hub look: black translucent fill, living stroke, gradient text
-		moonStyle(tbl14.Hud, c3(210, 225, 255), c3(140, 180, 255), c3(90, 150, 255))
-		moonStyle(tbl14.Steal, c3(255, 255, 255), c3(160, 200, 255), c3(160, 200, 255), c3(20, 45, 80))
-		moonStyle(tbl14.Queued, c3(165, 180, 210), c3(110, 125, 160), c3(40, 80, 165))
-		moonStyle(tbl14.PriorityOn, c3(255, 225, 140), c3(255, 190, 70), c3(255, 200, 60), c3(45, 34, 8))
-		moonStyle(tbl14.Cancel, c3(255, 160, 160), c3(235, 90, 100), c3(220, 60, 60), c3(50, 14, 16))
+		local UC = SourcesLib.UI.C
+		moonStyle(tbl14.Hud, UC.MOON2, UC.SILVER, UC.DEEP3, c3(30, 18, 20))
+		moonStyle(tbl14.Steal, c3(255, 255, 255), UC.MOON2, UC.MOON2, UC.MOON)
+		moonStyle(tbl14.Queued, UC.SILVER2, UC.SILVER, UC.DEEP3, c3(26, 22, 24))
+		moonStyle(tbl14.PriorityOn, c3(255, 225, 140), c3(255, 190, 70), c3(255, 200, 60), c3(60, 44, 8))
+		moonStyle(tbl14.Cancel, c3(255, 170, 170), c3(255, 110, 120), UC.RED, c3(86, 20, 28))
 
 		SourcesLib.ThemeHooks[#SourcesLib.ThemeHooks + 1] = function(mapColor, mapSeq)
 			for _, st in pairs(tbl14) do
@@ -24697,7 +24787,7 @@ do
 			local button = Instance.new("TextButton")
 			button.AutoButtonColor = false
 			button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-			button.BackgroundTransparency = 0.35
+			button.BackgroundTransparency = 0.05
 			button.BorderSizePixel = 0
 			button.Text = ""
 			button.Size = size
@@ -24754,10 +24844,10 @@ do
 			local U = SourcesLib.UI
 			local row = Instance.new("Frame")
 			row.Size = UDim2.new(1, 0, 0, 52)
-			row.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-			row.BackgroundTransparency = 0.35
+			row.BackgroundColor3 = U.C.ROW
+			row.BackgroundTransparency = 0.15
 			row.BorderSizePixel = 0
-			U.corner(row, 10)
+			U.corner(row, 8)
 			U.addLivingStroke(row, 1)
 
 			local rowScale = Instance.new("UIScale")
@@ -24777,7 +24867,7 @@ do
 			accent.Parent = row
 
 			local iconHolder = Instance.new("Frame")
-			iconHolder.BackgroundColor3 = Color3.fromRGB(10, 16, 34)
+			iconHolder.BackgroundColor3 = U.C.DEEP1
 			iconHolder.BorderSizePixel = 0
 			iconHolder.Position = UDim2.new(0, 11, 0.5, -18)
 			iconHolder.Size = UDim2.fromOffset(36, 36)
@@ -24829,7 +24919,7 @@ do
 			detailLabel.TextSize = 9
 			detailLabel.TextXAlignment = Enum.TextXAlignment.Left
 			detailLabel.TextTruncate = Enum.TextTruncate.AtEnd
-			detailLabel.TextColor3 = Color3.fromRGB(140, 162, 205)
+			detailLabel.TextColor3 = U.C.SILVER2
 			detailLabel.Text = ""
 			detailLabel.ZIndex = 2
 			detailLabel.Parent = row
@@ -25154,9 +25244,11 @@ do
 				tabName = "StealPanel",
 				frameName = "SourcesHubSteal",
 				title = "Steal Panel",
+				tabTitle = "Steal",
+				subtitle = "Live egg field",
 				w = 262,
 				h = 410,
-				pos = UDim2.new(0, 12, 0, 56),
+				pos = UDim2.new(1, -274, 0.5, -math.floor(math.min(410, math.max(240, ((workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y) or 600) - 60)) / 2)),
 			})
 			local tab = win.tab
 
@@ -25175,7 +25267,7 @@ do
 			local hero = Instance.new("Frame")
 			hero.Name = "Hero"
 			hero.BackgroundColor3 = U.C.ROW
-			hero.BackgroundTransparency = 0.35
+			hero.BackgroundTransparency = 0.15
 			hero.BorderSizePixel = 0
 			hero.Position = UDim2.new(0, 8, 0, 4)
 			hero.Size = UDim2.new(1, -16, 0, 58)
@@ -25242,8 +25334,8 @@ do
 			-- small guide badge: shows the current mode and says it is edited with the Mode button next to it
 			local modeBadge = Instance.new("Frame")
 			modeBadge.Name = "ModeBadge"
-			modeBadge.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-			modeBadge.BackgroundTransparency = 0.35
+			modeBadge.BackgroundColor3 = U.C.ROW
+			modeBadge.BackgroundTransparency = 0.15
 			modeBadge.BorderSizePixel = 0
 			modeBadge.Position = UDim2.new(0, 126, 0, 35)
 			modeBadge.Size = UDim2.new(1, -162, 0, 22)
@@ -25278,7 +25370,7 @@ do
 			helpButton.Label.TextSize = 11
 			local guideCard = Instance.new("Frame")
 			guideCard.Name = "DeliveryGuide"
-			guideCard.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			guideCard.BackgroundColor3 = U.C.BG
 			guideCard.BackgroundTransparency = 0.12
 			guideCard.BorderSizePixel = 0
 			guideCard.Position = UDim2.new(0, 8, 0, 4)
@@ -25357,7 +25449,7 @@ do
 				modeButton.Label.Text = "Mode: " .. name
 			end
 
-			-- Mode opens a small tree: a "Deliver" branch (how the egg gets home) and a "Go" branch (how you reach it)
+			-- Mode opens a small card of option chips: "Deliver" (how the egg gets home) and "Go" (how you reach it)
 			local branch = nil
 			local branchButtons = {}
 
@@ -25374,10 +25466,10 @@ do
 						{ Title = "DELIVER", Names = tbl4.Method.Names, Current = tbl4.Method.Current, Apply = tbl4.Method.Apply },
 						{ Title = "GO METHOD", Names = tbl4.GoMethod.Names, Current = tbl4.GoMethod.Current, Apply = tbl4.GoMethod.Apply },
 					}
-					local total = 6
+					local total = 8
 
 					for _, group in ipairs(groups) do
-						total += 14 + #group.Names * 24
+						total += 22 + math.ceil(#group.Names / 2) * 26
 					end
 
 					branch = Instance.new("ScrollingFrame")
@@ -25386,8 +25478,8 @@ do
 					branch.ScrollBarThickness = 3
 					branch.ScrollBarImageColor3 = U.C.MOON
 					branch.ScrollingDirection = Enum.ScrollingDirection.Y
-					branch.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-					branch.BackgroundTransparency = 0.2
+					branch.BackgroundColor3 = U.C.BG
+					branch.BackgroundTransparency = 0.05
 					branch.BorderSizePixel = 0
 					branch.Position = UDim2.new(0, 8, 0, 126)
 					branch.Size = UDim2.new(1, -16, 0, math.min(total, 170))
@@ -25399,40 +25491,21 @@ do
 					U.addLivingStroke(branch, 1)
 					branch.Parent = win.content
 
-					local cursor = 4
+					local cursor = 6
 
 					for _, group in ipairs(groups) do
-						local title = U.label(branch, group.Title, UDim2.new(1, -16, 0, 14), U.C.SILVER2, Enum.Font.GothamBold)
+						local title = U.label(branch, group.Title, UDim2.new(1, -16, 0, 14), U.C.MOON2, Enum.Font.GothamBold)
 						title.Position = UDim2.new(0, 10, 0, cursor)
-						title.TextSize = 8.5
-						cursor += 14
-
-						local trunk = Instance.new("Frame")
-						trunk.BackgroundColor3 = U.C.DEEP4
-						trunk.BorderSizePixel = 0
-						trunk.Position = UDim2.new(0, 12, 0, cursor + 4)
-						trunk.Size = UDim2.new(0, 1, 0, (#group.Names - 1) * 24 + 10)
-						trunk.Parent = branch
+						title.TextSize = 9
+						cursor += 18
 
 						for i, name in ipairs(group.Names) do
-							local y = cursor + (i - 1) * 24
-							local stub = Instance.new("Frame")
-							stub.BackgroundColor3 = U.C.DEEP4
-							stub.BorderSizePixel = 0
-							stub.Position = UDim2.new(0, 12, 0, y + 10)
-							stub.Size = UDim2.fromOffset(12, 1)
-							stub.Parent = branch
-
-							local node = Instance.new("Frame")
-							node.BackgroundColor3 = U.C.MOON2
-							node.BorderSizePixel = 0
-							node.Position = UDim2.new(0, 22, 0, y + 8)
-							node.Size = UDim2.fromOffset(5, 5)
-							U.corner(node, 3)
-							node.Parent = branch
-
-							local optionButton = mkBtn(branch, name, UDim2.new(1, -40, 0, 20), UDim2.new(0, 32, 0, y), nil, tbl14.Queued)
-							optionButton.Label.TextSize = 10
+							local col = (i - 1) % 2
+							local y = cursor + math.floor((i - 1) / 2) * 26
+							local optionButton = mkBtn(branch, name, UDim2.new(0.5, -11, 0, 22),
+								UDim2.new(col == 0 and 0 or 0.5, col == 0 and 8 or 3, 0, y), nil, tbl14.Queued)
+							optionButton.Label.TextSize = 9.5
+							optionButton.Label.TextTruncate = Enum.TextTruncate.AtEnd
 							branchButtons[#branchButtons + 1] = { Button = optionButton, Name = name, Group = group }
 							optionButton.Button.Activated:Connect(function()
 								group.Apply(name)
@@ -25440,7 +25513,7 @@ do
 								tbl4.UiDefer(slicedfn40)
 							end)
 						end
-						cursor += #group.Names * 24
+						cursor += math.ceil(#group.Names / 2) * 26 + 4
 					end
 				end
 
@@ -25516,7 +25589,7 @@ do
 			phaseText.TextTruncate = Enum.TextTruncate.AtEnd
 
 			local track = Instance.new("Frame")
-			track.BackgroundColor3 = Color3.fromRGB(14, 22, 44)
+			track.BackgroundColor3 = U.C.DEEP1
 			track.BorderSizePixel = 0
 			track.Position = UDim2.new(0, 130, 0.5, -3)
 			track.Size = UDim2.new(1, -130, 0, 6)
