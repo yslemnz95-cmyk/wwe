@@ -29291,7 +29291,12 @@ do
 				if ready then applyCap(arg) end
 			end,
 		})
-		task.defer(function() ready = true end)
+		task.defer(function()
+			ready = true
+			local h = tbl4.FpsCapHandle
+			local ok, v = pcall(function() return h:Get() end)
+			if ok and tonumber(v) and tonumber(v) < 245 then applyCap(v) end
+		end)
 	end
 
 	do
@@ -29603,6 +29608,111 @@ do
 				end)
 			end,
 		})
+
+		do
+			local Players = game:GetService("Players")
+			local hideThread = nil
+			local hidden = setmetatable({}, { __mode = "k" })
+
+			local function hideOthers()
+				for _, plr in ipairs(Players:GetPlayers()) do
+					local char = plr ~= Players.LocalPlayer and plr.Character
+					if char then
+						for _, part in ipairs(char:GetDescendants()) do
+							if part:IsA("BasePart") and part.LocalTransparencyModifier ~= 1 then
+								hidden[part] = true
+								pcall(function() part.LocalTransparencyModifier = 1 end)
+							end
+						end
+					end
+				end
+			end
+
+			local function showOthers()
+				for part in pairs(hidden) do
+					pcall(function() part.LocalTransparencyModifier = 0 end)
+				end
+				table.clear(hidden)
+			end
+
+			slicedfn4(function()
+				if hideThread then pcall(task.cancel, hideThread) hideThread = nil end
+				showOthers()
+			end)
+
+			sliced14:CreateToggle({
+				Name = "Hide Other Players",
+				Note = "Makes the other players invisible for you (big FPS gain in a full server)",
+				Default = false,
+				Callback = function(arg)
+					if hideThread then pcall(task.cancel, hideThread) hideThread = nil end
+					if arg then
+						hideThread = task.spawn(function()
+							while true do
+								hideOthers()
+								task.wait(1)
+							end
+						end)
+					else
+						showOthers()
+					end
+				end,
+			})
+		end
+
+		do
+			local savedVolume = nil
+			local function setVolume(v)
+				pcall(function()
+					UserSettings():GetService("UserGameSettings").MasterVolume = v
+				end)
+			end
+			slicedfn4(function()
+				if savedVolume ~= nil then setVolume(savedVolume) savedVolume = nil end
+			end)
+			sliced14:CreateToggle({
+				Name = "Mute Game",
+				Note = "Silences all game sound (saves a little CPU)",
+				Default = false,
+				Callback = function(arg)
+					if arg then
+						if savedVolume == nil then
+							local ok, v = pcall(function()
+								return UserSettings():GetService("UserGameSettings").MasterVolume
+							end)
+							savedVolume = ok and tonumber(v) or 1
+						end
+						setVolume(0)
+					elseif savedVolume ~= nil then
+						setVolume(savedVolume)
+						savedVolume = nil
+					end
+				end,
+			})
+		end
+
+		do
+			local UIS = game:GetService("UserInputService")
+			local on, focused = false, true
+			local function applyBg()
+				if type(setfpscap) ~= "function" then return end
+				if tbl4.CarryCap and tbl4.CarryCap.Active then return end
+				if on and not focused then
+					pcall(setfpscap, 15)
+				else
+					local v = tbl4.FpsCapHandle and tbl4.FpsCapHandle.Get and tonumber(tbl4.FpsCapHandle:Get()) or 245
+					pcall(setfpscap, v >= 245 and 1000 or math.clamp(math.floor(v), 30, 240))
+				end
+			end
+			UIS.WindowFocusReleased:Connect(function() focused = false applyBg() end)
+			UIS.WindowFocused:Connect(function() focused = true applyBg() end)
+			sliced14:CreateToggle({
+				Name = "Background Saver",
+				Note = "Drops to a very low frame rate while the game window is not in front",
+				Default = false,
+				Callback = function(arg) on = arg == true applyBg() end,
+			})
+		end
 	end
 
 	do
