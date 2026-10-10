@@ -307,6 +307,7 @@ do
 		name = tostring(name)
 		name = name:gsub("[|\r\n]", " ")
 		name = name:gsub("%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x", "<guid>")
+		name = name:gsub("%x%x%x%x%x%x%x%x+", "<id>")
 		name = name:gsub("%d%d+", "#")
 		return name
 	end
@@ -365,10 +366,11 @@ do
 			return inst:IsA("Model") and Players:GetPlayerFromCharacter(inst) ~= nil
 		end
 		local function level(parent, depth)
-			for _, c in ipairs(parent:GetChildren()) do
+			local kids = parent:GetChildren()
+			for _, c in ipairs(kids) do
 				if not skip(c) then
 					add("WORLD", c.ClassName, rel(c, Workspace_, "WS"))
-					if depth < 3 then level(c, depth + 1) end
+					if depth < 3 and #kids <= 40 and not norm(c.Name):find("<id>", 1, true) then level(c, depth + 1) end
 				end
 			end
 		end
@@ -393,7 +395,7 @@ do
 
 		table.sort(order)
 		local out = {
-			"#SNAPSHOT v1",
+			"#SNAPSHOT v2",
 			"#GAME " .. tostring(name) .. " PlaceId=" .. tostring(game.PlaceId) .. " GameId=" .. tostring(game.GameId),
 			"#DATE " .. os.date("%Y-%m-%d %H:%M:%S"),
 		}

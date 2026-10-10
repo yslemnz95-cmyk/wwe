@@ -1,4 +1,4 @@
-#SNAPSHOT v1
+#SNAPSHOT v2
 #GAME Ride a Pet PlaceId=124216119978534 GameId=1
 #DATE 2026-09-01 10:00:00
 BUTTON|ImageButton|GUI/Main/BasketTracker/Handler/EggFrame/Drop|DROP|1

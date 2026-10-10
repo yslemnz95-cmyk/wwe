@@ -62,6 +62,7 @@ local basket = find(RS, function(d) return d.Name == "BasketDrop" end); basket.P
 find(RS, function(d) return d.Name == "Teleporting" end):Destroy()
 mk("RemoteEvent", "NewThing", gameF)
 drop.Text = "DROP EGG"; pr.HoldDuration = 0.5
+mk("Part", "Egg", WS); mk("Part", "Egg", WS)  -- plus d'oeufs : un simple changement de nombre ne compte pas
 local function btn(text) return find(gui, function(d) return d.ClassName == "TextButton" and d.Text == text end) end
 local scanBtn = btn("1  Scan")
 check("step badges 1-2-3 exist", btn("1  Scan") ~= nil and btn("3  Copier") ~= nil and anyText(gui, "Changements"))
@@ -83,13 +84,18 @@ check("second tap clears the filter", rows() == 5)
 
 -- copie
 btn("3  Copier").MouseButton1Click:Fire()
-check("copy: report + full inventory", clip ~= nil and clip:find("Game Update v2", 1, true) ~= nil and clip:find("- [REMOTE] RS/Remotes/Game/Teleporting", 1, true) ~= nil and clip:find("INVENTAIRE COMPLET", 1, true) ~= nil and clip:find("#SNAPSHOT v1", 1, true) ~= nil)
+check("copy: report + full inventory", clip ~= nil and clip:find("Game Update v2", 1, true) ~= nil and clip:find("- [REMOTE] RS/Remotes/Game/Teleporting", 1, true) ~= nil and clip:find("INVENTAIRE COMPLET", 1, true) ~= nil and clip:find("#SNAPSHOT v2", 1, true) ~= nil)
 
 -- nouvelle reference puis plus de changement
 btn("Nouvelle ref.").MouseButton1Click:Fire()
 check("baseline replaced by the latest scan", files["yslem_gameupdate_" .. pid .. "_baseline.txt"] == files["yslem_gameupdate_" .. pid .. "_latest.txt"])
 scanBtn.MouseButton1Click:Fire(); advance(0.5)
 check("after baseline: no change", anyText(gui, "Aucun changement"))
+
+-- ancienne reference (format v1) : remplacee automatiquement
+files["yslem_gameupdate_" .. pid .. "_baseline.txt"] = "#SNAPSHOT v1\n#GAME x\nREMOTE|RemoteEvent|RS/Old||1"
+scanBtn.MouseButton1Click:Fire(); advance(0.5)
+check("old-format baseline is replaced, not diffed", anyText(gui, "Ancienne reference remplacee") and files["yslem_gameupdate_" .. pid .. "_baseline.txt"]:find("#SNAPSHOT v2", 1, true) ~= nil)
 
 -- logique pure
 local m1, r1 = U.parse("#GAME A\nREMOTE|RemoteEvent|RS/X/Foo||1\nBUTTON|TextButton|GUI/B|a|b|2")

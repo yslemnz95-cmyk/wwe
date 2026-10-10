@@ -43,6 +43,12 @@ complete, on la compare a la precedente pour savoir tout ce qui a change, puis o
 5. Commit + push, renvoyer le(s) fichier(s) modifie(s). (Ancienne voie seulement : RETIRER le bloc GameScan et le bouton du projet.)
 Tests : `python3 tools/mock/build_scan.py && /tmp/luau_bin/luau tools/mock/scan_all.lua` et `python3 tools/mock/test_gamediff.py` et `python3 tools/mock/build_update.py && /tmp/luau_bin/luau tools/mock/update_all.lua`.
 
+### Notes Game update (Steal An Egg, premier scan reel)
+- Le scan est bruite par les objets dynamiques : `AreaEggSlotsClient`, `ClientRenderedAssets`, `PlacedEggRenders`, `__ClientTreadmillRenders`, `Transient`
+  (noms = identifiants hex) -> normalises en `<id>` et non parcourus ; un simple changement de NOMBRE (oeufs, boutons generes, prompts) n'est pas un changement.
+- Format d'inventaire `#SNAPSHOT v2` ; une reference en v1 est remplacee automatiquement au prochain Scan.
+- Vu dans le jeu (noms seulement, a NE PAS utiliser) : `ContentCreatorsAdminPanel`, `RE/StaffConsole/*`, `CmdrClient/Commands/*` = outils staff/admin.
+
 ## Verification avant de livrer un script
 1. `/tmp/luau_bin/luau-compile --binary fichier.lua` (rc=0) ET `luau-analyze fichier.lua | grep "Unknown global"` :
    toute globale qui n'est pas Roblox/executeur est une VRAIE faute de frappe ou une fonction non definie (ex. un

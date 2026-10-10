@@ -35,6 +35,7 @@ local function norm(name)
 	name = tostring(name)
 	name = name:gsub("[|\r\n]", " ")
 	name = name:gsub("%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x", "<guid>")
+	name = name:gsub("%x%x%x%x%x%x%x%x+", "<id>")
 	name = name:gsub("%d%d+", "#")
 	return name
 end
@@ -89,11 +90,13 @@ local function snapshot()
 	local function skip(inst)
 		return inst:IsA("Model") and Players:GetPlayerFromCharacter(inst) ~= nil
 	end
+	-- monde : on ne descend pas dans les objets a identifiant (oeufs, pets rendus...) ni dans les dossiers de plus de 40 enfants
 	local function level(parent, depth)
-		for _, c in ipairs(parent:GetChildren()) do
+		local kids = parent:GetChildren()
+		for _, c in ipairs(kids) do
 			if not skip(c) then
 				add("WORLD", c.ClassName, rel(c, Workspace, "WS"))
-				if depth < 3 then level(c, depth + 1) end
+				if depth < 3 and #kids <= 40 and not norm(c.Name):find("<id>", 1, true) then level(c, depth + 1) end
 			end
 		end
 	end
@@ -116,7 +119,7 @@ local function snapshot()
 
 	table.sort(order)
 	local out = {
-		"#SNAPSHOT v1",
+		"#SNAPSHOT v2",
 		"#GAME " .. tostring(gname) .. " PlaceId=" .. tostring(game.PlaceId) .. " GameId=" .. tostring(game.GameId),
 		"#DATE " .. os.date("%Y-%m-%d %H:%M:%S"),
 	}
@@ -146,13 +149,16 @@ end
 
 local function leaf(p) return p:match("([^/]*)$") or p end
 
+-- ces categories bougent tout le temps (oeufs, pets, boutons generes) : un simple changement de nombre n'est pas une mise a jour
+local DYNAMIC = {WORLD = true, PROMPT = true, BUTTON = true}
+
 local function diff(oldRows, newRows)
 	local added, removed, changed, moved = {}, {}, {}, {}
 	for k, v in pairs(newRows) do
 		local o = oldRows[k]
 		if not o then
 			table.insert(added, v)
-		elseif o.class ~= v.class or o.extra ~= v.extra or o.n ~= v.n then
+		elseif o.class ~= v.class or o.extra ~= v.extra or (o.n ~= v.n and not DYNAMIC[v.kind]) then
 			local bits = {}
 			if o.class ~= v.class then bits[#bits + 1] = "class " .. o.class .. " -> " .. v.class end
 			if o.extra ~= v.extra then bits[#bits + 1] = "'" .. o.extra .. "' -> '" .. v.extra .. "'" end
@@ -338,11 +344,16 @@ local function scan()
 		state.filter = nil
 		save(pid .. "_latest.txt", text)
 		save(pid .. "_" .. os.date("%Y-%m-%d_%H%M%S") .. ".txt", text)
-		if not baseText then
+		local oldFormat = false
+		if baseText then
+			local bm = parse(baseText)
+			oldFormat = bm.SNAPSHOT ~= "v2"
+		end
+		if not baseText or oldFormat then
 			save(pid .. "_baseline.txt", text)
 			state.items = {}
 			state.report = "##### yslem Game Update v" .. VERSION .. " #####\nPremiere analyse : reference enregistree (" .. count .. " entrees)."
-			ui.emptyText = "Reference enregistree (" .. count .. " elements).\nApres la prochaine mise a jour du jeu, relance ce script : je te montre ce qui a change."
+			ui.emptyText = (oldFormat and "Ancienne reference remplacee (nouveau format, plus propre). " or "") .. "Reference enregistree (" .. count .. " elements).\nApres la prochaine mise a jour du jeu, relance ce script : je te montre ce qui a change."
 			setChips(nil)
 			showItems()
 			setStatus("Reference creee.", COLORS.add)

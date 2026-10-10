@@ -58,7 +58,13 @@ def main():
 
     added = sorted(k for k in new if k not in old)
     removed = sorted(k for k in old if k not in new)
-    changed = sorted(k for k in new if k in old and new[k] != old[k])
+    DYNAMIC = ("WORLD", "PROMPT", "BUTTON")  # un simple changement de nombre n'est pas une mise a jour
+
+    def really_changed(k):
+        o, n = old[k], new[k]
+        return o[0] != n[0] or o[1] != n[1] or (o[2] != n[2] and k[0] not in DYNAMIC)
+
+    changed = sorted(k for k in new if k in old and really_changed(k))
 
     # renommages probables : meme type + meme nom de feuille, chemin different
     renamed = []

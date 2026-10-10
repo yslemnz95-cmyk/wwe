@@ -17,14 +17,18 @@ local WS = M.getService(nil, "Workspace")
 local plots = mk("Folder", "Plots", WS); mk("Model", "Plot", plots)
 local pr = mk("ProximityPrompt", "Prompt", mk("Part", "Egg", WS)); pr.ActionText = "Pick Up"; pr.ObjectText = "Dino"; pr.HoldDuration = 0.2
 
+local dyn = mk("Model", "a9ab0c1d2e3f4a5b6c7d8e9f", WS); mk("Part", "Hitbox", dyn)
+mk("Model", "a9ab0c1d2e3f4a5b6c7d8e00", WS)
 local GameScan = loadScan()
 local snap = GameScan.snapshot()
-check("header", snap:find("#SNAPSHOT v1", 1, true) ~= nil and snap:find("#GAME", 1, true) ~= nil)
+check("header", snap:find("#SNAPSHOT v2", 1, true) ~= nil and snap:find("#GAME", 1, true) ~= nil)
 check("remote listed with a stable path", snap:find("REMOTE|RemoteEvent|RS/Remotes/Game/BasketDrop||1", 1, true) ~= nil)
 check("ids normalised and duplicates counted", snap:find("REMOTE|RemoteEvent|RS/Remotes/Egg_#||2", 1, true) ~= nil)
 check("button with normalised text", snap:find("BUTTON|TextButton|GUI/Main/Drop|DROP #|1", 1, true) ~= nil)
 check("prompt with action, object and hold", snap:find("PROMPT|ProximityPrompt|WS/Egg/Prompt|Pick Up / Dino / hold=0.2|1", 1, true) ~= nil)
 check("world levels", snap:find("WORLD|Folder|WS/Plots|", 1, true) ~= nil and snap:find("WORLD|Model|WS/Plots/Plot|", 1, true) ~= nil)
+check("hex ids collapse into <id> and are counted", snap:find("WORLD|Model|WS/<id>||2", 1, true) ~= nil)
+check("no descent into id objects", snap:find("WS/<id>/Hitbox", 1, true) == nil)
 local lines = {}
 for l in snap:gmatch("[^\n]+") do if l:sub(1, 1) ~= "#" then lines[#lines + 1] = l end end
 local sorted = true
