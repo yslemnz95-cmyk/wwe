@@ -4685,7 +4685,7 @@ do
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
 		-- Go Method: how the character reaches the egg (Fly = the hub's tween above the ground, Run = on the ground)
 		tbl4.GoMethod = {
-			Names = { "Run", "Fly", "TP", "Auto" },
+			Names = { "Run", "Fly", "TP" },
 			Current = function()
 				return tbl4.SafeCarry.GoMethod or "Fly"
 			end,
@@ -4696,7 +4696,7 @@ do
 					name = "Fly"
 				end
 				sc.GoMethod = name
-				sc.RunHeight = (name == "Fly" or name == "Auto") and 50 or 0
+				sc.RunHeight = name == "Fly" and 50 or 0
 				local handle = sc.GoHandle
 
 				if handle and type(handle.Set) == "function" then
@@ -7394,27 +7394,7 @@ do
 					return false
 				end
 
-				-- Go Method Auto: picks the best way for each egg. Near egg on the same side: walk on the ground (quiet).
-				-- Far egg: hops, unless the server has been pulling the hops back (tuned Gap/Scale), then flight.
-				local goMode = tbl4.SafeCarry.GoMethod
-				local groundRun = false
-				if goMode == "Auto" then
-					local me = tbl4.Root()
-					local tune0 = tbl4.GoTp
-					local hostile = tune0 and (tune0.Gap > 0.3 or tune0.Scale < 0.7)
-					local dist = me and (me.Position - position).Magnitude or math.huge
-					local crossing = tbl4.InsideBase() and not tbl4.InsideBase(position)
-					if dist <= 45 and not crossing then
-						goMode = "Fly"
-						groundRun = true
-					elseif hostile then
-						goMode = "Fly"
-					else
-						goMode = "TP"
-					end
-				end
-
-				if goMode == "TP" then
+				if tbl4.SafeCarry.GoMethod == "TP" then
 					-- Go Method TP: hops sized by the hop engine, shield on the whole way, the pause and the hop size
 					-- adapt to the server (kept between eggs), the target follows the egg, stuck / rewind / respawn
 					-- detection, a second pass if the take fails, flight fallback if the server keeps pulling back
@@ -7542,11 +7522,7 @@ do
 					end
 
 					str2 = "Flying to the egg"
-					local savedHeight = tbl4.SafeCarry.RunHeight
-					if groundRun then tbl4.SafeCarry.RunHeight = 0 end
-					local flew = slicedfn33(position + Vector3.new(0, 3, 0), arg2, nil, 400)
-					if groundRun then tbl4.SafeCarry.RunHeight = savedHeight end
-					if not flew then
+					if not slicedfn33(position + Vector3.new(0, 3, 0), arg2, nil, 400) then
 						return false
 					end
 				end
