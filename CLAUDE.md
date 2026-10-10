@@ -80,6 +80,18 @@ revocation d'une cle par le bot arrete le script de ce joueur : c'est un control
   (+ verification des soudures `HeldByMe`). Rembobinage serveur : `RE/RigSync/Refresh` avec `Action = "Relocate"`.
 - Le hub est protege par le bouclier "Humanoid Swap" (copie de l'Humanoid) : sans lui on meurt au moment du tp.
 - Vitesse de marche reelle = min(Humanoid.WalkSpeed, vitesse issue de leaderstats.Speed via TreadmillUtil).
+- **Scan complet 2026-10-10** (reference : `docs/scans/Steal-An-Egg_2026-10-10_etape1.txt` structure, `_etape2.txt` contenu ; premiere analyse = base, pas de diff possible).
+  Zones (`RS/Data/Areas/Configs`, 13) : Forest, Desert, Snow, Lake, Jungle, Volcano, Prehistoric, Cosmic, Abyss Ocean, Cherry Blossom, Light Dark (affiche "Angels & Demons"),
+  Titan Temple, **Enchanted Forest** (ProgressionOrder 13, batte `EnchantedHammer`, ouverte par le flag `LiveEventFlag_EnchantedForestOpen`). 8 pets par zone (DropTable).
+  Raretes (`RS/Data/Rarity/Configs`, 17) : Common, Uncommon, SuperRare, Rare, Epic, Legendary, Mythic, Rainbow, BrainrotGod ("Squishy God"), Cosmic, Secret, Eternal, Limited,
+  Divine, Transcendent, Titan, LightDark ("Light & Dark", rang 12). Le rang est dans `Rarity.Rank` (pas de RarityNumber).
+  Flags d'evenements : attributs `WS/LiveEventFlag_<Nom>` (EnchantedForestOpen, LightDarkReveal, RiftOpen, StarHandlerOpen) + `Event_ButterflyBloom`, `ScrambleOutbreakActive`.
+  Evenements/modules : Rift (3 bannieres Riftborn/Riftbeasts/Shattered Rift), ScrambleTradeIn (labo, bannieres Biohazard/Experimental/Unstable DNA), BossEvent (Abyss Overlord, toutes les 1800 s),
+  BeanstalkEvent, Sakura (Great Bloom toutes les 1800 s, monnaie SakuraCrystals), LightVsDarkness, MonsterParasite, DragonEgg, CaptureTheEgg, RaceRally/MountRace, Wisp/Enchanted Forest (WispQuests),
+  BanjoCricket, SammyEvent, oeufs limites (Extinction, Luminous), Monster/Brainrot/Luminous Egg.
+  Remotes de fin de revelation : `RF/Fusery/FinishReveal` et `RF/ScrambleTradeIn/AskFinishReveal` (les scripts disaient "Finishaide" : corrige).
+  Staff/admin vus (NE PAS utiliser) : `ContentCreatorsAdminPanel`, `AdminAbuseEgg`, `Flags/StaffTagFlags`, Cmdr, `RE/StaffConsole/*`.
+  Limites du scan : plusieurs modules `Flags/*` renvoient "ERR Requested module experienced an error" au require ; les valeurs longues sont tronquees avec "...".
 
 ## Notes jeu : Ride a Pet (yslempet_EggTP) - releve par GameScan (appareil mobile, Delta)
 - PlaceId 124216119978534. Marche a 20 de vitesse, saut 73. Position typique du joueur : Y ~ 40316 (le ranch est en hauteur).

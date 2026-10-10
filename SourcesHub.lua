@@ -4295,6 +4295,7 @@ do
 				"Cherry Blossom",
 				"Light Dark",
 				"Titan Temple",
+				"Enchanted Forest",
 			}
 
 			local tbl19 = {}
@@ -14306,7 +14307,7 @@ end
 				if sliced25.FusionLocked == true then
 					if type(sliced25.FusionEggReward) == "table" and os.clock() >= slicedn21 then
 						slicedn21 = os.clock() + slicedn16
-						slicedfn37("RF/Fusery/Finishaide")
+						slicedfn37("RF/Fusery/FinishReveal")
 					end
 
 					return
@@ -16093,8 +16094,8 @@ end
 			end
 
 			if sliced11.PendingReward ~= nil and sliced11.PendingReward ~= false then
-				local AskFinishaide, sliced12 = slicedfn8("RF/ScrambleTradeIn/AskFinishaide")
-				str = AskFinishaide and sliced12 ~= false and "Reward claimed" or "Reward claim failed"
+				local AskFinishReveal, sliced12 = slicedfn8("RF/ScrambleTradeIn/AskFinishReveal")
+				str = AskFinishReveal and sliced12 ~= false and "Reward claimed" or "Reward claim failed"
 				slicedn5 = 0
 				return
 			end
