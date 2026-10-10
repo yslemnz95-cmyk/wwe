@@ -29969,14 +29969,14 @@ local Frame
 
 Frame = slicedfn20("Frame", ScreenGui, {
 	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.new(0.5, 0, 1, -120),
-	Size = UDim2.fromOffset(226, 52),
+	Position = UDim2.new(0, 36, 0.5, 0),
+	Size = UDim2.fromOffset(52, 52),
 	BackgroundTransparency = 1,
 })
 
 local UIScale = slicedfn20("UIScale", Frame, { Scale = 1 })
 local Frame2 = slicedfn20("Frame", Frame, { Size = UDim2.fromScale(1, 1), BackgroundColor3 = tbl15.Card, BorderSizePixel = 0, Active = true })
-slicedfn20("UICorner", Frame2, { CornerRadius = UDim.new(0, 14) })
+slicedfn20("UICorner", Frame2, { CornerRadius = UDim.new(1, 0) })
 local UIScale2 = slicedfn20("UIScale", Frame2, { Scale = 0.86 })
 slicedfn20("UIGradient", Frame2, { Color = ColorSequence.new(tbl15.CardTop, tbl15.Card), Rotation = 90 })
 local UIGradient, Frame3, render, slicedfn22
@@ -29992,15 +29992,15 @@ do
 	UIGradient = slicedfn20("UIGradient", UIStroke, { Color = ColorSequence.new(tbl15.Stroke, tbl15.Stroke) })
 
 	Frame3 = slicedfn20("Frame", Frame2, {
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 10, 0.5, 0),
-		Size = UDim2.fromOffset(36, 36),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.fromOffset(40, 40),
 		BackgroundColor3 = Color3.fromRGB(12, 4, 4),
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	})
 
-	slicedfn20("UICorner", Frame3, { CornerRadius = UDim.new(0, 11) })
+	slicedfn20("UICorner", Frame3, { CornerRadius = UDim.new(1, 0) })
 	local UIStroke2 = slicedfn20("UIStroke", Frame3, { Thickness = 1.5, Color = tbl15.Off, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
 
 	local ImageLabel = slicedfn20("ImageLabel", Frame3, {
@@ -30014,7 +30014,7 @@ do
 		ZIndex = 3,
 	})
 
-	slicedfn20("UICorner", ImageLabel, { CornerRadius = UDim.new(0, 8) })
+	slicedfn20("UICorner", ImageLabel, { CornerRadius = UDim.new(1, 0) })
 
 	-- Sources Hub logo
 	local moonDisc = slicedfn20("ImageLabel", Frame3, {
@@ -30038,17 +30038,20 @@ do
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(255, 255, 255),
 		Text = "Sources Hub",
+		Visible = false,
 		ZIndex = 2,
 	}), { Color = ColorSequence.new(Color3.fromRGB(220, 40, 40), color3(190, 220, 255)) })
 
 	slicedfn20("TextLabel", Frame2, {
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0, 56, 0, 22),
-		Size = UDim2.new(1, -112, 0, 20),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 3),
+		Size = UDim2.fromOffset(70, 12),
 		Font = Enum.Font.GothamBold,
-		TextSize = 15,
-		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 9,
+		TextXAlignment = Enum.TextXAlignment.Center,
 		TextColor3 = tbl15.Text,
+		TextStrokeTransparency = 0.55,
 		Text = "Anti Guard",
 		ZIndex = 2,
 	})
@@ -30057,6 +30060,7 @@ do
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -12, 0.5, 0),
 		Size = UDim2.fromOffset(42, 22),
+		Visible = false,
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 		AutoButtonColor = false,
 		BorderSizePixel = 0,
@@ -30338,7 +30342,7 @@ do
 		end
 
 		local slicedn8 = math.max(slicedn7 - (flag5 and 4 or 6) * scale - slicedn4 * scale / 2, slicedn4 * scale / 2 + 8)
-		Frame.Position = UDim2.new(0.5, 0, 0, slicedn8)
+		Frame.Position = UDim2.new(0, math.floor(34 * scale) + 6, 0.5, 0)
 	end
 
 	tbl17[#tbl17 + 1] = RunService.RenderStepped:Connect(function(deltaTime)
