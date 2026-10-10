@@ -574,6 +574,7 @@ do
 	-- (les noms avec identifiants/nombres sont normalises, les doublons regroupes dans n).
 	local function norm(name)
 		name = tostring(name)
+		name = name:gsub("[|\r\n]", " ")
 		name = name:gsub("%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x", "<guid>")
 		name = name:gsub("%d%d+", "#")
 		return name

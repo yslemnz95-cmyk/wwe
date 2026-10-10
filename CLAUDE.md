@@ -15,6 +15,7 @@ inconnues (les globales Roblox/executeur apparaissent a tort).
 | `yslem_KeyGate.lua` | tous | fenetre de cle yslemStyle + verification aupres du bot (`POST /v1/verify`, contrat dans `docs/KEY_API.md`). Injection : `python3 tools/add_keygate.py --api https://URL --invite https://discord.gg/XXX` (a lancer seulement quand le bot est en ligne, sinon le script se bloque). Test : `python3 tools/mock/build_keygate.py && /tmp/luau_bin/luau tools/mock/keygate_all.lua` |
 | `server/` | tous | API de verification de cle (`/v1/verify`, contrat KEY_API) + dashboard web des executions (qui, quel jeu, quel script, tentatives), stdlib Python + SQLite, jeton admin. Doc : `docs/DASHBOARD.md`. Test : `python3 server/test_server.py` |
 | `vercel-site/` | Steal An Egg / tous | site Vercel `sourceshub-stats` (https://sourceshub-stats.vercel.app) : page yslemStyle publique (membres en ligne, executions) + fonctions api/ping, stats, admin (Vercel Blob prive), jeton admin en variable d'environnement Vercel. Test : `node vercel-site/test/run.mjs`. Doc : `vercel-site/README.md` |
+| `yslem_GameUpdate_v2.lua` | tous | **"Game update" en UN fichier** : scan + comparaison a la reference + fenetre yslemStyle (Scan / Copy / Baseline), ecrit `yslem_gameupdate/*.txt`, aucun reseau, ne modifie rien dans le jeu. Test : `python3 tools/mock/build_update.py && /tmp/luau_bin/luau tools/mock/update_all.lua` |
 | `yslem_GameScan.lua` | tous | module d'analyse du jeu, a coller TEMPORAIREMENT (voir plus bas) ; `GameScan.snapshot()` = inventaire pour "Game update" (comparaison : `tools/gamediff.py`, inventaires dans `docs/scans/`) |
 | `friend/ShinEggFarm_yslem.lua` | Ride a Pet | script SHIN HUB d'un ami, UI rouge/noir yslemStyle, EN ANGLAIS, avec la methode COMPLETE de yslempet_EggTP (tp desync, prise confirmee, drop bouton/remote, reprise confirmee, vol 700%). Test logique : `python3 tools/mock/build_friend.py <normal|remote|nodrop|stop|lose> && /tmp/luau_bin/luau tools/mock/friend_all.lua` |
 | `tools/mock/` | tous | maquette Roblox + scenarios de test de `yslempet_EggTP.lua` |
@@ -31,14 +32,16 @@ remotes, monde, inventaire/stats, scripts. `yslempet_EggTP.lua` a deja ete analy
 ## Game update (procedure permanente, skill `gameupdate`)
 Quand le joueur ecrit "Game update" (ou dit que le jeu a ete mis a jour / qu'un script ne marche plus depuis la maj) : on relance une analyse
 complete, on la compare a la precedente pour savoir tout ce qui a change, puis on adapte les scripts.
-1. Coller TEMPORAIREMENT le bloc `yslem GameScan` + un bouton "snap" -> `GameScan.copy(GameScan.snapshot())` (inventaire COMPLET et stable : remotes,
-   scripts, ecrans, boutons + texte, prompts, monde 3 niveaux, stats, attributs ; noms seulement, rien n'est modifie). Le joueur colle le resultat.
-2. Le sauver dans `docs/scans/<Jeu>_<AAAA-MM-JJ>.txt` (le premier devient la reference).
+1. **v2 (un seul fichier)** : le joueur execute `yslem_GameUpdate_v2.lua` dans le jeu (rien a coller dans un script) : il scanne, compare tout seul a la
+   reference de ce jeu (fichiers `yslem_gameupdate/<PlaceId>_baseline.txt`), affiche + ajoute / - supprime / > deplace / ~ modifie, et `Copy` donne le rapport
+   + l'inventaire COMPLET (remotes, scripts, ecrans, boutons + texte, prompts, monde 3 niveaux, stats, attributs ; noms seulement, rien n'est modifie, aucun reseau).
+   Le joueur colle le resultat. (Ancienne voie : bloc `yslem GameScan` + bouton "snap" -> `GameScan.copy(GameScan.snapshot())`.)
+2. Sauver la partie INVENTAIRE COMPLET dans `docs/scans/<Jeu>_<AAAA-MM-JJ>.txt` (le premier devient la reference du depot).
 3. `python3 tools/gamediff.py docs/scans/<ancien>.txt docs/scans/<nouveau>.txt` : supprime / deplace / ajoute / modifie + IMPACT sur nos scripts
    (fichiers:lignes qui citent un nom touche ; quels scripts pour quel jeu : `docs/scans/games.json`).
 4. Adapter les scripts avec les noms du NOUVEL inventaire uniquement, verifier (compile + globales + maquette), mettre a jour "Notes jeu" ci-dessous.
-5. RETIRER le bloc GameScan et le bouton, commit + push, renvoyer le fichier.
-Tests : `python3 tools/mock/build_scan.py && /tmp/luau_bin/luau tools/mock/scan_all.lua` et `python3 tools/mock/test_gamediff.py`.
+5. Commit + push, renvoyer le(s) fichier(s) modifie(s). (Ancienne voie seulement : RETIRER le bloc GameScan et le bouton du projet.)
+Tests : `python3 tools/mock/build_scan.py && /tmp/luau_bin/luau tools/mock/scan_all.lua` et `python3 tools/mock/test_gamediff.py` et `python3 tools/mock/build_update.py && /tmp/luau_bin/luau tools/mock/update_all.lua`.
 
 ## Verification avant de livrer un script
 1. `/tmp/luau_bin/luau-compile --binary fichier.lua` (rc=0) ET `luau-analyze fichier.lua | grep "Unknown global"` :

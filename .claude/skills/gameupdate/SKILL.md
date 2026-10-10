@@ -8,7 +8,10 @@ description: "Game update" - le jeu a ete mis a jour (ou un script casse apres u
 Objectif : savoir TOUT ce qui a change dans le jeu depuis la derniere analyse, puis adapter nos scripts avec les noms reels.
 
 1. **Quel jeu ?** Steal An Egg (yslemHub, SourcesHub, standalones) ou Ride a Pet (yslempet_EggTP, friend/ShinEggFarm_yslem). Si ce n'est pas clair, le demander.
-2. **Nouvel inventaire** : coller TEMPORAIREMENT le bloc `yslem GameScan` (marqueurs START/END de `yslem_GameScan.lua`) dans le script du jeu,
+2. **v2 = un seul fichier** : demander au joueur d'executer `yslem_GameUpdate_v2.lua` (renvoye avec SendUserFile) : il scanne, compare a la reference locale,
+   affiche les changements et `Copy` copie rapport + inventaire complet. Les etapes 3 a 6 s'appliquent avec ce texte ; l'etape 7 (retirer le bloc) n'est plus necessaire.
+   Ancienne voie (sans le fichier v2) :
+2bis. **Nouvel inventaire** : coller TEMPORAIREMENT le bloc `yslem GameScan` (marqueurs START/END de `yslem_GameScan.lua`) dans le script du jeu,
    ajouter un bouton "snap" qui fait `GameScan.copy(GameScan.snapshot())` (et `GameScan.save(...)` si `writefile` existe), renvoyer le fichier au joueur.
    Le joueur colle le resultat. L'inventaire est complet et stable : REMOTE, SCRIPT, SCREEN, BUTTON (nom + texte), PROMPT (action/objet/maintien),
    WORLD (3 niveaux), STAT, ATTR (noms seulement, rien n'est modifie).
