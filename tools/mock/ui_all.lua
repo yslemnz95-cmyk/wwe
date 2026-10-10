@@ -355,50 +355,48 @@ do
 
 	-- ---------- design system (Sources Hub) ----------
 local C = {
-	BG       = Color3.fromRGB(14,14,22),
-	HEADER   = Color3.fromRGB(18,18,30),
-	ROW      = Color3.fromRGB(28,28,44),
-	BORDER   = Color3.fromRGB(46,42,82),
+	BG       = Color3.fromRGB(0,0,0),
+	HEADER   = Color3.fromRGB(0,0,0),
+	ROW      = Color3.fromRGB(0,0,0),     -- Sources Hub rows: black + 0.35 BackgroundTransparency
+	BORDER   = Color3.fromRGB(50,12,12),
 	WHITE    = Color3.fromRGB(255,255,255),
-	MOON     = Color3.fromRGB(122,102,226),
-	MOON2    = Color3.fromRGB(176,158,255),
-	MOONTEXT = Color3.fromRGB(255,255,255),
-	DIM      = Color3.fromRGB(126,122,160),
-	TABIDLE  = Color3.fromRGB(176,170,214),
-	ON_BG    = Color3.fromRGB(60,48,120),
-	OFF_BG   = Color3.fromRGB(44,44,62),
-	SILVER   = Color3.fromRGB(226,224,246),
-	SILVER2  = Color3.fromRGB(150,146,196),
-	RED      = Color3.fromRGB(235,80,96),
+	MOON     = Color3.fromRGB(220,40,40),   -- main accent red
+	MOON2    = Color3.fromRGB(255,90,90),  -- light accent red
+	MOONTEXT = Color3.fromRGB(20,0,0),
+	DIM      = Color3.fromRGB(140,110,110),
+	TABIDLE  = Color3.fromRGB(255,140,140),
+	ON_BG    = Color3.fromRGB(80,15,15),
+	OFF_BG   = Color3.fromRGB(0,0,0),
+	SILVER   = Color3.fromRGB(240,210,210),
+	SILVER2  = Color3.fromRGB(210,140,140),
+	RED      = Color3.fromRGB(220,40,40),
 	GREEN    = Color3.fromRGB(60,220,120),
 	YELLOW   = Color3.fromRGB(230,200,90),
 	GOLD     = Color3.fromRGB(255,200,60),
-	DEEP1    = Color3.fromRGB(18,16,40),
-	DEEP2    = Color3.fromRGB(46,38,104),
-	DEEP3    = Color3.fromRGB(96,80,200),
-	DEEP4    = Color3.fromRGB(150,130,255),
+	DEEP1    = Color3.fromRGB(12,2,2),
+	DEEP2    = Color3.fromRGB(40,8,8),
+	DEEP3    = Color3.fromRGB(140,25,25),
+	DEEP4    = Color3.fromRGB(220,40,40),
 }
 -- Alias for compatibility with the rest of the file (names already used everywhere)
 C.ACCENT, C.ACCENT2 = C.MOON, C.MOON2
 C.TRACKOFF = C.OFF_BG
 
 -- ---------- themes: one table so the lib block keeps few locals ----------
-local TH = {names = {"Nebula", "Ember", "Neon", "Toxic"}, list = {}}
+local TH = {names = {"Gold", "Moon", "Neon", "Toxic"}, list = {}}
 do
 	local function c3(r, g, b) return Color3.fromRGB(r, g, b) end
 	TH.sets = {
-			Nebula = {DEEP1 = c3(18,16,40), DEEP2 = c3(46,38,104), DEEP3 = c3(96,80,200), DEEP4 = c3(150,130,255), MOON = c3(122,102,226), MOON2 = c3(176,158,255), ON_BG = c3(60,48,120),
-				SILVER = c3(226,224,246), SILVER2 = c3(150,146,196), HUDA = c3(232,228,255), HUDB = c3(170,150,255)},
-			Ember = {DEEP1 = c3(12,2,2),  DEEP2 = c3(40,8,8), DEEP3 = c3(140,25,25),  DEEP4 = c3(220,40,40),  MOON = c3(220,40,40),  MOON2 = c3(255,90,90), ON_BG = c3(80,15,15),
-				SILVER = c3(240,210,210), SILVER2 = c3(210,140,140), HUDA = c3(255,220,220), HUDB = c3(255,120,120)},
-			Neon  = {DEEP1 = c3(18,4,14), DEEP2 = c3(58,14,40), DEEP3 = c3(165,40,110), DEEP4 = c3(255,90,180),  MOON = c3(255,100,190), MOON2 = c3(255,170,220), ON_BG = c3(80,20,55),
-				SILVER = c3(240,214,230), SILVER2 = c3(210,150,185), HUDA = c3(255,220,240), HUDB = c3(255,150,205)},
-			Toxic = {DEEP1 = c3(4,16,6),  DEEP2 = c3(14,58,24), DEEP3 = c3(40,165,70),  DEEP4 = c3(110,255,140), MOON = c3(90,240,130),  MOON2 = c3(170,255,190), ON_BG = c3(20,80,35),
-				SILVER = c3(214,240,222), SILVER2 = c3(150,210,165), HUDA = c3(220,255,230), HUDB = c3(150,255,180)},
-			Moon  = {DEEP1 = c3(12,2,2),  DEEP2 = c3(40,8,8), DEEP3 = c3(140,25,25),  DEEP4 = c3(220,40,40),  MOON = c3(220,40,40),  MOON2 = c3(255,90,90), ON_BG = c3(80,15,15),
-				SILVER = c3(240,210,210), SILVER2 = c3(210,140,140), HUDA = c3(255,220,220), HUDB = c3(255,120,120)},
-		}
-	TH.current = (TH.sets[store["Theme"]] and store["Theme"] ~= "Moon") and store["Theme"] or "Nebula"
+		Moon  = {DEEP1 = c3(12,2,2),  DEEP2 = c3(40,8,8), DEEP3 = c3(140,25,25),  DEEP4 = c3(220,40,40),  MOON = c3(220,40,40),  MOON2 = c3(255,90,90), ON_BG = c3(80,15,15),
+			SILVER = c3(240,210,210), SILVER2 = c3(210,140,140), HUDA = c3(255,220,220), HUDB = c3(255,120,120)},
+		Neon  = {DEEP1 = c3(18,4,14), DEEP2 = c3(58,14,40), DEEP3 = c3(165,40,110), DEEP4 = c3(255,90,180),  MOON = c3(255,100,190), MOON2 = c3(255,170,220), ON_BG = c3(80,20,55),
+			SILVER = c3(240,214,230), SILVER2 = c3(210,150,185), HUDA = c3(255,220,240), HUDB = c3(255,150,205)},
+		Toxic = {DEEP1 = c3(4,16,6),  DEEP2 = c3(14,58,24), DEEP3 = c3(40,165,70),  DEEP4 = c3(110,255,140), MOON = c3(90,240,130),  MOON2 = c3(170,255,190), ON_BG = c3(20,80,35),
+			SILVER = c3(214,240,222), SILVER2 = c3(150,210,165), HUDA = c3(220,255,230), HUDB = c3(150,255,180)},
+		Gold  = {DEEP1 = c3(12,2,2), DEEP2 = c3(40,8,8), DEEP3 = c3(140,25,25), DEEP4 = c3(220,40,40),  MOON = c3(220,40,40),  MOON2 = c3(255,90,90), ON_BG = c3(80,15,15),
+			SILVER = c3(240,210,210), SILVER2 = c3(210,140,140), HUDA = c3(255,220,220), HUDB = c3(255,120,120)},
+	}
+	TH.current = TH.sets[store["Theme"]] and store["Theme"] or "Gold"
 	TH.apply = function(name)
 		for k, v in pairs(TH.sets[name]) do C[k] = v end
 		C.ACCENT, C.ACCENT2, C.TABIDLE = C.MOON, C.MOON2, C.MOON2
@@ -416,8 +414,7 @@ do
 			if not e.inst.Parent then
 				table.remove(list, i)
 			elseif e.kind == "grad" then e.inst.Color = TH.seq(C.DEEP4, C.DEEP3)
-			elseif e.kind == "textgrad" then e.inst.Color = TH.seq(C.MOON2, C.WHITE)
-			elseif e.kind == "strokegrad" then e.inst.Color = TH.seq(C.DEEP2, C.DEEP3)
+			elseif e.kind == "strokegrad" then e.inst.Color = TH.seq(C.DEEP1, C.DEEP2)
 			elseif e.kind == "stroke" then e.inst.Color = C.DEEP3
 			elseif e.kind == "glow" then e.inst.Color = C.MOON
 			end
@@ -503,14 +500,13 @@ local _liveAny = {}
 local _liveTick = 0
 RunService.RenderStepped:Connect(function()
 	_liveTick = _liveTick + 1
-	if _liveTick % 4 ~= 0 or lib.AnimUser == false or lib.AnimAuto == false then return end
-	local t = os.clock()
+	if _liveTick % 6 ~= 0 or lib.AnimUser == false or lib.AnimAuto == false then return end
 	for root, list in pairs(_live) do
 		if root.Parent then
 			if root.Visible then
 				for k = 1, #list do
 					local g = list[k]
-					if g.Parent then g.Offset = Vector2.new(math.sin(t * 1.3 + k) * 0.8, 0) end
+					if g.Parent then g.Rotation = (g.Rotation + 3.6) % 360 end
 				end
 			end
 		else
@@ -519,7 +515,22 @@ RunService.RenderStepped:Connect(function()
 	end
 	for k = 1, #_liveAny do
 		local g = _liveAny[k]
-		if g.Parent then g.Offset = Vector2.new(math.sin(t * 1.3 + k) * 0.8, 0) end
+		if g.Parent then g.Rotation = (g.Rotation + 3.6) % 360 end
+	end
+end)
+local _sweep = {}
+local _sweepTick = 0
+RunService.RenderStepped:Connect(function()
+	_sweepTick = _sweepTick + 1
+	if _sweepTick % 3 ~= 0 or lib.AnimUser == false or lib.AnimAuto == false then return end
+	local t = os.clock()
+	for k = #_sweep, 1, -1 do
+		local g = _sweep[k]
+		if g.Parent then
+			g.Offset = Vector2.new(math.sin(t * 1.3 + k) * 0.8, 0)
+		else
+			table.remove(_sweep, k)
+		end
 	end
 end)
 local function registerLive(g, inst)
@@ -533,30 +544,29 @@ local function registerLive(g, inst)
 		_liveAny[#_liveAny + 1] = g
 	end
 end
-local function liveGrad(inst, animated)
+local function liveGrad(inst, animated, sweep)
 	local g = Instance.new("UIGradient", inst)
-	local isText = inst:IsA("TextLabel") or inst:IsA("TextButton") or inst:IsA("TextBox")
-	if isText then
-		g.Color = TH.seq(C.MOON2, C.WHITE)
-	else
-		g.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0,    C.DEEP4), ColorSequenceKeypoint.new(0.25, C.DEEP3),
-			ColorSequenceKeypoint.new(0.5,  C.DEEP4), ColorSequenceKeypoint.new(0.75, C.DEEP3),
-			ColorSequenceKeypoint.new(1,    C.DEEP4),
-		})
-	end
-	if animated then registerLive(g, inst) end
-	TH.reg(g, isText and "textgrad" or "grad")
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0,    C.DEEP4), ColorSequenceKeypoint.new(0.25, C.DEEP3),
+		ColorSequenceKeypoint.new(0.5,  C.DEEP4), ColorSequenceKeypoint.new(0.75, C.DEEP3),
+		ColorSequenceKeypoint.new(1,    C.DEEP4),
+	})
+	if sweep then g.Rotation = 0; _sweep[#_sweep + 1] = g elseif animated then registerLive(g, inst) end
+	TH.reg(g, "grad")
 	return g
 end
-local function addLivingStroke(parent, thickness, animated)
+local function addLivingStroke(parent, thickness, animated, sweep)
 	local s = Instance.new("UIStroke", parent)
-	s.Color = C.WHITE; s.Thickness = thickness or 1.5
+	s.Color = C.DEEP3; s.Thickness = thickness or 1.5
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	local g = Instance.new("UIGradient", s)
-	g.Rotation = 0
-	g.Color = TH.seq(C.DEEP2, C.DEEP3)
-	if animated then registerLive(g, parent) end
+	g.Rotation = 45
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0,    C.DEEP1), ColorSequenceKeypoint.new(0.25, C.DEEP2),
+		ColorSequenceKeypoint.new(0.5,  C.DEEP1), ColorSequenceKeypoint.new(0.75, C.DEEP2),
+		ColorSequenceKeypoint.new(1,    C.DEEP1),
+	})
+	if sweep then g.Rotation = 0; g.Color = TH.seq(C.DEEP2, C.DEEP3); _sweep[#_sweep + 1] = g elseif animated then registerLive(g, parent) end
 	TH.reg(s, "stroke"); TH.reg(g, "strokegrad")
 	return s
 end
@@ -592,12 +602,70 @@ end
 -- no call site elsewhere needs to change for this to work.
 local function makeSwitch(parent, initial)
 	local pill = Instance.new("Frame", parent)
+	pill.Size = UDim2.new(0,40,0,20)
+	pill.BackgroundColor3 = initial and C.ON_BG or C.OFF_BG
+	pill.BackgroundTransparency = 0.1
+	pill.BorderSizePixel = 0
+	corner(pill, 10)
+	addLivingStroke(pill, 1)
+
+	local glow = Instance.new("UIStroke", pill)
+	glow.Thickness = 2.5; glow.Color = C.MOON; glow.Transparency = 1
+	glow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	local _glowTween = nil
+	TH.reg(glow, "glow")
+	local function burst()
+		if not lib.ParticlesOn then return end
+		for i = 1, 6 do
+			local p = Instance.new("Frame", pill)
+			p.Size = UDim2.fromOffset(3, 3); p.AnchorPoint = Vector2.new(0.5, 0.5)
+			p.Position = UDim2.new(1, -10, 0.5, 0)
+			p.BackgroundColor3 = i % 2 == 0 and C.MOON2 or C.WHITE; p.BorderSizePixel = 0; p.ZIndex = 50
+			corner(p, 2)
+			TweenService:Create(p, TweenInfo.new(0.5 + math.random() * 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = UDim2.new(1, -10 + math.random(-16, 6), 0.5, -math.random(10, 20)),
+				BackgroundTransparency = 1, Size = UDim2.fromOffset(1, 1)}):Play()
+			game:GetService("Debris"):AddItem(p, 0.9)
+		end
+	end
+	local function stopGlow()
+		if _glowTween then _glowTween:Cancel(); _glowTween = nil end
+		glow.Transparency = 1
+	end
+	local function startGlow()
+		TweenService:Create(glow, TweenInfo.new(0.25), {Transparency = 0.6}):Play()
+	end
+
+	local knob = Instance.new("Frame", pill)
+	knob.Size = UDim2.new(0,14,0,14)
+	knob.Position = initial and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7)
+	knob.BackgroundColor3 = initial and C.WHITE or C.SILVER2
+	knob.BorderSizePixel = 0
+	corner(knob, 7)
+
+	local btn = Instance.new("TextButton", pill)
+	btn.Size = UDim2.new(1,0,1,0); btn.BackgroundTransparency = 1; btn.Text = ""
+
+	local function setState(on)
+		TweenService:Create(pill, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+			{BackgroundColor3 = on and C.ON_BG or C.OFF_BG}):Play()
+		TweenService:Create(knob, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+			{Position = on and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7),
+			 BackgroundColor3 = on and C.WHITE or C.SILVER2}):Play()
+		if on then startGlow(); burst() else stopGlow() end
+	end
+	if initial then startGlow() end
+	return pill, btn, setState
+end
+
+local function makeCheck(parent, initial)
+	local pill = Instance.new("Frame", parent)
 	pill.Size = UDim2.new(0,26,0,26)
 	pill.BackgroundColor3 = initial and C.MOON or C.OFF_BG
 	pill.BorderSizePixel = 0
 	corner(pill, 7)
 	local ring = Instance.new("UIStroke", pill)
-	ring.Thickness = 1.5; ring.Color = initial and C.MOON2 or C.DEEP2; ring.Transparency = 0.15
+	ring.Thickness = 1.5; ring.Color = initial and C.MOON2 or C.DEEP3; ring.Transparency = 0.15
 	ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 	local tick = Instance.new("TextLabel", pill)
@@ -626,7 +694,7 @@ local function makeSwitch(parent, initial)
 	local function setState(on)
 		TweenService:Create(pill, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 			{BackgroundColor3 = on and C.MOON or C.OFF_BG}):Play()
-		TweenService:Create(ring, TweenInfo.new(0.2), {Color = on and C.MOON2 or C.DEEP2}):Play()
+		TweenService:Create(ring, TweenInfo.new(0.2), {Color = on and C.MOON2 or C.DEEP3}):Play()
 		TweenService:Create(tick, TweenInfo.new(0.18), {TextTransparency = on and 0 or 1}):Play()
 		TweenService:Create(tickScale, TweenInfo.new(0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = on and 1 or 0.4}):Play()
 		if on then ripple() end
@@ -919,7 +987,7 @@ end
 	local windows = {}
 	
 	local function newWindow(cfg)
-		local w = {tabs = {}, order = {}, current = nil, name = cfg.name}
+		local w = {tabs = {}, order = {}, current = nil, name = cfg.name, isMain = cfg.isMain == true}
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
 		local H = math.min(cfg.h, math.max(240, vp.Y - 60))
 		local frame = Instance.new("Frame", gui)
@@ -931,65 +999,67 @@ end
 		frame.ClipsDescendants = true
 		frame.Active = true
 		frame.ZIndex = cfg.z or 20
-		corner(frame, 8)
-		addLivingStroke(frame, 1.5, true)
+		corner(frame, cfg.isMain and 8 or 20)
+		addLivingStroke(frame, 1.5, true, cfg.isMain)
 		local winScale = Instance.new("UIScale", frame)
 		w.frame = frame
 
-		local bgImg = Instance.new("ImageLabel", frame)
-		bgImg.Name = "Bg"
-		bgImg.BackgroundTransparency = 1; bgImg.BorderSizePixel = 0
-		bgImg.Image = "rbxassetid://111331179075915"
-		bgImg.ScaleType = Enum.ScaleType.Fit
-		bgImg.ImageTransparency = 0.88
-		bgImg.AnchorPoint = Vector2.new(0.5, 0.5)
-		bgImg.Position = UDim2.new(0.5, 0, 0.56, 0)
-		local bgSize = math.floor(math.min(cfg.w, H) * 0.86)
-		bgImg.Size = UDim2.fromOffset(bgSize, bgSize)
-		bgImg.ZIndex = 1
-
-		local header = Instance.new("Frame", frame)
-		header.Size = UDim2.new(1, 0, 0, 42)
-		header.BackgroundColor3 = C.HEADER; header.BorderSizePixel = 0
-		corner(header, 8)
-		local moon = Instance.new("ImageLabel", header)
-		moon.Size = UDim2.new(0, 24, 0, 24); moon.Position = UDim2.new(0, 9, 0.5, -12)
-		moon.BackgroundTransparency = 1; moon.BorderSizePixel = 0
-		moon.Image = "rbxassetid://111331179075915"
-		moon.ScaleType = Enum.ScaleType.Fit
-		local subtitle
-		local title = Instance.new("TextLabel", header)
-		title.BackgroundTransparency = 1
-		title.Text = cfg.title; title.TextSize = 14; title.Font = Enum.Font.GothamBold
-		title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
-		title.TextTruncate = Enum.TextTruncate.AtEnd
-		if cfg.subtitle then
-			title.Size = UDim2.new(1, -112, 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
-			subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -112, 0, 12), C.DIM, Enum.Font.GothamMedium)
-			subtitle.Position = UDim2.new(0, 40, 0, 25); subtitle.TextSize = 9; subtitle.TextTruncate = Enum.TextTruncate.AtEnd
-		else
-			title.Size = UDim2.new(1, -112, 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
+		local bgImg, subtitle
+		if cfg.isMain then
+			bgImg = Instance.new("ImageLabel", frame)
+			bgImg.Name = "Bg"
+			bgImg.BackgroundTransparency = 1; bgImg.BorderSizePixel = 0
+			bgImg.Image = "rbxassetid://111331179075915"
+			bgImg.ScaleType = Enum.ScaleType.Fit
+			bgImg.ImageTransparency = 0.88
+			bgImg.AnchorPoint = Vector2.new(0.5, 0.5)
+			bgImg.Position = UDim2.new(0.5, 0, 0.56, 0)
+			local bgSize = math.floor(math.min(cfg.w, H) * 0.86)
+			bgImg.Size = UDim2.fromOffset(bgSize, bgSize)
+			bgImg.ZIndex = 1
 		end
-		liveGrad(title, true)
-		local close = Instance.new("TextButton", header)
-		close.Size = UDim2.new(0, 22, 0, 22); close.Position = UDim2.new(1, -30, 0.5, -11)
-		close.BackgroundColor3 = Color3.fromRGB(70, 26, 44); close.Text = "X"; close.TextSize = 11
-		close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold; close.BorderSizePixel = 0
-		corner(close, 6); addLivingStroke(close, 1); pressFx(close)
-		local mini = Instance.new("TextButton", header)
-		mini.Size = UDim2.new(0, 22, 0, 22); mini.Position = UDim2.new(1, -56, 0.5, -11)
-		mini.BackgroundColor3 = Color3.fromRGB(36, 34, 62); mini.Text = "-"; mini.TextSize = 13
-		mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
-		corner(mini, 6); addLivingStroke(mini, 1); pressFx(mini)
-		local sep = Instance.new("Frame", frame)
-		sep.Size = UDim2.new(1, 0, 0, 2); sep.Position = UDim2.new(0, 0, 0, 42)
-		sep.BackgroundColor3 = C.WHITE; sep.BorderSizePixel = 0
-		liveGrad(sep, true)
 
-		local contentX = 0
-		local tabBar
-		if not cfg.noTabs then
-			contentX = 96
+		local header, moon, title, close, mini, sep, tabBar, content
+		local contentX, bodyTopV = 0, 46
+		if cfg.isMain then
+			header = Instance.new("Frame", frame)
+			header.Size = UDim2.new(1, 0, 0, 42)
+			header.BackgroundColor3 = C.HEADER; header.BorderSizePixel = 0
+			corner(header, 8)
+			moon = Instance.new("ImageLabel", header)
+			moon.Size = UDim2.new(0, 24, 0, 24); moon.Position = UDim2.new(0, 9, 0.5, -12)
+			moon.BackgroundTransparency = 1; moon.BorderSizePixel = 0
+			moon.Image = "rbxassetid://111331179075915"
+			moon.ScaleType = Enum.ScaleType.Fit
+			title = Instance.new("TextLabel", header)
+			title.BackgroundTransparency = 1
+			title.Text = cfg.title; title.TextSize = 14; title.Font = Enum.Font.GothamBold
+			title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
+			title.TextTruncate = Enum.TextTruncate.AtEnd
+			if cfg.subtitle then
+				title.Size = UDim2.new(1, -112, 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
+				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -112, 0, 12), C.DIM, Enum.Font.GothamMedium)
+				subtitle.Position = UDim2.new(0, 40, 0, 25); subtitle.TextSize = 9; subtitle.TextTruncate = Enum.TextTruncate.AtEnd
+			else
+				title.Size = UDim2.new(1, -112, 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
+			end
+			liveGrad(title, true, true)
+			close = Instance.new("TextButton", header)
+			close.Size = UDim2.new(0, 22, 0, 22); close.Position = UDim2.new(1, -30, 0.5, -11)
+			close.BackgroundColor3 = Color3.fromRGB(58, 20, 20); close.Text = "X"; close.TextSize = 11
+			close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold; close.BorderSizePixel = 0
+			corner(close, 6); addLivingStroke(close, 1); pressFx(close)
+			mini = Instance.new("TextButton", header)
+			mini.Size = UDim2.new(0, 22, 0, 22); mini.Position = UDim2.new(1, -56, 0.5, -11)
+			mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
+			mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
+			corner(mini, 6); addLivingStroke(mini, 1); pressFx(mini)
+			sep = Instance.new("Frame", frame)
+			sep.Size = UDim2.new(1, 0, 0, 2); sep.Position = UDim2.new(0, 0, 0, 42)
+			sep.BackgroundColor3 = C.WHITE; sep.BorderSizePixel = 0
+			liveGrad(sep, true, true)
+
+			contentX = 108
 			tabBar = Instance.new("ScrollingFrame", frame)
 			tabBar.Name = "SideTabs"
 			tabBar.Size = UDim2.new(0, contentX, 1, -44); tabBar.Position = UDim2.new(0, 0, 0, 44)
@@ -1007,17 +1077,67 @@ end
 			sideLine.Size = UDim2.new(0, 1, 1, -44); sideLine.Position = UDim2.new(0, contentX, 0, 44)
 			sideLine.BackgroundColor3 = C.BORDER; sideLine.BorderSizePixel = 0
 			w.sideLine = sideLine
+			w.tabBar = tabBar
+			content = Instance.new("Frame", frame)
+			content.Size = UDim2.new(1, -contentX, 1, -46); content.Position = UDim2.new(0, contentX, 0, 46)
+			content.BackgroundTransparency = 1; content.ClipsDescendants = true
+			w.content = content
+		else
+			header = Instance.new("Frame", frame)
+			header.Size = UDim2.new(1, 0, 0, 42)
+			header.BackgroundColor3 = C.BG; header.BorderSizePixel = 0
+			corner(header, 20)
+			moon = Instance.new("ImageLabel", header)
+			moon.Size = UDim2.new(0, 22, 0, 22); moon.Position = UDim2.new(0, 10, 0.5, -11)
+			moon.BackgroundTransparency = 1; moon.BorderSizePixel = 0
+			moon.Image = "rbxassetid://111331179075915"
+			moon.ScaleType = Enum.ScaleType.Fit
+			title = Instance.new("TextLabel", header)
+			title.BackgroundTransparency = 1
+			title.Size = UDim2.new(1, -110, 1, 0); title.Position = UDim2.new(0, 38, 0, 0)
+			title.Text = cfg.title; title.TextSize = 14; title.Font = Enum.Font.GothamBold
+			title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
+			title.TextTruncate = Enum.TextTruncate.AtEnd
+			liveGrad(title, true)
+			close = Instance.new("TextButton", header)
+			close.Size = UDim2.new(0, 20, 0, 20); close.Position = UDim2.new(1, -28, 0.5, -10)
+			close.BackgroundColor3 = Color3.fromRGB(58, 20, 20); close.Text = "X"; close.TextSize = 11
+			close.TextColor3 = C.RED; close.Font = Enum.Font.GothamBold; close.BorderSizePixel = 0
+			corner(close, 7); addLivingStroke(close, 1); pressFx(close)
+			mini = Instance.new("TextButton", header)
+			mini.Size = UDim2.new(0, 20, 0, 20); mini.Position = UDim2.new(1, -52, 0.5, -10)
+			mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
+			mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
+			corner(mini, 7); addLivingStroke(mini, 1); pressFx(mini)
+			sep = Instance.new("Frame", frame)
+			sep.Size = UDim2.new(1, -24, 0, 1); sep.Position = UDim2.new(0, 12, 0, 42)
+			sep.BackgroundColor3 = C.BORDER; sep.BorderSizePixel = 0
+
+			local bodyTop = 46
+			if not cfg.noTabs then
+				tabBar = Instance.new("ScrollingFrame", frame)
+				tabBar.Size = UDim2.new(1, -12, 0, 26); tabBar.Position = UDim2.new(0, 6, 0, 48)
+				tabBar.BackgroundTransparency = 1; tabBar.BorderSizePixel = 0
+				tabBar.ScrollBarThickness = 0
+				tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
+				tabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
+				tabBar.ScrollingDirection = Enum.ScrollingDirection.X
+				local tl2 = Instance.new("UIListLayout", tabBar)
+				tl2.FillDirection = Enum.FillDirection.Horizontal
+				tl2.Padding = UDim.new(0, 5); tl2.VerticalAlignment = Enum.VerticalAlignment.Center
+				bodyTop = 80
+			end
+			w.tabBar = tabBar
+			content = Instance.new("Frame", frame)
+			content.Size = UDim2.new(1, 0, 1, -bodyTop); content.Position = UDim2.new(0, 0, 0, bodyTop)
+			content.BackgroundTransparency = 1; content.ClipsDescendants = true
+			w.content = content
+			bodyTopV = bodyTop
 		end
-		w.tabBar = tabBar
-		local content = Instance.new("Frame", frame)
-		content.Size = UDim2.new(1, -contentX, 1, -46); content.Position = UDim2.new(0, contentX, 0, 46)
-		content.BackgroundTransparency = 1; content.ClipsDescendants = true
-		w.content = content
-		w.content = content
 
 		-- picker overlay (single / multi select) covering the content area
 		local ov = Instance.new("Frame", frame)
-		ov.Size = UDim2.new(1, -contentX, 1, -46); ov.Position = UDim2.new(0, contentX, 0, 46)
+		ov.Size = UDim2.new(1, -contentX, 1, -bodyTopV); ov.Position = UDim2.new(0, contentX, 0, bodyTopV)
 		ov.BackgroundColor3 = C.BG; ov.BorderSizePixel = 0; ov.Visible = false; ov.ZIndex = 300
 		local ovHead = Instance.new("Frame", ov)
 		ovHead.Size = UDim2.new(1, 0, 0, 26); ovHead.BackgroundTransparency = 1; ovHead.ZIndex = 301
@@ -1025,7 +1145,7 @@ end
 		ovTitle.Position = UDim2.new(0, 8, 0, 0); ovTitle.TextSize = 11.5; ovTitle.ZIndex = 301
 		local ovClear = Instance.new("TextButton", ovHead)
 		ovClear.Size = UDim2.new(0, 46, 0, 20); ovClear.Position = UDim2.new(1, -104, 0, 3)
-		ovClear.BackgroundColor3 = Color3.fromRGB(36, 34, 62); ovClear.Text = "Clear"; ovClear.TextSize = 10
+		ovClear.BackgroundColor3 = Color3.fromRGB(24, 26, 35); ovClear.Text = "Clear"; ovClear.TextSize = 10
 		ovClear.TextColor3 = C.SILVER; ovClear.Font = Enum.Font.GothamBold; ovClear.BorderSizePixel = 0; ovClear.ZIndex = 301
 		corner(ovClear, 8); addLivingStroke(ovClear, 1); pressFx(ovClear)
 		local ovDone = Instance.new("TextButton", ovHead)
@@ -1054,7 +1174,7 @@ end
 			local marks = {}
 			local function refreshMarks()
 				for opt, m in pairs(marks) do
-					m.BackgroundColor3 = opts.isOn(opt) and C.MOON or Color3.fromRGB(40, 38, 64)
+					m.BackgroundColor3 = opts.isOn(opt) and C.MOON or Color3.fromRGB(10, 14, 22)
 				end
 			end
 			clearFn = function() if opts.onClear then opts.onClear() end; refreshMarks() end
@@ -1200,21 +1320,113 @@ end
 			corner(arrowBtn, 14); addLivingStroke(arrowBtn, 1.5); liveGrad(arrowBtn)
 			arrowBtn.MouseButton1Click:Connect(function() w.SetMinimized(false) end)
 		end
-		-- fold effect: the panel scales out of / back into the top tray
+		-- dust forge: the panel builds itself from small stroked tiles and dust, and folds back into the top bar
 		local forgeToken = 0
 		local function forge(mode)
 			forgeToken = forgeToken + 1
 			local mine = forgeToken
+			local old = gui:FindFirstChild("Forge_" .. tostring(cfg.name))
+			if old then old:Destroy() end
+
+			if mode == "in" then frame.Visible = true; updateArrow() end
+			local scr = gui.AbsoluteSize
+			local fp = frame.Position
+			local margin = 5
+			local pos = Vector2.new(fp.X.Scale * scr.X + fp.X.Offset - margin, fp.Y.Scale * scr.Y + fp.Y.Offset - margin)
+			local size = Vector2.new(cfg.w + margin * 2, fullH + margin * 2)
+
+			if size.X < 20 or size.Y < 20 then
+				frame.Visible = mode == "in"
+				updateArrow()
+				return
+			end
+			local box = Instance.new("Folder", gui)
+			box.Name = "Forge_" .. tostring(cfg.name)
+			local cols = 6
+			local tw = size.X / cols
+			local rows = math.max(5, math.floor(size.Y / tw + 0.5))
+			local th = size.Y / rows
+			local center = pos + size / 2
+			local maxDist = (size / 2).Magnitude
+			local tiles = {}
+
+			for r = 0, rows - 1 do
+				for c = 0, cols - 1 do
+					local tile = Instance.new("Frame", box)
+					tile.BorderSizePixel = 0
+					tile.BackgroundColor3 = C.BG
+					tile.ZIndex = 800
+					tile.AnchorPoint = Vector2.new(0.5, 0.5)
+					tile.Size = UDim2.fromOffset(tw + 1, th + 1)
+					local home = pos + Vector2.new((c + 0.5) * tw, (r + 0.5) * th)
+					tile.Position = UDim2.fromOffset(home.X, home.Y)
+					local ts = Instance.new("UIStroke", tile)
+					ts.Color = C.DEEP4; ts.Thickness = 1; ts.Transparency = 0.2
+					tiles[#tiles + 1] = {Frame = tile, Stroke = ts, Home = home, Delay = (home - center).Magnitude / maxDist}
+				end
+			end
+
+			local function dust(count, fromOutside)
+				for i = 1, count do
+					local d = Instance.new("Frame", box)
+					d.Size = UDim2.fromOffset(3, 3); d.AnchorPoint = Vector2.new(0.5, 0.5)
+					d.BorderSizePixel = 0; d.ZIndex = 801
+					d.BackgroundColor3 = i % 2 == 0 and C.MOON2 or C.DEEP4
+					local inside = Vector2.new(pos.X + math.random() * size.X, pos.Y + math.random() * size.Y)
+					local outside = inside + Vector2.new(math.random(-90, 90), math.random(-90, 90))
+					local a, b = inside, outside
+					if fromOutside then a, b = outside, inside end
+					d.Position = UDim2.fromOffset(a.X, a.Y)
+					d.BackgroundTransparency = fromOutside and 0.2 or 0.6
+					TweenService:Create(d, TweenInfo.new(0.5 + math.random() * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						Position = UDim2.fromOffset(b.X, b.Y), BackgroundTransparency = fromOutside and 0.9 or 1}):Play()
+				end
+			end
+
 			if mode == "in" then
-				frame.Visible = true; updateArrow()
-				winScale.Scale = 0.84
-				TweenService:Create(winScale, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Scale = 1}):Play()
-			else
-				TweenService:Create(winScale, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Scale = 0.78}):Play()
-				task.delay(0.21, function()
-					if forgeToken ~= mine then return end
-					frame.Visible = false; winScale.Scale = 1
+				dust(18, true)
+
+				for _, t in ipairs(tiles) do
+					task.delay(t.Delay * 0.45 + math.random() * 0.1, function()
+						if forgeToken ~= mine then return end
+						TweenService:Create(t.Frame, TweenInfo.new(0.26, Enum.EasingStyle.Quad), {
+							BackgroundTransparency = 1, Size = UDim2.fromOffset(tw * 0.35, th * 0.35)}):Play()
+						TweenService:Create(t.Stroke, TweenInfo.new(0.26), {Transparency = 1}):Play()
+					end)
+				end
+				task.delay(0.95, function()
+					if forgeToken == mine then box:Destroy() end
 					updateArrow()
+				end)
+			else
+				for _, t in ipairs(tiles) do
+					t.Frame.BackgroundTransparency = 1
+					t.Frame.Size = UDim2.fromOffset(tw * 0.35, th * 0.35)
+					t.Stroke.Transparency = 1
+					task.delay((1 - t.Delay) * 0.3 + math.random() * 0.08, function()
+						if forgeToken ~= mine then return end
+						TweenService:Create(t.Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+							BackgroundTransparency = 0, Size = UDim2.fromOffset(tw + 1, th + 1)}):Play()
+						TweenService:Create(t.Stroke, TweenInfo.new(0.2), {Transparency = 0.2}):Play()
+					end)
+				end
+				dust(10, false)
+				task.delay(0.5, function()
+					if forgeToken ~= mine then return end
+					frame.Visible = false
+					local target = Vector2.new(gui.AbsoluteSize.X / 2, 18)
+
+					for _, t in ipairs(tiles) do
+						local jitter = Vector2.new(math.random(-40, 40), math.random(-6, 6))
+						TweenService:Create(t.Frame, TweenInfo.new(0.45 + math.random() * 0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+							Position = UDim2.fromOffset(target.X + jitter.X, target.Y + jitter.Y),
+							Size = UDim2.fromOffset(4, 4), BackgroundTransparency = 0.6}):Play()
+						TweenService:Create(t.Stroke, TweenInfo.new(0.5), {Transparency = 0.8}):Play()
+					end
+					task.delay(0.8, function()
+						if forgeToken == mine then box:Destroy() end
+						updateArrow()
+					end)
 				end)
 			end
 		end
@@ -1419,13 +1631,17 @@ end
 		local indent = subOf and 14 or 0
 		local row = Instance.new("Frame", holder)
 		row.Size = UDim2.new(1, -indent - 6, 1, 0); row.Position = UDim2.new(0, indent, 0, 0)
-		row.BackgroundColor3 = C.ROW; row.BackgroundTransparency = 0.15; row.BorderSizePixel = 0
-		corner(row, 8); addLivingStroke(row, 1)
-		local edge = Instance.new("Frame", row)
-		edge.Name = "Edge"; edge.Size = UDim2.new(0, 3, 1, -12); edge.Position = UDim2.new(0, 0, 0, 6)
-		edge.BackgroundColor3 = C.MOON2; edge.BackgroundTransparency = 1; edge.BorderSizePixel = 0
-		corner(edge, 2)
-		local info = {order = order, children = 0, holder = holder, subs = {}, open = false, edge = edge}
+		row.BackgroundColor3 = C.ROW; row.BackgroundTransparency = 0.35; row.BorderSizePixel = 0
+		corner(row, 10); addLivingStroke(row, 1)
+		local info = {order = order, children = 0, holder = holder, subs = {}, open = false}
+		if self.window and self.window.isMain then
+			row.BackgroundTransparency = 0.15
+			local edge = Instance.new("Frame", row)
+			edge.Name = "Edge"; edge.Size = UDim2.new(0, 3, 1, -12); edge.Position = UDim2.new(0, 0, 0, 6)
+			edge.BackgroundColor3 = C.MOON2; edge.BackgroundTransparency = 1; edge.BorderSizePixel = 0
+			corner(edge, 2)
+			info.edge = edge
+		end
 		if subOf and subOf._slotInfo then
 			table.insert(subOf._slotInfo.subs, holder)
 			subOf._refreshSubs()
@@ -1435,7 +1651,8 @@ end
 
 	local function nameLabel(row, text, width)
 		local l = label(row, tostring(text), UDim2.new(1, width or -62, 0, 18), C.WHITE, Enum.Font.GothamBold)
-		l.Position = UDim2.new(0, 10, 0, 5); l.TextSize = 11.5; l.TextTruncate = Enum.TextTruncate.AtEnd
+		l.Position = UDim2.new(0, 10, 0, 5); l.TextSize = 10.5; l.TextTruncate = Enum.TextTruncate.AtEnd
+		liveGrad(l)
 		return l
 	end
 	local function noteLabel(row, text)
@@ -1478,21 +1695,29 @@ end
 		local h = {}
 		local hasNote = cfg.Note and cfg.Note ~= ""
 		local holder, row, info = self:_slot(hasNote and 38 or 28, cfg.SubOf)
-		nameLabel(row, cfg.Name, -92)
+		local mainStyle = info.edge ~= nil
+		nameLabel(row, cfg.Name, mainStyle and -92 or -84)
 		noteLabel(row, cfg.Note)
-		local pill, btn, setSwitch = makeSwitch(row, value)
-		pill.Position = UDim2.new(1, -34, 0.5, -13)
+		local pill, btn, setSwitch
 		local function paintRow(on)
+			if not mainStyle then return end
 			TweenService:Create(row, TweenInfo.new(0.18), {BackgroundColor3 = on and C.ON_BG or C.ROW}):Play()
 			TweenService:Create(info.edge, TweenInfo.new(0.18), {BackgroundTransparency = on and 0 or 1}):Play()
 		end
-		if value then row.BackgroundColor3 = C.ON_BG; info.edge.BackgroundTransparency = 0 end
+		if mainStyle then
+			pill, btn, setSwitch = makeCheck(row, value)
+			pill.Position = UDim2.new(1, -34, 0.5, -13)
+			if value then row.BackgroundColor3 = C.ON_BG; info.edge.BackgroundTransparency = 0 end
+		else
+			pill, btn, setSwitch = makeSwitch(row, value)
+			pill.Position = UDim2.new(1, -52, 0, 4)
+		end
 		h.Instance = holder
 		h._controller = {GetValue = function() return value end}
 		local subs = newSignalList()
 		local groupRef
 		makeParentLogic(h, info, function() return value end)
-		arrowButton(row, h, info, -58)
+		arrowButton(row, h, info, mainStyle and -58 or -74)
 		function h.Get() return value end
 		function h.GetValue() return value end
 		function h.Subscribe(_, fn) return subs.Connect(fn) end
@@ -1525,6 +1750,7 @@ end
 	end
 
 	function Section:CreateButton(cfg)
+		if not (self.window and self.window.isMain) then return self:_createButtonOld(cfg) end
 		local hasNote = cfg.Note and cfg.Note ~= ""
 		local holder, row = self:_slot(hasNote and 38 or 28, cfg.SubOf)
 		local bw = cfg.ButtonWidth or 64
@@ -1556,6 +1782,40 @@ end
 				bl.Text = cfg.ConfirmText
 				b.BackgroundColor3 = Color3.fromRGB(34, 140, 90)
 				task.delay(1.4, function() bl.Text = old; b.BackgroundColor3 = C.MOON; busy = false end)
+			end
+		end)
+		register(self, cfg, h, "Button")
+		return h
+	end
+
+	function Section:_createButtonOld(cfg)
+		local hasNote = cfg.Note and cfg.Note ~= ""
+		local holder, row = self:_slot(hasNote and 38 or 28, cfg.SubOf)
+		local bw = cfg.ButtonWidth or 64
+		nameLabel(row, cfg.Name, -(bw + 20))
+		noteLabel(row, cfg.Note)
+		local b = Instance.new("TextButton", row)
+		b.Size = UDim2.new(0, bw, 0, 20); b.Position = UDim2.new(1, -(bw + 8), 0, hasNote and 9 or 4)
+		b.BackgroundColor3 = C.ROW; b.BackgroundTransparency = 0.35; b.AutoButtonColor = false
+		b.Text = ""; b.BorderSizePixel = 0
+		corner(b, 8); addLivingStroke(b, 1)
+		local bl = label(b, cfg.ButtonText or "Run", UDim2.new(1, 0, 1, 0), C.WHITE, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+		bl.TextSize = 9.5; bl.ZIndex = 2
+		liveGrad(bl)
+		local pulse = pressFx(b)
+		local h = {Instance = holder}
+		function h.SetText(t) bl.Text = tostring(t) end
+		function h.Pulse() pulse() end
+		local busy = false
+		b.MouseButton1Click:Connect(function()
+			pulse()
+			if cfg.Callback then task.spawn(cfg.Callback) end
+			if cfg.ConfirmText and not busy then
+				busy = true
+				local old = bl.Text
+				bl.Text = cfg.ConfirmText
+				b.BackgroundColor3 = Color3.fromRGB(20, 80, 50)
+				task.delay(1.4, function() bl.Text = old; b.BackgroundColor3 = C.ROW; busy = false end)
 			end
 		end)
 		register(self, cfg, h, "Button")
@@ -1694,7 +1954,7 @@ end
 		noteLabel(row, cfg.Note)
 		local box = Instance.new("TextButton", row)
 		box.Size = UDim2.new(0, 116, 0, 20); box.Position = UDim2.new(1, -124, 0, 4)
-		box.BackgroundColor3 = Color3.fromRGB(36, 34, 62); box.TextColor3 = C.WHITE
+		box.BackgroundColor3 = Color3.fromRGB(12, 18, 32); box.TextColor3 = C.WHITE
 		box.Text = tostring(value); box.TextSize = 9.5; box.Font = Enum.Font.GothamBold; box.BorderSizePixel = 0
 		box.TextTruncate = Enum.TextTruncate.AtEnd
 		corner(box, 6); addLivingStroke(box, 1)
@@ -1749,7 +2009,7 @@ end
 		noteLabel(row, cfg.Note)
 		local box = Instance.new("TextButton", row)
 		box.Size = UDim2.new(0, 86, 0, 20); box.Position = UDim2.new(1, -94, 0, 4)
-		box.BackgroundColor3 = Color3.fromRGB(36, 34, 62); box.TextColor3 = C.WHITE
+		box.BackgroundColor3 = Color3.fromRGB(12, 18, 32); box.TextColor3 = C.WHITE
 		box.TextSize = 9.5; box.Font = Enum.Font.GothamBold; box.BorderSizePixel = 0; box.Name = "Value"
 		corner(box, 6); addLivingStroke(box, 1)
 		local h = {Instance = holder}
@@ -1800,7 +2060,7 @@ end
 		nameLabel(row, cfg.Name, -130)
 		local tb = Instance.new("TextBox", row)
 		tb.Size = UDim2.new(0, 116, 0, 20); tb.Position = UDim2.new(1, -124, 0, 4)
-		tb.BackgroundColor3 = Color3.fromRGB(36, 34, 62); tb.TextColor3 = C.WHITE
+		tb.BackgroundColor3 = Color3.fromRGB(12, 18, 32); tb.TextColor3 = C.WHITE
 		tb.PlaceholderText = cfg.Placeholder or ""; tb.PlaceholderColor3 = C.DIM
 		tb.Text = value; tb.TextSize = 9.5; tb.Font = Enum.Font.GothamMedium; tb.BorderSizePixel = 0
 		tb.ClearTextOnFocus = false
@@ -1838,13 +2098,13 @@ end
 		local page = target.page
 		target.secCount = (target.secCount or 0) + 1
 		local head = Instance.new("TextButton", page)
-		head.Size = UDim2.new(1, 0, 0, 28); head.BackgroundTransparency = 1; head.Text = ""
+		head.Size = UDim2.new(1, 0, 0, win.isMain and 28 or 22); head.BackgroundTransparency = 1; head.Text = ""
 		head.LayoutOrder = target.secCount * 10
 		local accent = Instance.new("Frame", head)
-		accent.Size = UDim2.new(0, 3, 0, 14); accent.Position = UDim2.new(0, 2, 0.5, -7)
+		accent.Size = UDim2.new(0, 3, 0, win.isMain and 14 or 11); accent.Position = UDim2.new(0, 2, 0.5, win.isMain and -7 or -5)
 		accent.BackgroundColor3 = C.MOON; accent.BorderSizePixel = 0; corner(accent, 2)
-		local lbl = label(head, tostring(cfg.Name), UDim2.new(1, -30, 1, 0), C.WHITE, Enum.Font.GothamBold)
-		lbl.TextSize = 12.5; lbl.Position = UDim2.new(0, 12, 0, 0)
+		local lbl = label(head, win.isMain and tostring(cfg.Name) or string.upper(cfg.Name), UDim2.new(1, -30, 1, 0), win.isMain and C.WHITE or C.DIM, Enum.Font.GothamBold)
+		lbl.TextSize = win.isMain and 12.5 or 9; lbl.Position = UDim2.new(0, 12, 0, 0)
 		local arrow = label(head, ">", UDim2.new(0, 16, 1, 0), C.DIM, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
 		arrow.Position = UDim2.new(1, -18, 0, 0); arrow.TextSize = 10
 		local body = Instance.new("Frame", page)
@@ -1913,8 +2173,8 @@ end
 
 	function lib:CreateWindow(cfg)
 		local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
-		local mw = math.min(400, math.max(300, vp.X - 24))
-		local mh = math.min(350, math.max(240, vp.Y - 60))
+		local mw = math.min(480, math.max(340, vp.X - 24))
+		local mh = math.min(370, math.max(240, vp.Y - 60))
 		local main = newWindow({name = "main", frameName = "Main", title = "Sources Hub", subtitle = "Steal An Egg", w = mw, h = mh,
 			pos = UDim2.new(0.5, -math.floor(mw / 2), 0.5, -math.floor(mh / 2)), isMain = true, z = 20})
 		local events = newWindow({name = "events", frameName = "SourcesHubEvents", title = "Events · Dr Scramble", w = 252, h = 340,
@@ -2038,7 +2298,7 @@ end
 tick = tick or os.clock
 game.IsLoaded = function() return true end
 task.delay = function(t, fn, ...) local a = {...}; task.spawn(function() task.wait(t); fn(table.unpack(a)) end) end
-Vector2 = {new = function(x, y) return {X = x, Y = y} end}
+Vector2 = {new = function(x, y) return Vector3.new(x, y, 0) end}
 NumberSequence = {new = function(...) return {...} end}
 NumberSequenceKeypoint = {new = function(t, v) return {Time = t, Value = v} end}
 ColorSequence = {new = function(a, b)
@@ -2091,6 +2351,7 @@ advance(0.5)
 local gui = lib.Gui
 local main = gui:FindFirstChild("Main")
 check("main window exists", main ~= nil)
+check("main window widened", main.Size.X.Offset >= 400)
 check("side tabs exist", find(main, function(d) return d.Name == "SideTabs" end) ~= nil)
 check("bg moon image present", find(main, function(d) return d.ClassName == "ImageLabel" and d.Name == "Bg" and d.Image == "rbxassetid://111331179075915" end) ~= nil)
 check("header moon icon", find(main, function(d) return d.ClassName == "ImageLabel" and d.Image == "rbxassetid://111331179075915" and d.Name ~= "Bg" end) ~= nil)
@@ -2127,8 +2388,8 @@ lib.mainWindow.Select("Farm"); advance(0.4)
 
 -- themes
 for _, name in ipairs(lib.ThemeNames) do lib.SetTheme(name); advance(0.2) end
-lib.SetTheme("Nebula")
-check("theme names", #lib.ThemeNames == 4 and lib.ThemeNames[1] == "Nebula")
+lib.SetTheme("Gold")
+check("original theme names kept", #lib.ThemeNames == 4 and lib.ThemeNames[1] == "Gold" and lib.ThemeName == "Gold")
 
 -- tool window (steal panel style) incl. open / minimise / reopen
 local tool = lib.NewToolWindow({name = "steal", tabName = "StealPanel", frameName = "SourcesHubSteal", title = "Steal Panel", w = 262, h = 410,
@@ -2138,7 +2399,10 @@ check("tool window starts folded in the tray", tool.frame.Visible == false)
 tool.SetMinimized(false); advance(0.6)
 check("tool window unfolds", tool.frame.Visible == true)
 local tsec = tool.tab:CreateSection({Name = "Filters"})
-tsec:CreateToggle({Name = "Only rare", Default = true})
+local otg = tsec:CreateToggle({Name = "Only rare", Default = true})
+check("tool panel keeps the original pill switch", find(otg.Instance, function(d) return d.ClassName == "Frame" and d.Size and d.Size.X.Offset == 40 end) ~= nil)
+check("tool panel keeps the original upper-case section titles", find(tool.frame, function(d) return d.ClassName == "TextLabel" and d.Text == "FILTERS" end) ~= nil)
+check("tool panel has no side tabs or background image", find(tool.frame, function(d) return d.Name == "SideTabs" or d.Name == "Bg" end) == nil)
 tool.SetMinimized(true); advance(0.6)
 check("tool window folds again", tool.frame.Visible == false)
 tool.SetMinimized(false); advance(0.6)

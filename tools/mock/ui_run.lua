@@ -6,7 +6,7 @@ end
 tick = tick or os.clock
 game.IsLoaded = function() return true end
 task.delay = function(t, fn, ...) local a = {...}; task.spawn(function() task.wait(t); fn(table.unpack(a)) end) end
-Vector2 = {new = function(x, y) return {X = x, Y = y} end}
+Vector2 = {new = function(x, y) return Vector3.new(x, y, 0) end}
 NumberSequence = {new = function(...) return {...} end}
 NumberSequenceKeypoint = {new = function(t, v) return {Time = t, Value = v} end}
 ColorSequence = {new = function(a, b)
@@ -59,6 +59,7 @@ advance(0.5)
 local gui = lib.Gui
 local main = gui:FindFirstChild("Main")
 check("main window exists", main ~= nil)
+check("main window widened", main.Size.X.Offset >= 400)
 check("side tabs exist", find(main, function(d) return d.Name == "SideTabs" end) ~= nil)
 check("bg moon image present", find(main, function(d) return d.ClassName == "ImageLabel" and d.Name == "Bg" and d.Image == "rbxassetid://111331179075915" end) ~= nil)
 check("header moon icon", find(main, function(d) return d.ClassName == "ImageLabel" and d.Image == "rbxassetid://111331179075915" and d.Name ~= "Bg" end) ~= nil)
@@ -95,8 +96,8 @@ lib.mainWindow.Select("Farm"); advance(0.4)
 
 -- themes
 for _, name in ipairs(lib.ThemeNames) do lib.SetTheme(name); advance(0.2) end
-lib.SetTheme("Nebula")
-check("theme names", #lib.ThemeNames == 4 and lib.ThemeNames[1] == "Nebula")
+lib.SetTheme("Gold")
+check("original theme names kept", #lib.ThemeNames == 4 and lib.ThemeNames[1] == "Gold" and lib.ThemeName == "Gold")
 
 -- tool window (steal panel style) incl. open / minimise / reopen
 local tool = lib.NewToolWindow({name = "steal", tabName = "StealPanel", frameName = "SourcesHubSteal", title = "Steal Panel", w = 262, h = 410,
@@ -106,7 +107,10 @@ check("tool window starts folded in the tray", tool.frame.Visible == false)
 tool.SetMinimized(false); advance(0.6)
 check("tool window unfolds", tool.frame.Visible == true)
 local tsec = tool.tab:CreateSection({Name = "Filters"})
-tsec:CreateToggle({Name = "Only rare", Default = true})
+local otg = tsec:CreateToggle({Name = "Only rare", Default = true})
+check("tool panel keeps the original pill switch", find(otg.Instance, function(d) return d.ClassName == "Frame" and d.Size and d.Size.X.Offset == 40 end) ~= nil)
+check("tool panel keeps the original upper-case section titles", find(tool.frame, function(d) return d.ClassName == "TextLabel" and d.Text == "FILTERS" end) ~= nil)
+check("tool panel has no side tabs or background image", find(tool.frame, function(d) return d.Name == "SideTabs" or d.Name == "Bg" end) == nil)
 tool.SetMinimized(true); advance(0.6)
 check("tool window folds again", tool.frame.Visible == false)
 tool.SetMinimized(false); advance(0.6)
