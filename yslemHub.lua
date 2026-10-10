@@ -4685,7 +4685,7 @@ do
 		-- in hand, Delivery Stop does the same with stops on the way, Normal walks (Anti Guard is its own option).
 		-- Go Method: how the character reaches the egg (Fly = the hub's tween above the ground, Run = on the ground)
 		tbl4.GoMethod = {
-			Names = { "Run", "Fly" },
+			Names = { "Run", "Fly", "TP" },
 			Current = function()
 				return tbl4.SafeCarry.GoMethod or "Fly"
 			end,
@@ -7394,20 +7394,47 @@ do
 					return false
 				end
 
-				if tbl4.InsideBase() and not tbl4.InsideBase(position) then
-					local sliced19 = stealHome()
+				if tbl4.SafeCarry.GoMethod == "TP" then
+					-- Instant teleport to egg: activate shield, PivotTo, then take
+					str2 = "Teleporting to the egg"
+					if slicedfn13(arg2) then return false end
+					local root = tbl4.Root()
+					local character = localPlayer.Character
+					if root and character then
+						tbl4.Shield("gotp_egg", true)
+						pcall(function()
+							local dest = position + Vector3.new(0, 3, 0)
+							local cf = CFrame.new(dest) * root.CFrame.Rotation
+							character:PivotTo(cf)
+							root.CFrame = cf
+							for _, p in ipairs(character:GetDescendants()) do
+								if p:IsA("BasePart") then
+									pcall(function()
+										p.AssemblyLinearVelocity = Vector3.zero
+										p.AssemblyAngularVelocity = Vector3.zero
+									end)
+								end
+							end
+						end)
+						task.delay(0.4, function() tbl4.Shield("gotp_egg", nil) end)
+						task.wait(0.1)
+					end
+				else
+					if tbl4.InsideBase() and not tbl4.InsideBase(position) then
+						local sliced19 = stealHome()
 
-					if sliced19 then
-						str2 = "Leaving the base through the safe zone"
-						if not slicedfn33(sliced19 + Vector3.new(0, 3, 0), arg2, nil, 400) then
-							return false
+						if sliced19 then
+							str2 = "Leaving the base through the safe zone"
+							if not slicedfn33(sliced19 + Vector3.new(0, 3, 0), arg2, nil, 400) then
+								return false
+							end
 						end
 					end
-				end
 
-				str2 = "Flying to the egg"
-				if not slicedfn33(position + Vector3.new(0, 3, 0), arg2, nil, 400) then
-					return false
+					str2 = "Flying to the egg"
+					if not slicedfn33(position + Vector3.new(0, 3, 0), arg2, nil, 400) then
+						return false
+					end
 				end
 				str2 = "Taking the egg"
 				local sliced19 = slicedfn44(arg, arg2, 0.6, nil)
