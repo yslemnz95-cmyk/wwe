@@ -4709,6 +4709,8 @@ do
 			return math.min(ratio, 1.15)
 		end
 
+		tbl4.NoticeLib = MoonLib
+
 		tbl4.Method = {
 			Names = { "Normal", "Instant TP", "Delivery Stop" },
 			Current = function()
@@ -5483,9 +5485,13 @@ do
 
 				tbl4.AntiGuard.Enabled = arg == true
 
-				-- Anti Guard only runs in Normal mode: turning it on leaves Instant TP / Delivery Stop
+				-- Anti Guard only runs in Normal mode: while Instant TP / Delivery Stop is selected it switches itself back off
 				if tbl4.AntiGuard.Enabled and not tbl4.MethodApplying and tbl4.Method and tbl4.Method.Current() ~= "Normal" then
-					pcall(tbl4.Method.Apply, "Normal")
+					tbl4.AntiGuard.Enabled = false
+					pcall(tbl4.AntiGuard.Handle.Set, tbl4.AntiGuard.Handle, false)
+					if tbl4.NoticeLib and tbl4.NoticeLib.Banner then
+						pcall(tbl4.NoticeLib.Banner, "Anti Guard is off while " .. tbl4.Method.Current() .. " is selected", 4)
+					end
 				end
 
 				if tbl4.StealPanelSync then

@@ -796,6 +796,7 @@ end
 			header.Size = UDim2.new(1, 0, 0, 42)
 			header.BackgroundColor3 = C.HEADER; header.BorderSizePixel = 0
 			corner(header, 8)
+			local SW = math.clamp(cfg.w - 40 - 110 - 72, 118, 196)
 			moon = Instance.new("ImageLabel", header)
 			moon.Size = UDim2.new(0, 24, 0, 24); moon.Position = UDim2.new(0, 9, 0.5, -12)
 			moon.BackgroundTransparency = 1; moon.BorderSizePixel = 0
@@ -807,8 +808,8 @@ end
 			title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
 			title.TextTruncate = Enum.TextTruncate.AtEnd
 			if cfg.subtitle then
-				title.Size = UDim2.new(1, -250, 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
-				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -250, 0, 12), C.DIM, Enum.Font.GothamMedium)
+				title.Size = UDim2.new(1, -(SW + 116), 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
+				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -(SW + 116), 0, 12), C.DIM, Enum.Font.GothamMedium)
 				subtitle.Position = UDim2.new(0, 40, 0, 25); subtitle.TextSize = 9; subtitle.TextTruncate = Enum.TextTruncate.AtEnd
 				if cfg.subtitleCopy then
 					subtitle.TextColor3 = C.MOON2
@@ -820,7 +821,7 @@ end
 					end)
 				end
 			else
-				title.Size = UDim2.new(1, -250, 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
+				title.Size = UDim2.new(1, -(SW + 116), 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
 			end
 			liveGrad(title, true, true)
 			close = Instance.new("TextButton", header)
@@ -833,33 +834,39 @@ end
 			mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
 			mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
 			corner(mini, 6); addLivingStroke(mini, 1); pressFx(mini)
-			local search = Instance.new("TextBox", header)
-			search.Name = "Search"; search.ZIndex = 5
-			search.Size = UDim2.new(0, 132, 0, 24); search.Position = UDim2.new(1, -(56 + 8 + 132), 0.5, -12)
-			search.BackgroundColor3 = Color3.fromRGB(26, 6, 8); search.BorderSizePixel = 0
-			search.PlaceholderText = "Search"; search.PlaceholderColor3 = C.DIM
-			search.Text = ""; search.TextColor3 = C.WHITE; search.TextSize = 10.5; search.Font = Enum.Font.GothamMedium
-			search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
-			corner(search, 12); addLivingStroke(search, 1.2, true, true)
-			local sp = Instance.new("UIPadding", search); sp.PaddingLeft = UDim.new(0, 26); sp.PaddingRight = UDim.new(0, 8)
-			local lens = Instance.new("Frame", search)
-			lens.Size = UDim2.fromOffset(9, 9); lens.Position = UDim2.new(0, -18, 0.5, -6)
+			local SH = 30
+			local bar = Instance.new("Frame", header)
+			bar.Name = "SearchBar"; bar.ZIndex = 50
+			bar.Size = UDim2.new(0, SW, 0, SH); bar.Position = UDim2.new(1, -(56 + 8 + SW), 0.5, -SH / 2)
+			bar.BackgroundColor3 = Color3.fromRGB(34, 8, 10); bar.BorderSizePixel = 0
+			corner(bar, 15); addLivingStroke(bar, 1.5, true, true)
+			local lens = Instance.new("Frame", bar)
+			lens.ZIndex = 51; lens.Size = UDim2.fromOffset(11, 11); lens.Position = UDim2.new(0, 10, 0.5, -7)
 			lens.BackgroundTransparency = 1; lens.BorderSizePixel = 0
-			corner(lens, 5); stroke(lens, C.MOON2, 1.5)
-			local handle = Instance.new("Frame", search)
-			handle.Size = UDim2.fromOffset(5, 2); handle.Position = UDim2.new(0, -10, 0.5, 3)
+			corner(lens, 6); stroke(lens, C.MOON2, 1.6)
+			local handle = Instance.new("Frame", bar)
+			handle.ZIndex = 51; handle.Size = UDim2.fromOffset(6, 2); handle.Position = UDim2.new(0, 19, 0.5, 4)
 			handle.Rotation = 45; handle.BackgroundColor3 = C.MOON2; handle.BorderSizePixel = 0
+			local search = Instance.new("TextBox", bar)
+			search.Name = "Search"; search.ZIndex = 52
+			search.Size = UDim2.new(1, -36, 1, 0); search.Position = UDim2.new(0, 30, 0, 0)
+			search.BackgroundTransparency = 1; search.BorderSizePixel = 0
+			search.PlaceholderText = "Search..."; search.PlaceholderColor3 = Color3.fromRGB(200, 150, 150)
+			search.Text = ""; search.TextColor3 = Color3.fromRGB(255, 255, 255); search.TextSize = 14; search.Font = Enum.Font.GothamBold
+			search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
+			search.ClipsDescendants = true
 			search:GetPropertyChangedSignal("Text"):Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
 			search.FocusLost:Connect(function()
 				if w.ApplyFilter then w.ApplyFilter(search.Text) end
-				TweenService:Create(search, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 132, 0, 24), Position = UDim2.new(1, -(56 + 8 + 132), 0.5, -12)}):Play()
+				TweenService:Create(bar, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, SW, 0, SH), Position = UDim2.new(1, -(56 + 8 + SW), 0.5, -SH / 2)}):Play()
 			end)
 			search.Focused:Connect(function()
-				TweenService:Create(search, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 170, 0, 24), Position = UDim2.new(1, -(56 + 8 + 170), 0.5, -12)}):Play()
+				TweenService:Create(bar, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, SW + 48, 0, SH), Position = UDim2.new(1, -(56 + 8 + SW + 48), 0.5, -SH / 2)}):Play()
 			end)
-			w.search = search
+			w.search = bar
+			w.searchBox = search
 			sep = Instance.new("Frame", frame)
 			sep.Size = UDim2.new(1, 0, 0, 2); sep.Position = UDim2.new(0, 0, 0, 42)
 			sep.BackgroundColor3 = C.WHITE; sep.BorderSizePixel = 0
@@ -4819,6 +4826,8 @@ do
 			return math.min(ratio, 1.15)
 		end
 
+		tbl4.NoticeLib = SourcesLib
+
 		tbl4.Method = {
 			Names = { "Normal", "Instant TP", "Delivery Stop" },
 			Current = function()
@@ -5593,9 +5602,13 @@ do
 
 				tbl4.AntiGuard.Enabled = arg == true
 
-				-- Anti Guard only runs in Normal mode: turning it on leaves Instant TP / Delivery Stop
+				-- Anti Guard only runs in Normal mode: while Instant TP / Delivery Stop is selected it switches itself back off
 				if tbl4.AntiGuard.Enabled and not tbl4.MethodApplying and tbl4.Method and tbl4.Method.Current() ~= "Normal" then
-					pcall(tbl4.Method.Apply, "Normal")
+					tbl4.AntiGuard.Enabled = false
+					pcall(tbl4.AntiGuard.Handle.Set, tbl4.AntiGuard.Handle, false)
+					if tbl4.NoticeLib and tbl4.NoticeLib.Banner then
+						pcall(tbl4.NoticeLib.Banner, "Anti Guard is off while " .. tbl4.Method.Current() .. " is selected", 4)
+					end
 				end
 
 				if tbl4.StealPanelSync then

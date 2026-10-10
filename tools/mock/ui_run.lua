@@ -114,7 +114,7 @@ check("footer shows the hint and live stats", hasText(main, "RightShift to hide"
 -- search box filters the rows of the current tab
 local search = find(main, function(d) return d.Name == "Search" and d.ClassName == "TextBox" end)
 check("search box in the header (right side)", search ~= nil and search.Parent ~= nil and search.Parent.Name ~= "SideTabs" and find(side, function(d) return d.Name == "Search" end) == nil)
-check("search box has a living stroke and a magnifier", find(search, function(d) return d.ClassName == "UIStroke" end) ~= nil)
+check("search bar has a living stroke and a magnifier", find(search.Parent, function(d) return d.ClassName == "UIStroke" end) ~= nil and search.Parent.Name == "SearchBar" and search.TextSize >= 13 and search.Parent.Size.Y.Offset >= 28)
 check("page transition api", type(lib.mainWindow.Transition) == "function")
 lib.mainWindow.Select("StealPanel"); lib.mainWindow.Select("Farm"); advance(0.5)
 check("page veil + sweep exist", find(main, function(d) return d.Name == "PageVeil" end) ~= nil and find(main, function(d) return d.Name == "PageSweep" end) ~= nil)

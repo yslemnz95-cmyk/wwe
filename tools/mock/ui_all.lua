@@ -1065,6 +1065,7 @@ end
 			header.Size = UDim2.new(1, 0, 0, 42)
 			header.BackgroundColor3 = C.HEADER; header.BorderSizePixel = 0
 			corner(header, 8)
+			local SW = math.clamp(cfg.w - 40 - 110 - 72, 118, 196)
 			moon = Instance.new("ImageLabel", header)
 			moon.Size = UDim2.new(0, 24, 0, 24); moon.Position = UDim2.new(0, 9, 0.5, -12)
 			moon.BackgroundTransparency = 1; moon.BorderSizePixel = 0
@@ -1076,8 +1077,8 @@ end
 			title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
 			title.TextTruncate = Enum.TextTruncate.AtEnd
 			if cfg.subtitle then
-				title.Size = UDim2.new(1, -250, 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
-				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -250, 0, 12), C.DIM, Enum.Font.GothamMedium)
+				title.Size = UDim2.new(1, -(SW + 116), 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
+				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -(SW + 116), 0, 12), C.DIM, Enum.Font.GothamMedium)
 				subtitle.Position = UDim2.new(0, 40, 0, 25); subtitle.TextSize = 9; subtitle.TextTruncate = Enum.TextTruncate.AtEnd
 				if cfg.subtitleCopy then
 					subtitle.TextColor3 = C.MOON2
@@ -1089,7 +1090,7 @@ end
 					end)
 				end
 			else
-				title.Size = UDim2.new(1, -250, 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
+				title.Size = UDim2.new(1, -(SW + 116), 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
 			end
 			liveGrad(title, true, true)
 			close = Instance.new("TextButton", header)
@@ -1102,33 +1103,39 @@ end
 			mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
 			mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
 			corner(mini, 6); addLivingStroke(mini, 1); pressFx(mini)
-			local search = Instance.new("TextBox", header)
-			search.Name = "Search"; search.ZIndex = 5
-			search.Size = UDim2.new(0, 132, 0, 24); search.Position = UDim2.new(1, -(56 + 8 + 132), 0.5, -12)
-			search.BackgroundColor3 = Color3.fromRGB(26, 6, 8); search.BorderSizePixel = 0
-			search.PlaceholderText = "Search"; search.PlaceholderColor3 = C.DIM
-			search.Text = ""; search.TextColor3 = C.WHITE; search.TextSize = 10.5; search.Font = Enum.Font.GothamMedium
-			search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
-			corner(search, 12); addLivingStroke(search, 1.2, true, true)
-			local sp = Instance.new("UIPadding", search); sp.PaddingLeft = UDim.new(0, 26); sp.PaddingRight = UDim.new(0, 8)
-			local lens = Instance.new("Frame", search)
-			lens.Size = UDim2.fromOffset(9, 9); lens.Position = UDim2.new(0, -18, 0.5, -6)
+			local SH = 30
+			local bar = Instance.new("Frame", header)
+			bar.Name = "SearchBar"; bar.ZIndex = 50
+			bar.Size = UDim2.new(0, SW, 0, SH); bar.Position = UDim2.new(1, -(56 + 8 + SW), 0.5, -SH / 2)
+			bar.BackgroundColor3 = Color3.fromRGB(34, 8, 10); bar.BorderSizePixel = 0
+			corner(bar, 15); addLivingStroke(bar, 1.5, true, true)
+			local lens = Instance.new("Frame", bar)
+			lens.ZIndex = 51; lens.Size = UDim2.fromOffset(11, 11); lens.Position = UDim2.new(0, 10, 0.5, -7)
 			lens.BackgroundTransparency = 1; lens.BorderSizePixel = 0
-			corner(lens, 5); stroke(lens, C.MOON2, 1.5)
-			local handle = Instance.new("Frame", search)
-			handle.Size = UDim2.fromOffset(5, 2); handle.Position = UDim2.new(0, -10, 0.5, 3)
+			corner(lens, 6); stroke(lens, C.MOON2, 1.6)
+			local handle = Instance.new("Frame", bar)
+			handle.ZIndex = 51; handle.Size = UDim2.fromOffset(6, 2); handle.Position = UDim2.new(0, 19, 0.5, 4)
 			handle.Rotation = 45; handle.BackgroundColor3 = C.MOON2; handle.BorderSizePixel = 0
+			local search = Instance.new("TextBox", bar)
+			search.Name = "Search"; search.ZIndex = 52
+			search.Size = UDim2.new(1, -36, 1, 0); search.Position = UDim2.new(0, 30, 0, 0)
+			search.BackgroundTransparency = 1; search.BorderSizePixel = 0
+			search.PlaceholderText = "Search..."; search.PlaceholderColor3 = Color3.fromRGB(200, 150, 150)
+			search.Text = ""; search.TextColor3 = Color3.fromRGB(255, 255, 255); search.TextSize = 14; search.Font = Enum.Font.GothamBold
+			search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
+			search.ClipsDescendants = true
 			search:GetPropertyChangedSignal("Text"):Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
 			search.FocusLost:Connect(function()
 				if w.ApplyFilter then w.ApplyFilter(search.Text) end
-				TweenService:Create(search, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 132, 0, 24), Position = UDim2.new(1, -(56 + 8 + 132), 0.5, -12)}):Play()
+				TweenService:Create(bar, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, SW, 0, SH), Position = UDim2.new(1, -(56 + 8 + SW), 0.5, -SH / 2)}):Play()
 			end)
 			search.Focused:Connect(function()
-				TweenService:Create(search, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-					Size = UDim2.new(0, 170, 0, 24), Position = UDim2.new(1, -(56 + 8 + 170), 0.5, -12)}):Play()
+				TweenService:Create(bar, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, SW + 48, 0, SH), Position = UDim2.new(1, -(56 + 8 + SW + 48), 0.5, -SH / 2)}):Play()
 			end)
-			w.search = search
+			w.search = bar
+			w.searchBox = search
 			sep = Instance.new("Frame", frame)
 			sep.Size = UDim2.new(1, 0, 0, 2); sep.Position = UDim2.new(0, 0, 0, 42)
 			sep.BackgroundColor3 = C.WHITE; sep.BorderSizePixel = 0
@@ -2634,7 +2641,7 @@ check("footer shows the hint and live stats", hasText(main, "RightShift to hide"
 -- search box filters the rows of the current tab
 local search = find(main, function(d) return d.Name == "Search" and d.ClassName == "TextBox" end)
 check("search box in the header (right side)", search ~= nil and search.Parent ~= nil and search.Parent.Name ~= "SideTabs" and find(side, function(d) return d.Name == "Search" end) == nil)
-check("search box has a living stroke and a magnifier", find(search, function(d) return d.ClassName == "UIStroke" end) ~= nil)
+check("search bar has a living stroke and a magnifier", find(search.Parent, function(d) return d.ClassName == "UIStroke" end) ~= nil and search.Parent.Name == "SearchBar" and search.TextSize >= 13 and search.Parent.Size.Y.Offset >= 28)
 check("page transition api", type(lib.mainWindow.Transition) == "function")
 lib.mainWindow.Select("StealPanel"); lib.mainWindow.Select("Farm"); advance(0.5)
 check("page veil + sweep exist", find(main, function(d) return d.Name == "PageVeil" end) ~= nil and find(main, function(d) return d.Name == "PageSweep" end) ~= nil)
