@@ -29837,6 +29837,47 @@ do
 				end
 			end,
 		})
+
+		sliced15:CreateButton({
+			Name = "Go TP",
+			Note = "Teleport to the safe zone (base side)",
+			ButtonText = "Go",
+			ConfirmText = "Done!",
+			Callback = function()
+				local character = localPlayer.Character
+				local root = tbl4.Root()
+				if not character or not root then return end
+
+				local world = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+				local sep = world and world:FindFirstChild("Areas")
+				sep = sep and sep:FindFirstChild("SeparationLine")
+				local lineX = sep and sep:IsA("BasePart") and sep.Position.X or 552
+
+				local home = tbl4.StealHome and tbl4.StealHome()
+				local dest
+				if home then
+					dest = Vector3.new(home.X, home.Y, home.Z)
+				else
+					dest = Vector3.new(lineX - 30, root.Position.Y, root.Position.Z)
+				end
+
+				tbl4.Shield("gotp", true)
+				pcall(function()
+					local cf = CFrame.new(dest) * root.CFrame.Rotation
+					character:PivotTo(cf)
+					root.CFrame = cf
+					for _, p in ipairs(character:GetDescendants()) do
+						if p:IsA("BasePart") then
+							pcall(function()
+								p.AssemblyLinearVelocity = Vector3.zero
+								p.AssemblyAngularVelocity = Vector3.zero
+							end)
+						end
+					end
+				end)
+				task.delay(0.3, function() tbl4.Shield("gotp", nil) end)
+			end,
+		})
 	end
 
 	TweenService = game:GetService("TweenService")
