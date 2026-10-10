@@ -1,10 +1,9 @@
--- yslem Game Update v2 : TOUT EN UN FICHIER (analyse + comparaison + fenetre yslemStyle).
--- Execute-le dans le jeu : il scanne, compare avec la reference de ce jeu (sauvegardee dans le dossier de l'executeur),
--- montre tout ce qui a change (+ ajoute, - supprime, > deplace, ~ modifie) et copie le rapport pour qu'on l'adapte.
--- Il ne MODIFIE rien dans le jeu : il lit des noms et ecrit seulement 3 petits fichiers texte. Aucun acces reseau.
---   Scan     : relance l'analyse (se lance deja a l'ouverture)
---   Copy     : copie le rapport + l'inventaire complet (a coller dans le chat)
---   Baseline : remplace la reference par le dernier inventaire (a faire quand tout est adapte)
+-- yslem Game Update v2 (UN fichier). Execute-le dans le jeu :
+--   1 Scan       : il analyse le jeu (se lance tout seul) et compare avec la reference enregistree
+--   2 Changements: badges NOUVEAU / SUPPRIME / DEPLACE / MODIFIE (touche un badge pour filtrer)
+--   3 Copier     : copie le rapport + l'inventaire complet, a coller dans le chat
+-- "Nouvelle ref." = le jeu actuel devient la reference (a faire quand tout est adapte).
+-- Il ne modifie rien dans le jeu : il lit des noms et ecrit 3 petits fichiers texte. Aucun reseau.
 
 local VERSION = 2
 
@@ -192,30 +191,39 @@ local function describe(v)
 	return "[" .. v.kind .. "] " .. v.path .. (v.extra ~= "" and (" (" .. v.extra .. ")") or "")
 end
 
--- lignes du rapport : {texte, couleur}
+-- categories : add (nouveau), del (supprime), mov (deplace), chg (modifie)
 local COLORS = {
 	add = Color3.fromRGB(90, 220, 140), del = Color3.fromRGB(255, 90, 90),
-	mov = Color3.fromRGB(255, 200, 90), chg = Color3.fromRGB(255, 200, 90), info = Color3.fromRGB(255, 176, 176),
+	mov = Color3.fromRGB(255, 200, 90), chg = Color3.fromRGB(120, 180, 255), info = Color3.fromRGB(255, 176, 176),
+	dim = Color3.fromRGB(150, 110, 110),
 }
+local CATS = {
+	{id = "add", label = "NOUVEAU"}, {id = "del", label = "SUPPRIME"},
+	{id = "mov", label = "DEPLACE"}, {id = "chg", label = "MODIFIE"},
+}
+local KINDS = {REMOTE = "Remote", SCRIPT = "Script", SCREEN = "Ecran", BUTTON = "Bouton", PROMPT = "Prompt", WORLD = "Objet", STAT = "Stat", ATTR = "Attribut"}
 
-local function reportLines(d)
+-- un element = {cat, title (court), sub (detail), text (ligne du rapport copie)}
+local function items(d)
 	local out = {}
-	local function add(color, text) out[#out + 1] = {text = text, color = color} end
-	for _, v in ipairs(d.removed) do add("del", "- " .. describe(v)) end
-	for _, m in ipairs(d.moved) do add("mov", "> [" .. m.from.kind .. "] " .. m.from.path .. "  ->  " .. m.to.path) end
-	for _, v in ipairs(d.added) do add("add", "+ " .. describe(v)) end
-	for _, c in ipairs(d.changed) do add("chg", "~ [" .. c.row.kind .. "] " .. c.row.path .. " : " .. c.text) end
+	local function add(cat, v, sub, text)
+		out[#out + 1] = {cat = cat, title = (KINDS[v.kind] or v.kind) .. " : " .. leaf(v.path), sub = sub, text = text}
+	end
+	for _, v in ipairs(d.removed) do add("del", v, v.path, "- " .. describe(v)) end
+	for _, m in ipairs(d.moved) do add("mov", m.from, m.from.path .. "  ->  " .. m.to.path, "> [" .. m.from.kind .. "] " .. m.from.path .. "  ->  " .. m.to.path) end
+	for _, v in ipairs(d.added) do add("add", v, v.path .. (v.extra ~= "" and ("  (" .. v.extra .. ")") or ""), "+ " .. describe(v)) end
+	for _, c in ipairs(d.changed) do add("chg", c.row, c.text, "~ [" .. c.row.kind .. "] " .. c.row.path .. " : " .. c.text) end
 	return out
 end
 
-local function reportText(meta1, meta2, d, lines)
+local function reportText(meta1, meta2, d, list)
 	local out = {
 		"##### yslem Game Update v" .. VERSION .. " #####",
 		"ancien : " .. tostring(meta1.GAME or "?") .. " (" .. tostring(meta1.DATE or "?") .. ")",
 		"nouveau : " .. tostring(meta2.GAME or "?") .. " (" .. tostring(meta2.DATE or "?") .. ")",
 		string.format("ajoutes %d  supprimes %d  deplaces %d  modifies %d", #d.added, #d.removed, #d.moved, #d.changed),
 	}
-	for _, l in ipairs(lines) do out[#out + 1] = l.text end
+	for _, l in ipairs(list) do out[#out + 1] = l.text end
 	return table.concat(out, "\n")
 end
 
@@ -245,7 +253,7 @@ local function loadFile(name)
 end
 
 -------------------------------------------------------------------------------------------------- etat
-local state = {snap = nil, report = nil, busy = false}
+local state = {snap = nil, report = nil, busy = false, items = {}, filter = nil, step = 1}
 local GameUpdate = {Version = VERSION, snapshot = snapshot, parse = parse, diff = diff}
 
 local ui = {}
@@ -257,56 +265,99 @@ local function setStatus(text, color)
 	end
 end
 
-local function showLines(lines)
+-- etapes : 1 Scan, 2 Changements, 3 Copier (rond plein = en cours, coche = fait)
+local function setStep(n)
+	state.step = n
+	for i, b in ipairs(ui.steps or {}) do
+		local done, current = i < n, i == n
+		b.num.Text = done and "OK" or tostring(i)
+		b.num.BackgroundColor3 = done and COLORS.add or (current and Color3.fromRGB(220, 40, 40) or Color3.fromRGB(40, 14, 14))
+		b.num.TextColor3 = (done or current) and Color3.fromRGB(20, 0, 0) or COLORS.dim
+		b.label.TextColor3 = (done or current) and Color3.fromRGB(255, 255, 255) or COLORS.dim
+	end
+end
+
+local function setChips(counts)
+	for _, c in ipairs(ui.chips or {}) do
+		local n = counts and counts[c.id] or 0
+		c.btn.Text = c.label .. "  " .. n
+		c.btn.TextColor3 = n > 0 and COLORS[c.id] or COLORS.dim
+		c.stroke.Transparency = (state.filter == c.id) and 0 or (n > 0 and 0.45 or 0.8)
+	end
+end
+
+local function showItems()
 	if not ui.list then return end
 	for _, c in ipairs(ui.list:GetChildren()) do
-		if c:IsA("TextLabel") then c:Destroy() end
+		if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
 	end
-	if #lines == 0 then lines = {{text = "Rien n'a change depuis la reference.", color = "info"}} end
-	for i, l in ipairs(lines) do
-		if i > 400 then
-			local more = Instance.new("TextLabel")
-			more.BackgroundTransparency = 1; more.Size = UDim2.new(1, -8, 0, 16); more.LayoutOrder = i
-			more.Font = Enum.Font.GothamMedium; more.TextSize = 11; more.TextXAlignment = Enum.TextXAlignment.Left
-			more.TextColor3 = COLORS.info; more.Text = "... +" .. (#lines - 400) .. " autres (voir Copy)"
-			more.Parent = ui.list
-			break
+	local shown = 0
+	for _, it in ipairs(state.items) do
+		if not state.filter or it.cat == state.filter then
+			shown += 1
+			if shown > 300 then break end
+			local row = Instance.new("Frame")
+			row.BackgroundColor3 = Color3.fromRGB(20, 4, 4); row.BorderSizePixel = 0
+			row.Size = UDim2.new(1, -8, 0, 0); row.AutomaticSize = Enum.AutomaticSize.Y; row.LayoutOrder = shown
+			row.Parent = ui.list
+			local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
+			local lay = Instance.new("UIListLayout"); lay.SortOrder = Enum.SortOrder.LayoutOrder; lay.Parent = row
+			local pd = Instance.new("UIPadding"); pd.PaddingLeft = UDim.new(0, 10); pd.PaddingTop = UDim.new(0, 4); pd.PaddingBottom = UDim.new(0, 5); pd.PaddingRight = UDim.new(0, 6); pd.Parent = row
+			local t = Instance.new("TextLabel")
+			t.BackgroundTransparency = 1; t.Size = UDim2.new(1, 0, 0, 15); t.LayoutOrder = 1
+			t.Font = Enum.Font.GothamBold; t.TextSize = 12; t.TextXAlignment = Enum.TextXAlignment.Left
+			t.TextColor3 = COLORS[it.cat]; t.Text = it.title; t.TextTruncate = Enum.TextTruncate.AtEnd
+			t.Parent = row
+			local sub = Instance.new("TextLabel")
+			sub.BackgroundTransparency = 1; sub.Size = UDim2.new(1, 0, 0, 0); sub.AutomaticSize = Enum.AutomaticSize.Y; sub.LayoutOrder = 2
+			sub.Font = Enum.Font.GothamMedium; sub.TextSize = 10; sub.TextWrapped = true; sub.TextXAlignment = Enum.TextXAlignment.Left
+			sub.TextYAlignment = Enum.TextYAlignment.Top; sub.TextColor3 = COLORS.dim; sub.Text = it.sub
+			sub.Parent = row
 		end
-		local t = Instance.new("TextLabel")
-		t.BackgroundTransparency = 1; t.Size = UDim2.new(1, -8, 0, 0); t.AutomaticSize = Enum.AutomaticSize.Y
-		t.LayoutOrder = i; t.Font = Enum.Font.GothamMedium; t.TextSize = 11; t.TextWrapped = true
-		t.TextXAlignment = Enum.TextXAlignment.Left; t.TextYAlignment = Enum.TextYAlignment.Top
-		t.TextColor3 = COLORS[l.color] or COLORS.info; t.Text = l.text
-		t.Parent = ui.list
+	end
+	if shown == 0 then
+		local e = Instance.new("TextLabel")
+		e.BackgroundTransparency = 1; e.Size = UDim2.new(1, -8, 0, 40); e.Font = Enum.Font.GothamMedium; e.TextSize = 12
+		e.TextWrapped = true; e.TextXAlignment = Enum.TextXAlignment.Left; e.TextColor3 = COLORS.info
+		e.Text = ui.emptyText or "Rien a afficher."
+		e.Parent = ui.list
 	end
 end
 
 local function scan()
 	if state.busy then return end
 	state.busy = true
-	setStatus("Analyse en cours...")
+	setStep(1)
+	setStatus("Etape 1 : analyse du jeu...")
 	local ok, err = pcall(function()
 		local text, count = snapshot()
 		local meta2, rows2 = parse(text)
 		local pid = tostring(game.PlaceId)
 		local baseText = loadFile(pid .. "_baseline.txt")
 		state.snap = text
+		state.filter = nil
 		save(pid .. "_latest.txt", text)
 		save(pid .. "_" .. os.date("%Y-%m-%d_%H%M%S") .. ".txt", text)
 		if not baseText then
 			save(pid .. "_baseline.txt", text)
+			state.items = {}
 			state.report = "##### yslem Game Update v" .. VERSION .. " #####\nPremiere analyse : reference enregistree (" .. count .. " entrees)."
-			showLines({{text = "Premiere analyse : reference enregistree (" .. count .. " entrees).", color = "add"}})
-			setStatus("Reference creee. Relance Scan apres la prochaine mise a jour.", COLORS.add)
+			ui.emptyText = "Reference enregistree (" .. count .. " elements).\nApres la prochaine mise a jour du jeu, relance ce script : je te montre ce qui a change."
+			setChips(nil)
+			showItems()
+			setStatus("Reference creee.", COLORS.add)
+			setStep(3)
 		else
 			local meta1, rows1 = parse(baseText)
 			local d = diff(rows1, rows2)
-			local lines = reportLines(d)
-			state.report = reportText(meta1, meta2, d, lines)
-			showLines(lines)
-			local total = #d.added + #d.removed + #d.moved + #d.changed
-			setStatus(total == 0 and "Aucun changement." or string.format("+%d  -%d  >%d  ~%d", #d.added, #d.removed, #d.moved, #d.changed),
-				total == 0 and COLORS.add or COLORS.mov)
+			state.items = items(d)
+			state.report = reportText(meta1, meta2, d, state.items)
+			local total = #state.items
+			ui.emptyText = "Rien n'a change depuis la reference."
+			setChips({add = #d.added, del = #d.removed, mov = #d.moved, chg = #d.changed})
+			showItems()
+			setStatus(total == 0 and "Aucun changement." or (total .. " changement" .. (total > 1 and "s" or "") .. " - touche un badge pour filtrer"), total == 0 and COLORS.add or COLORS.mov)
+			setStep(2)
 		end
 		GameUpdate.lastReport = state.report
 		GameUpdate.lastSnapshot = state.snap
@@ -319,7 +370,8 @@ local function copyAll()
 	if not state.snap then return end
 	local text = (state.report or "") .. "\n\n===== INVENTAIRE COMPLET =====\n" .. state.snap
 	local ok = typeof(setclipboard) == "function" and pcall(setclipboard, text)
-	setStatus(ok and "Rapport + inventaire copies." or "Presse-papiers indisponible (fichiers dans " .. DIR .. ").", ok and COLORS.add or COLORS.mov)
+	setStatus(ok and "Copie : colle-le dans le chat." or "Presse-papiers indisponible (fichiers dans " .. DIR .. ").", ok and COLORS.add or COLORS.mov)
+	if ok then setStep(3) end
 end
 
 local function setBaseline()
@@ -356,34 +408,33 @@ local function buildUI()
 		return g
 	end
 	local function corner(inst, r) local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r); c.Parent = inst end
-	local function stroke(inst, th)
-		local s = Instance.new("UIStroke"); s.Thickness = th; s.Color = Color3.fromRGB(255, 255, 255)
+	local function stroke(inst, th, color)
+		local s = Instance.new("UIStroke"); s.Thickness = th; s.Color = color or Color3.fromRGB(255, 255, 255)
 		s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = inst
-		gradient(s, Color3.fromRGB(70, 10, 10), Color3.fromRGB(255, 90, 90))
+		if not color then gradient(s, Color3.fromRGB(70, 10, 10), Color3.fromRGB(255, 90, 90)) end
 		return s
+	end
+	local function label(parentInst, text, x, y, w, h, size, font, color)
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1; l.Position = UDim2.new(0, x, 0, y); l.Size = UDim2.new(0, w, 0, h)
+		l.Font = font or Enum.Font.GothamMedium; l.TextSize = size or 12; l.TextXAlignment = Enum.TextXAlignment.Left
+		l.TextColor3 = color or Color3.fromRGB(255, 255, 255); l.Text = text
+		l.Parent = parentInst
+		return l
 	end
 
 	local frame = Instance.new("Frame")
-	frame.Name = "Window"; frame.Size = UDim2.fromOffset(340, 400)
-	frame.Position = UDim2.new(0.5, -170, 0.5, -200)
+	frame.Name = "Window"; frame.Size = UDim2.fromOffset(340, 420)
+	frame.Position = UDim2.new(0.5, -170, 0.5, -210)
 	frame.BackgroundColor3 = Color3.fromRGB(5, 0, 0); frame.BorderSizePixel = 0; frame.Active = true
 	frame.Parent = gui
 	corner(frame, 14); stroke(frame, 1.6)
 
-	local title = Instance.new("TextLabel")
-	title.BackgroundTransparency = 1; title.Position = UDim2.new(0, 14, 0, 8); title.Size = UDim2.new(1, -60, 0, 20)
-	title.Font = Enum.Font.GothamBold; title.TextSize = 16; title.TextXAlignment = Enum.TextXAlignment.Left
-	title.TextColor3 = Color3.fromRGB(255, 255, 255); title.Text = "Game Update v" .. VERSION
-	title.Parent = frame
+	local title = label(frame, "Game Update v" .. VERSION, 14, 8, 240, 20, 16, Enum.Font.GothamBold)
 	gradient(title, Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 200, 200))
-
 	local gname = "?"
 	pcall(function() gname = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-	local sub = Instance.new("TextLabel")
-	sub.BackgroundTransparency = 1; sub.Position = UDim2.new(0, 14, 0, 28); sub.Size = UDim2.new(1, -60, 0, 14)
-	sub.Font = Enum.Font.GothamMedium; sub.TextSize = 10; sub.TextXAlignment = Enum.TextXAlignment.Left
-	sub.TextColor3 = Color3.fromRGB(150, 110, 110); sub.Text = tostring(gname) .. "  -  " .. tostring(game.PlaceId)
-	sub.Parent = frame
+	label(frame, tostring(gname), 14, 28, 250, 14, 10, nil, COLORS.dim)
 
 	local close = Instance.new("TextButton")
 	close.Size = UDim2.fromOffset(24, 24); close.Position = UDim2.new(1, -34, 0, 10)
@@ -394,21 +445,53 @@ local function buildUI()
 	close.MouseButton1Click:Connect(function() if genv.YslemGameUpdateStop then genv.YslemGameUpdateStop() end end)
 	ui.close = close
 
-	local status = Instance.new("TextLabel")
-	status.BackgroundTransparency = 1; status.Position = UDim2.new(0, 14, 0, 48); status.Size = UDim2.new(1, -28, 0, 16)
-	status.Font = Enum.Font.GothamBold; status.TextSize = 12; status.TextXAlignment = Enum.TextXAlignment.Left
-	status.TextColor3 = COLORS.info; status.Text = ""
-	status.Parent = frame
+	-- 3 etapes en badges
+	ui.steps = {}
+	local stepNames = {"Scan", "Changements", "Copier"}
+	for i, name in ipairs(stepNames) do
+		local x = 12 + (i - 1) * 108
+		local num = Instance.new("TextLabel")
+		num.Size = UDim2.fromOffset(22, 22); num.Position = UDim2.new(0, x, 0, 50)
+		num.BackgroundColor3 = Color3.fromRGB(40, 14, 14); num.BorderSizePixel = 0
+		num.Font = Enum.Font.GothamBold; num.TextSize = 10; num.TextColor3 = COLORS.dim; num.Text = tostring(i)
+		num.Parent = frame
+		corner(num, 11)
+		local lab = label(frame, name, x + 27, 50, 78, 22, 11, Enum.Font.GothamBold, COLORS.dim)
+		ui.steps[i] = {num = num, label = lab}
+	end
+
+	-- badges de categories (touche = filtre)
+	ui.chips = {}
+	for i, cat in ipairs(CATS) do
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.new(0, 76, 0, 24); b.Position = UDim2.new(0, 10 + (i - 1) * 80, 0, 80)
+		b.BackgroundColor3 = Color3.fromRGB(20, 4, 4); b.BorderSizePixel = 0; b.AutoButtonColor = false
+		b.Font = Enum.Font.GothamBold; b.TextSize = 9; b.TextColor3 = COLORS.dim; b.Text = cat.label .. "  0"
+		b.Parent = frame
+		corner(b, 12)
+		local st = stroke(b, 1.2, COLORS[cat.id])
+		st.Transparency = 0.8
+		b.MouseButton1Click:Connect(function()
+			state.filter = (state.filter ~= cat.id) and cat.id or nil
+			local counts = {}
+			for _, it in ipairs(state.items) do counts[it.cat] = (counts[it.cat] or 0) + 1 end
+			setChips(counts)
+			showItems()
+		end)
+		ui.chips[i] = {id = cat.id, label = cat.label, btn = b, stroke = st}
+	end
+
+	local status = label(frame, "", 14, 110, 312, 16, 11, Enum.Font.GothamBold, COLORS.info)
 	ui.status = status
 
 	local list = Instance.new("ScrollingFrame")
-	list.Name = "List"; list.Position = UDim2.new(0, 10, 0, 70); list.Size = UDim2.new(1, -20, 1, -128)
+	list.Name = "List"; list.Position = UDim2.new(0, 10, 0, 130); list.Size = UDim2.new(1, -20, 1, -182)
 	list.BackgroundColor3 = Color3.fromRGB(12, 2, 2); list.BorderSizePixel = 0; list.ScrollBarThickness = 3
 	list.CanvasSize = UDim2.new(0, 0, 0, 0); list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.Parent = frame
 	corner(list, 10)
-	local layout = Instance.new("UIListLayout"); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Padding = UDim.new(0, 3); layout.Parent = list
-	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 8); pad.PaddingTop = UDim.new(0, 6); pad.PaddingRight = UDim.new(0, 4); pad.Parent = list
+	local layout = Instance.new("UIListLayout"); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Padding = UDim.new(0, 4); layout.Parent = list
+	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 6); pad.PaddingTop = UDim.new(0, 6); pad.PaddingRight = UDim.new(0, 4); pad.Parent = list
 	ui.list = list
 
 	local function button(text, x, w, fn)
@@ -421,9 +504,12 @@ local function buildUI()
 		b.MouseButton1Click:Connect(fn)
 		return b
 	end
-	ui.scan = button("Scan", 10, 96, function() task.spawn(scan) end)
-	ui.copy = button("Copy", 122, 96, copyAll)
-	ui.baseline = button("Baseline", 234, 96, setBaseline)
+	ui.scan = button("1  Scan", 10, 96, function() task.spawn(scan) end)
+	ui.copy = button("3  Copier", 114, 96, copyAll)
+	ui.baseline = button("Nouvelle ref.", 218, 112, setBaseline)
+
+	setStep(1)
+	setChips(nil)
 
 	-- deplacement par l'en-tete
 	local dragging, startPos, startInput

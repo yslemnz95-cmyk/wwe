@@ -55,29 +55,38 @@ check("window built", gui ~= nil)
 local function labels(root) local t = {} for _, d in ipairs(root:GetDescendants()) do if d.ClassName == "TextLabel" then t[#t + 1] = d.Text end end return t end
 local function anyText(root, s) for _, t in ipairs(labels(root)) do if t:find(s, 1, true) then return true end end return false end
 check("status: reference created", gui and anyText(gui, "Reference creee"))
+check("first run explains what happens next", anyText(gui, "Reference enregistree"))
 
 -- le jeu change : drop deplace, Teleporting supprime, nouveau remote, bouton renomme, prompt plus long
 local basket = find(RS, function(d) return d.Name == "BasketDrop" end); basket.Parent = mk("Folder", "Basket", remotes)
 find(RS, function(d) return d.Name == "Teleporting" end):Destroy()
 mk("RemoteEvent", "NewThing", gameF)
 drop.Text = "DROP EGG"; pr.HoldDuration = 0.5
-local scanBtn = find(gui, function(d) return d.ClassName == "TextButton" and d.Text == "Scan" end)
+local function btn(text) return find(gui, function(d) return d.ClassName == "TextButton" and d.Text == text end) end
+local scanBtn = btn("1  Scan")
+check("step badges 1-2-3 exist", btn("1  Scan") ~= nil and btn("3  Copier") ~= nil and anyText(gui, "Changements"))
 scanBtn.MouseButton1Click:Fire(); advance(0.5)
-local texts = labels(gui)
-local function has(prefix) for _, t in ipairs(texts) do if t:sub(1, #prefix) == prefix then return t end end end
-check("removed remote listed (-)", has("- [REMOTE] RS/Remotes/Game/Teleporting") ~= nil)
-check("moved remote listed (>)", (has("> [REMOTE] RS/Remotes/Game/BasketDrop") or ""):find("RS/Remotes/Basket/BasketDrop", 1, true) ~= nil)
-check("added remote listed (+)", has("+ [REMOTE] RS/Remotes/Game/NewThing") ~= nil)
-check("button text change (~)", (has("~ [BUTTON]") or ""):find("'DROP' -> 'DROP EGG'", 1, true) ~= nil)
-check("prompt hold change (~)", (has("~ [PROMPT]") or ""):find("hold=0.5", 1, true) ~= nil)
-check("status shows the counters", anyText(gui, "+1  -1  >1  ~2"))
+check("removed remote (SUPPRIME)", anyText(gui, "Remote : Teleporting") and anyText(gui, "RS/Remotes/Game/Teleporting"))
+check("moved remote (DEPLACE) shows old and new path", anyText(gui, "RS/Remotes/Game/BasketDrop  ->  RS/Remotes/Basket/BasketDrop"))
+check("added remote (NOUVEAU)", anyText(gui, "Remote : NewThing"))
+check("button text change (MODIFIE)", anyText(gui, "'DROP' -> 'DROP EGG'"))
+check("prompt hold change (MODIFIE)", anyText(gui, "hold=0.5"))
+check("status says how many changes", anyText(gui, "5 changements"))
+check("category badges show the counts", btn("NOUVEAU  1") ~= nil and btn("SUPPRIME  1") ~= nil and btn("DEPLACE  1") ~= nil and btn("MODIFIE  2") ~= nil)
+check("step 1 is marked done once results are shown", anyText(gui, "OK"))
+local function rows() local n = 0 for _, d in ipairs(gui:GetDescendants()) do if d.ClassName == "TextLabel" and d.Text:find(" : ", 1, true) and d.TextSize == 12 then n += 1 end end return n end
+check("all 5 changes listed", rows() == 5)
+btn("NOUVEAU  1").MouseButton1Click:Fire(); advance(0.2)
+check("badge filter keeps only NOUVEAU", rows() == 1 and anyText(gui, "Remote : NewThing") and not anyText(gui, "Remote : Teleporting"))
+btn("NOUVEAU  1").MouseButton1Click:Fire(); advance(0.2)
+check("second tap clears the filter", rows() == 5)
 
 -- copie
-find(gui, function(d) return d.ClassName == "TextButton" and d.Text == "Copy" end).MouseButton1Click:Fire()
-check("copy: report + full inventory", clip ~= nil and clip:find("Game Update v2", 1, true) ~= nil and clip:find("INVENTAIRE COMPLET", 1, true) ~= nil and clip:find("#SNAPSHOT v1", 1, true) ~= nil)
+btn("3  Copier").MouseButton1Click:Fire()
+check("copy: report + full inventory", clip ~= nil and clip:find("Game Update v2", 1, true) ~= nil and clip:find("- [REMOTE] RS/Remotes/Game/Teleporting", 1, true) ~= nil and clip:find("INVENTAIRE COMPLET", 1, true) ~= nil and clip:find("#SNAPSHOT v1", 1, true) ~= nil)
 
 -- nouvelle reference puis plus de changement
-find(gui, function(d) return d.ClassName == "TextButton" and d.Text == "Baseline" end).MouseButton1Click:Fire()
+btn("Nouvelle ref.").MouseButton1Click:Fire()
 check("baseline replaced by the latest scan", files["yslem_gameupdate_" .. pid .. "_baseline.txt"] == files["yslem_gameupdate_" .. pid .. "_latest.txt"])
 scanBtn.MouseButton1Click:Fire(); advance(0.5)
 check("after baseline: no change", anyText(gui, "Aucun changement"))
