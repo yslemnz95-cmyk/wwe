@@ -7395,29 +7395,67 @@ do
 				end
 
 				if tbl4.SafeCarry.GoMethod == "TP" then
-					-- Instant teleport to egg: activate shield, PivotTo, then take
-					str2 = "Teleporting to the egg"
-					if slicedfn13(arg2) then return false end
-					local root = tbl4.Root()
-					local character = localPlayer.Character
-					if root and character then
-						tbl4.Shield("gotp_egg", true)
-						pcall(function()
-							local dest = position + Vector3.new(0, 3, 0)
-							local cf = CFrame.new(dest) * root.CFrame.Rotation
-							character:PivotTo(cf)
-							root.CFrame = cf
-							for _, p in ipairs(character:GetDescendants()) do
-								if p:IsA("BasePart") then
-									pcall(function()
-										p.AssemblyLinearVelocity = Vector3.zero
-										p.AssemblyAngularVelocity = Vector3.zero
-									end)
-								end
+					-- Go Method TP: short hops (size and pause from the hop engine), shield on the whole way,
+					-- rewind / respawn detection, retries with a longer pause, tween fallback if the server keeps pulling back
+					local sc = tbl4.SafeCarry
+					local function hopTo(target, label)
+						local gap = math.max(tonumber(sc.HopGap) or 0.1, 0.06)
+						local fails = 0
+						local lastImpulse = tbl4.Analyzer.ImpulseAt
+						local guardClock = os.clock()
+						while true do
+							if slicedfn13(arg2) or os.clock() - guardClock > 25 then return false end
+							local root = tbl4.Root()
+							if not root then return false end
+							local here = root.Position
+							local left = target - here
+							if left.Magnitude <= 6 then return true end
+							str2 = label
+							local step = math.clamp(tbl4.WalkSpeed() * (tonumber(sc.HopRatio) or 1.5), 40, 90)
+							local nextPos = left.Magnitude <= step and target or here + left.Unit * step
+							local held = 0
+							while held < gap do
+								local r = tbl4.Root()
+								if not r then return false end
+								pcall(function()
+									r.CFrame = CFrame.new(nextPos) * r.CFrame.Rotation
+									r.AssemblyLinearVelocity = Vector3.zero
+									r.AssemblyAngularVelocity = Vector3.zero
+								end)
+								held += RunService.Heartbeat:Wait()
 							end
-						end)
-						task.delay(0.4, function() tbl4.Shield("gotp_egg", nil) end)
-						task.wait(0.1)
+							local after = tbl4.Root()
+							if not after then return false end
+							local impulsed = tbl4.Analyzer.ImpulseAt > lastImpulse
+							lastImpulse = math.max(lastImpulse, tbl4.Analyzer.ImpulseAt)
+							local pulled = impulsed or after.AssemblyLinearVelocity.Magnitude > 150 or (after.Position - nextPos).Magnitude > 10
+							if pulled then
+								fails += 1
+								if fails >= 3 then return false end
+								gap = math.min(gap * 1.6, 0.5)
+								task.wait(0.15)
+							end
+						end
+					end
+					local arrived = false
+					tbl4.Shield("gotp_egg", true)
+					pcall(function()
+						local startRoot = tbl4.Root()
+						if not startRoot then return end
+						if tbl4.InsideBase() and not tbl4.InsideBase(position) then
+							local home = stealHome()
+							if home and not hopTo(Vector3.new(home.X, startRoot.Position.Y, home.Z), "Leaving the base") then return end
+						end
+						arrived = hopTo(position + Vector3.new(0, 3, 0), "Teleporting to the egg")
+					end)
+					task.delay(0.4, function() tbl4.Shield("gotp_egg", nil) end)
+					if slicedfn13(arg2) then return false end
+					if not arrived then
+						-- the server keeps rewinding the hops: finish the trip with the normal flight
+						str2 = "Flying to the egg"
+						if not slicedfn33(position + Vector3.new(0, 3, 0), arg2, nil, 400) then
+							return false
+						end
 					end
 				else
 					if tbl4.InsideBase() and not tbl4.InsideBase(position) then
