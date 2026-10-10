@@ -29291,7 +29291,11 @@ do
 				if ready then applyCap(arg) end
 			end,
 		})
-		task.defer(function() ready = true end)
+		task.defer(function()
+			ready = true
+			local ok, v = pcall(function() return tbl4.FpsCapHandle:Get() end)
+			if ok and tonumber(v) and tonumber(v) < 245 then applyCap(v) end
+		end)
 	end
 
 	do
