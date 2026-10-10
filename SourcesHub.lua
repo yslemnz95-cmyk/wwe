@@ -5593,7 +5593,10 @@ do
 
 				tbl4.AntiGuard.Enabled = arg == true
 
-				
+				-- Anti Guard only runs in Normal mode: turning it on leaves Instant TP / Delivery Stop
+				if tbl4.AntiGuard.Enabled and not tbl4.MethodApplying and tbl4.Method and tbl4.Method.Current() ~= "Normal" then
+					pcall(tbl4.Method.Apply, "Normal")
+				end
 
 				if tbl4.StealPanelSync then
 					pcall(tbl4.StealPanelSync)
