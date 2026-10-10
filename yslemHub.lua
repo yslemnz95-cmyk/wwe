@@ -25507,6 +25507,7 @@ do
 					for _, group in ipairs(groups) do
 						total += 14 + #group.Names * 24
 					end
+					total += 14 + 24 -- GO TP section
 
 					branch = Instance.new("ScrollingFrame")
 					branch.Name = "ModeBranch"
@@ -25569,6 +25570,45 @@ do
 							end)
 						end
 						cursor += #group.Names * 24
+					end
+
+					-- GO TP action button
+					do
+						local gtTitle = U.label(branch, "GO TP", UDim2.new(1, -16, 0, 14), U.C.SILVER2, Enum.Font.GothamBold)
+						gtTitle.Position = UDim2.new(0, 10, 0, cursor)
+						gtTitle.TextSize = 8.5
+						cursor += 14
+						local gtBtn = mkBtn(branch, "Teleport home", UDim2.new(1, -40, 0, 20), UDim2.new(0, 32, 0, cursor), nil, tbl14.Hud)
+						gtBtn.Label.TextSize = 10
+						gtBtn.Button.Activated:Connect(function()
+							gtBtn.Pulse()
+							local character = localPlayer.Character
+							local root = tbl4.Root()
+							if not character or not root then return end
+							local world = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
+							local sep = world and world:FindFirstChild("Areas")
+							sep = sep and sep:FindFirstChild("SeparationLine")
+							local lineX = sep and sep:IsA("BasePart") and sep.Position.X or 552
+							local home = tbl4.StealHome and tbl4.StealHome()
+							local dest = home or Vector3.new(lineX - 30, root.Position.Y, root.Position.Z)
+							tbl4.Shield("gotp", true)
+							pcall(function()
+								local cf = CFrame.new(dest) * root.CFrame.Rotation
+								character:PivotTo(cf)
+								root.CFrame = cf
+								for _, p in ipairs(character:GetDescendants()) do
+									if p:IsA("BasePart") then
+										pcall(function()
+											p.AssemblyLinearVelocity = Vector3.zero
+											p.AssemblyAngularVelocity = Vector3.zero
+										end)
+									end
+								end
+							end)
+							task.delay(0.3, function() tbl4.Shield("gotp", nil) end)
+							branch.Visible = false
+							page.ScrollingEnabled = true
+						end)
 					end
 				end
 
@@ -29838,46 +29878,6 @@ do
 			end,
 		})
 
-		sliced15:CreateButton({
-			Name = "Go TP",
-			Note = "Teleport to the safe zone (base side)",
-			ButtonText = "Go",
-			ConfirmText = "Done!",
-			Callback = function()
-				local character = localPlayer.Character
-				local root = tbl4.Root()
-				if not character or not root then return end
-
-				local world = workspace:FindFirstChild("World") or workspace:FindFirstChild("__OBJECTS")
-				local sep = world and world:FindFirstChild("Areas")
-				sep = sep and sep:FindFirstChild("SeparationLine")
-				local lineX = sep and sep:IsA("BasePart") and sep.Position.X or 552
-
-				local home = tbl4.StealHome and tbl4.StealHome()
-				local dest
-				if home then
-					dest = Vector3.new(home.X, home.Y, home.Z)
-				else
-					dest = Vector3.new(lineX - 30, root.Position.Y, root.Position.Z)
-				end
-
-				tbl4.Shield("gotp", true)
-				pcall(function()
-					local cf = CFrame.new(dest) * root.CFrame.Rotation
-					character:PivotTo(cf)
-					root.CFrame = cf
-					for _, p in ipairs(character:GetDescendants()) do
-						if p:IsA("BasePart") then
-							pcall(function()
-								p.AssemblyLinearVelocity = Vector3.zero
-								p.AssemblyAngularVelocity = Vector3.zero
-							end)
-						end
-					end
-				end)
-				task.delay(0.3, function() tbl4.Shield("gotp", nil) end)
-			end,
-		})
 	end
 
 	TweenService = game:GetService("TweenService")
