@@ -2307,8 +2307,8 @@ end
 	-- One-way POST to the Sources Hub stats site (members online, total executions): Roblox id and name, game name,
 	-- script name and version, once at start and once a minute. The answer is ignored: nothing is loaded or executed
 	-- from the site. Config > Usage stats has the switch (on by default) and says what is sent.
-	local STATS_URL = "https://sourceshub-stats.netlify.app/api/ping"
-	local STATS_SITE = "https://sourceshub-stats.netlify.app"
+	local STATS_URL = "https://sourceshub-stats.vercel.app/api/ping"
+	local STATS_SITE = "https://sourceshub-stats.vercel.app"
 	local STATS_KEY = "Config>Usage stats>Share usage stats"
 	local statsGame
 	local function statsSend(kind)

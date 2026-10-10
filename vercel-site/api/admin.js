@@ -1,15 +1,14 @@
-import type { Config } from "@netlify/functions";
-import { readUsers, json, ONLINE_MS } from "../lib/hub.mts";
+import { readUsers, json, ONLINE_MS } from "./_lib/hub.js";
 
-const same = (a: string, b: string) => {
+const same = (a, b) => {
   if (a.length !== b.length) return false;
   let d = 0;
   for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return d === 0;
 };
 
-export default async (req: Request) => {
-  const secret = Netlify.env.get("ADMIN_TOKEN") || "";
+export async function GET(req) {
+  const secret = process.env.ADMIN_TOKEN || "";
   const auth = req.headers.get("authorization") || "";
   const tok = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!secret || !same(tok, secret)) {
@@ -26,6 +25,4 @@ export default async (req: Request) => {
     .sort((a, b) => b.ts - a.ts)
     .slice(0, 150);
   return json({ members, feed, at: now });
-};
-
-export const config: Config = { path: "/api/admin", method: ["GET"] };
+}

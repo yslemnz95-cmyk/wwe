@@ -2576,8 +2576,8 @@ end
 	-- One-way POST to the Sources Hub stats site (members online, total executions): Roblox id and name, game name,
 	-- script name and version, once at start and once a minute. The answer is ignored: nothing is loaded or executed
 	-- from the site. Config > Usage stats has the switch (on by default) and says what is sent.
-	local STATS_URL = "https://sourceshub-stats.netlify.app/api/ping"
-	local STATS_SITE = "https://sourceshub-stats.netlify.app"
+	local STATS_URL = "https://sourceshub-stats.vercel.app/api/ping"
+	local STATS_SITE = "https://sourceshub-stats.vercel.app"
 	local STATS_KEY = "Config>Usage stats>Share usage stats"
 	local statsGame
 	local function statsSend(kind)
@@ -2926,7 +2926,7 @@ advance(1.2)
 
 -- usage stats: one start, then beats; the Config switch stops everything
 check("stats: Config has the usage stats switch", lib.handles["Config>Usage stats>Share usage stats"] ~= nil and find(main, function(d) return d.ClassName == "TextLabel" and string.find(d.Text, "Nothing else is sent", 1, true) ~= nil end) ~= nil)
-check("stats: a start ping was sent", #pings >= 1 and pings[1].Method == "POST" and pings[1].Url == "https://sourceshub-stats.netlify.app/api/ping")
+check("stats: a start ping was sent", #pings >= 1 and pings[1].Method == "POST" and pings[1].Url == "https://sourceshub-stats.vercel.app/api/ping")
 local b1 = reg[tonumber(tostring(pings[1] and pings[1].Body):match("^J(%d+)$"))] or {}
 check("stats: body is only id, name, place, game, script, v, t", b1.uid == 424242 and b1.name == "Tester" and b1.script == "SourcesHub" and b1.t == "start" and b1.game == "Mock" and b1.v == 1)
 local keys = 0 for _ in pairs(b1) do keys += 1 end

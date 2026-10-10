@@ -4,3 +4,5 @@ server/demo.db
 __pycache__/
 netlify-site/node_modules/
 netlify-site/.netlify/
+vercel-site/node_modules/
+vercel-site/.vercel/
