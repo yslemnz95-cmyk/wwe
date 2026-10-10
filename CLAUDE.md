@@ -92,6 +92,13 @@ revocation d'une cle par le bot arrete le script de ce joueur : c'est un control
   Remotes de fin de revelation : `RF/Fusery/FinishReveal` et `RF/ScrambleTradeIn/AskFinishReveal` (les scripts disaient "Finishaide" : corrige).
   Staff/admin vus (NE PAS utiliser) : `ContentCreatorsAdminPanel`, `AdminAbuseEgg`, `Flags/StaffTagFlags`, Cmdr, `RE/StaffConsole/*`.
   Limites du scan : plusieurs modules `Flags/*` renvoient "ERR Requested module experienced an error" au require ; les valeurs longues sont tronquees avec "...".
+  **Mode course (Race Rally / Mount Race)** : actif en direct (`RaceRallyFlags.ContentEnabled` vaut true alors que le defaut est false). Monnaie `RaceTokens` (affichee "Trophies"), `DefaultRacer` Ostrich, `EventName` RaceRally,
+  produit DoubleTrophies (x2). Flags : JoinSeconds 60, Laps 3, NitroSuccessPercent 10 ; MountRaceFlags : AccelSeconds 3, AirFallSeconds 2.5, AllowLateJoin true, BoostPadMultiplier 1.6, BoostPadSeconds 1.2.
+  Phases `MountRace.Phase` : Countdown, Joining, Racing, Results. Attributs joueur : RaceId, RaceLap, RacePlace, RaceFinishPlace, RaceFinishTime, RaceGridFrame ; attributs RaceRallyJoinEndsAt / RaceRallyRunning ; bots `WS/RaceEventBotsEnabled`, `RaceEventBotCount`.
+  Tags de piste : RaceBoostPad, RaceJump, RaceLoop, RacePowerUpSpawn, RaceSlowPad ; dossier monde `WS/RaceTrack`. Power-ups (`RS/Data/RacePowerUps`, 1 usage, touche E) : Drilla Ambush, Egg Splatter, Dr Scramble Pod, Serum (liste tronquee dans le scan).
+  Racers : Bird, Cheetah, Lizard, Ostrich, Seahorse, Snail. Jalons Wins1/3/10/12/15/17/19/21/24/27 (oeufs Race Bird/Race Cheetah/Engine Snail + racers + items Cosmic/Eternal/Secret). Boutique : CashBooster, DoubleTrophies, MutationToken, RacingBat, SpeedBoost, TreadmillBoost.
+  Remotes : `RF/RaceRally/{AskBuy, AskClaimMilestone, AskEquipRacer}`, `RE/MountRace/{AskLeave, OutroFinished, PowerUpMoment, PowerUp}`. UI : `RaceRallyUI`, `MountRaceUI`, `MountRaceBoardUI`, `RacePowerUpUI`, bouton HUD `RaceRallyButton`, `Handbrake` ("DRIFT"), `LeaveButton` ("RETURN HOME").
+  Admin (NE PAS utiliser) : `CmdrClient/Commands/raceRally`. Evenements voisins : TrexRun (remotes Herd/Trampled/Wave/FetchHerd, TrexRunFlags) et RedLightGreenLight (flags). Teaser "MOUNTS... NEXT WEEK" dans `GUI/CutsceneUI/Mounts`. Nos hubs ne gerent pas la course (rien de casse).
 
 ## Notes jeu : Ride a Pet (yslempet_EggTP) - releve par GameScan (appareil mobile, Delta)
 - PlaceId 124216119978534. Marche a 20 de vitesse, saut 73. Position typique du joueur : Y ~ 40316 (le ranch est en hauteur).
