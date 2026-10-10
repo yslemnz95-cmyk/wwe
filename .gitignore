@@ -1,0 +1,4 @@
+server/*.db
+server/.salt
+server/demo.db
+__pycache__/

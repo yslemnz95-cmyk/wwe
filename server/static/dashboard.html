@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yslem Executions</title>
+<style>
+:root{--bg:#050000;--card:#0d0202;--line:#3a0a0a;--red:#dc2828;--red2:#ff5a5a;--pink:#ffb0b0;--dim:#9a7070;--ok:#3cdc78;--warn:#ffc83c;--bad:#f05a5a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--pink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{min-height:100vh;background:radial-gradient(900px 500px at 80% -10%,#2a0505 0,transparent 60%),var(--bg)}
+@keyframes spin{to{--a:360deg}}
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+.glow{position:relative;border-radius:14px;background:var(--card)}
+.glow::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+ background:conic-gradient(from var(--a),#2a0505,var(--red),#ffb0b0,var(--red),#2a0505);animation:spin 6s linear infinite;
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.txt{background:linear-gradient(90deg,var(--red2),#ffd0d0,var(--red2));background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 5s linear infinite}
+@keyframes shine{to{background-position:200% 0}}
+header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:14px 18px;flex-wrap:wrap}
+h1{margin:0;font-size:20px;letter-spacing:.5px}
+main{max-width:1200px;margin:0 auto;padding:0 14px 40px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
+.stat{padding:14px 16px}.stat b{display:block;font-size:26px}.stat span{color:var(--dim);font-size:12px}
+.row{display:grid;gap:12px;grid-template-columns:2fr 1fr;margin-bottom:12px}
+@media(max-width:800px){.row{grid-template-columns:1fr}}
+.panel{padding:14px 16px;overflow:hidden}
+.panel h2{margin:0 0 10px;font-size:13px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.bars{display:flex;align-items:flex-end;gap:3px;height:90px}
+.bars i{flex:1;background:linear-gradient(var(--red2),var(--red));border-radius:3px 3px 0 0;min-height:2px;opacity:.9}
+.tabs{display:flex;gap:8px;margin:6px 0 12px;flex-wrap:wrap}
+button,select,input{font:inherit;color:var(--pink);background:#140404;border:1px solid var(--line);border-radius:10px;padding:7px 12px}
+button{cursor:pointer}button:hover{border-color:var(--red)}
+button.on{background:#3a0808;border-color:var(--red);color:#fff}
+button.danger{color:var(--bad)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.filters input{min-width:150px}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;text-align:left;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid #1c0606;white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+tr.click{cursor:pointer}tr.click:hover td{background:#150404}
+.tag{padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid}
+.valid{color:var(--ok);border-color:#1d6b3b}.invalid,.revoked,.banned{color:var(--bad);border-color:#7a2323}.expired,.active{color:var(--warn);border-color:#7a6a23}
+.active{color:var(--ok);border-color:#1d6b3b}
+.scroll{overflow-x:auto}
+#login{max-width:420px;margin:12vh auto;padding:24px}
+#login input{width:100%;margin:12px 0}
+.hidden{display:none!important}
+.list div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #1c0606}
+.muted{color:var(--dim)}
+#drawer{position:fixed;inset:0 0 0 auto;width:min(480px,100%);background:#0a0101;border-left:1px solid var(--red);padding:16px;overflow:auto;z-index:5;transform:translateX(0)}
+.err{color:var(--bad);min-height:1.2em}
+</style>
+</head>
+<body>
+<div id="login" class="glow">
+  <h1 class="txt">yslem Executions</h1>
+  <p class="muted">Jeton admin requis. Les donnees ne sont jamais publiques.</p>
+  <input id="tok" type="password" placeholder="ADMIN_TOKEN" autocomplete="off">
+  <button id="go" class="on" style="width:100%">Entrer</button>
+  <div id="loginErr" class="err"></div>
+</div>
+
+<div id="app" class="hidden">
+<header>
+  <h1 class="txt">yslem Executions</h1>
+  <div><span class="muted" id="upd"></span> <button id="logout">Quitter</button></div>
+</header>
+<main>
+  <div class="grid" id="stats"></div>
+  <div class="row">
+    <div class="panel glow"><h2>Executions - 24 dernieres heures</h2><div class="bars" id="hourly"></div></div>
+    <div class="panel glow"><h2>Par jeu (7 j)</h2><div class="list" id="byGame"></div></div>
+  </div>
+  <div class="row">
+    <div class="panel glow"><h2>Par script (7 j)</h2><div class="list" id="byScript"></div></div>
+    <div class="panel glow"><h2>Tentatives suspectes (24 h)</h2><div class="list" id="suspects"></div></div>
+  </div>
+
+  <div class="tabs"><button id="tEv" class="on">Executions</button><button id="tKeys">Cles</button></div>
+
+  <div id="vEv" class="panel glow">
+    <div class="filters">
+      <input id="fUser" placeholder="UserId ou pseudo">
+      <select id="fGame"><option value="">Tous les jeux</option></select>
+      <select id="fScript"><option value="">Tous les scripts</option></select>
+      <select id="fStatus"><option value="">Tous les statuts</option><option>valid</option><option>invalid</option><option>expired</option><option>revoked</option><option>banned</option></select>
+      <label class="muted" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="live" checked style="min-width:0"> direct</label>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Heure</th><th>Joueur</th><th>Jeu</th><th>Script</th><th>Statut</th><th>Cle</th><th>v</th></tr></thead><tbody id="evBody"></tbody></table></div>
+    <div style="margin-top:10px"><button id="more">Plus ancien</button></div>
+  </div>
+
+  <div id="vKeys" class="panel glow hidden">
+    <div class="filters">
+      <input id="kUser" placeholder="UserId Roblox" inputmode="numeric">
+      <input id="kDays" placeholder="Jours" inputmode="numeric" value="30" style="min-width:80px;width:90px">
+      <input id="kNote" placeholder="Note (facultatif)">
+      <button id="kNew" class="on">Creer une cle</button>
+    </div>
+    <div id="kOut" class="err" style="color:var(--ok);word-break:break-all"></div>
+    <div class="scroll"><table><thead><tr><th>Empreinte</th><th>UserId</th><th>Etat</th><th>Expire</th><th>Utilisations</th><th>Derniere</th><th>Note</th><th></th></tr></thead><tbody id="kBody"></tbody></table></div>
+  </div>
+</main>
+</div>
+
+<aside id="drawer" class="hidden"></aside>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var token=null;try{token=sessionStorage.getItem("yt")}catch(e){}
+var oldest=null,rows=[];
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
+function fmt(ts){if(!ts)return"-";var d=new Date(ts*1000);return d.toLocaleDateString()+" "+d.toLocaleTimeString()}
+function ago(ts){if(!ts)return"-";var s=Math.max(0,Math.floor(Date.now()/1000-ts));if(s<60)return s+"s";if(s<3600)return Math.floor(s/60)+" min";if(s<86400)return Math.floor(s/3600)+" h";return Math.floor(s/86400)+" j"}
+function api(path,body){
+  var o={headers:{"Authorization":"Bearer "+token}};
+  if(body){o.method="POST";o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body)}
+  return fetch(path,o).then(function(r){if(r.status===401){logout();throw new Error("401")}return r.json()})
+}
+function logout(){try{sessionStorage.removeItem("yt")}catch(e){}token=null;$("app").classList.add("hidden");$("login").classList.remove("hidden");$("drawer").classList.add("hidden")}
+function login(){
+  token=$("tok").value.trim();if(!token)return;
+  api("/admin/api/stats").then(function(){try{sessionStorage.setItem("yt",token)}catch(e){}start()}).catch(function(){$("loginErr").textContent="Jeton refuse"})
+}
+$("go").onclick=login;$("tok").onkeydown=function(e){if(e.key==="Enter")login()};$("logout").onclick=logout;
+
+function stat(label,val,sub){var c=el("div","stat glow");c.appendChild(el("b","txt",String(val)));c.appendChild(el("span","",label+(sub?" - "+sub:"")));return c}
+function listInto(id,items,fmtRow){var box=$(id);box.textContent="";if(!items.length){box.appendChild(el("span","muted","Rien pour l'instant"));return}items.forEach(function(it){var d=el("div");fmtRow(d,it);box.appendChild(d)})}
+
+function refreshStats(){
+  return api("/admin/api/stats").then(function(s){
+    var g=$("stats");g.textContent="";
+    g.appendChild(stat("Executions 1 h",s.h1.executions,s.h1.players+" joueurs"));
+    g.appendChild(stat("Executions 24 h",s.h24.executions,s.h24.players+" joueurs"));
+    g.appendChild(stat("Executions 7 j",s.d7.executions,s.d7.players+" joueurs"));
+    g.appendChild(stat("En ligne (20 min)",s.online));
+    g.appendChild(stat("Echecs 24 h",s.h24.failed));
+    var max=Math.max.apply(null,s.hourly.concat([1])),h=$("hourly");h.textContent="";
+    s.hourly.forEach(function(n){var b=el("i");b.style.height=Math.max(2,Math.round(n/max*100))+"%";b.title=n+" executions";h.appendChild(b)});
+    listInto("byGame",s.byGame,function(d,it){d.appendChild(el("span","",it.game));d.appendChild(el("span","muted",it.n+" exec / "+it.players+" joueurs"))});
+    listInto("byScript",s.byScript,function(d,it){d.appendChild(el("span","",it.script));d.appendChild(el("span","muted",it.n))});
+    listInto("suspects",s.suspects,function(d,it){var a=el("a","",String(it.user_id));a.href="#";a.style.color="var(--red2)";a.onclick=function(e){e.preventDefault();openPlayer(it.user_id)};d.appendChild(a);d.appendChild(el("span","muted",it.n+" echecs - "+ago(it.last)))});
+  })
+}
+function fillSelects(){
+  api("/admin/api/scripts").then(function(r){
+    var games={},scripts=Object.keys(r.scripts);
+    scripts.forEach(function(k){if(r.scripts[k].game)games[r.scripts[k].game]=1});
+    var gs=$("fGame"),ss=$("fScript");
+    Object.keys(games).forEach(function(g){var o=el("option","",g);o.value=g;gs.appendChild(o)});
+    scripts.forEach(function(s){var o=el("option","",s);o.value=s;ss.appendChild(o)});
+  })
+}
+function query(before){
+  var p=new URLSearchParams({limit:"100"});
+  [["fUser","user"],["fGame","game"],["fScript","script"],["fStatus","status"]].forEach(function(x){var v=$(x[0]).value.trim();if(v)p.set(x[1],v)});
+  if(before)p.set("before",before);
+  return p.toString()
+}
+function row(e){
+  var tr=el("tr","click");
+  tr.appendChild(el("td","",fmt(e.ts)));
+  tr.appendChild(el("td","",(e.name?e.name+" ":"")+"("+e.user_id+")"));
+  tr.appendChild(el("td","",e.game||"?"));
+  tr.appendChild(el("td","",e.script||"?"));
+  var td=el("td");td.appendChild(el("span","tag "+e.status,e.status));tr.appendChild(td);
+  tr.appendChild(el("td","muted",e.fp||""));
+  tr.appendChild(el("td","muted",String(e.v)));
+  tr.onclick=function(){openPlayer(e.user_id)};
+  return tr
+}
+function loadEvents(more){
+  return api("/admin/api/events?"+query(more?oldest:null)).then(function(r){
+    var b=$("evBody");if(!more)b.textContent="";
+    r.events.forEach(function(e){b.appendChild(row(e));oldest=e.id});
+    if(!more&&!r.events.length){var tr=el("tr"),td=el("td","muted","Aucune execution");td.colSpan=7;tr.appendChild(td);b.appendChild(tr)}
+    $("more").style.display=r.events.length<100?"none":""
+  })
+}
+function loadKeys(){
+  return api("/admin/api/keys").then(function(r){
+    var b=$("kBody");b.textContent="";
+    r.keys.forEach(function(k){
+      var tr=el("tr");
+      tr.appendChild(el("td","",k.fp));tr.appendChild(el("td","",String(k.user_id)));
+      var st=el("td");st.appendChild(el("span","tag "+k.state,k.state));tr.appendChild(st);
+      tr.appendChild(el("td","",fmt(k.expires)));tr.appendChild(el("td","",String(k.uses)));tr.appendChild(el("td","muted",ago(k.last_seen)));tr.appendChild(el("td","muted",k.note||""));
+      var act=el("td");
+      [["revoke","Revoquer"],["ban","Bannir"],["restore","Rétablir"]].forEach(function(a){
+        var bt=el("button",a[0]==="restore"?"":"danger",a[1]);bt.style.padding="3px 8px";bt.style.marginRight="4px";
+        bt.onclick=function(){api("/admin/api/keys/"+a[0],{fp:k.fp}).then(loadKeys)};act.appendChild(bt)});
+      tr.appendChild(act);b.appendChild(tr)
+    })
+  })
+}
+function openPlayer(id){
+  api("/admin/api/player?id="+id).then(function(p){
+    var d=$("drawer");d.textContent="";d.classList.remove("hidden");
+    var x=el("button","","Fermer");x.onclick=function(){d.classList.add("hidden")};d.appendChild(x);
+    d.appendChild(el("h2","txt",(p.name?p.name+" ":"")+"("+p.userId+")"));
+    d.appendChild(el("div","muted","Cles : "+(p.keys.length?p.keys.map(function(k){return k.fp+" "+k.state}).join(", "):"aucune")));
+    var t=el("table"),tb=el("tbody");t.appendChild(tb);
+    p.events.forEach(function(e){var tr=el("tr");tr.appendChild(el("td","",fmt(e.ts)));tr.appendChild(el("td","",(e.game||"?")+" / "+(e.script||"?")));var td=el("td");td.appendChild(el("span","tag "+e.status,e.status));tr.appendChild(td);tb.appendChild(tr)});
+    d.appendChild(t)
+  })
+}
+$("tEv").onclick=function(){$("vEv").classList.remove("hidden");$("vKeys").classList.add("hidden");$("tEv").classList.add("on");$("tKeys").classList.remove("on")};
+$("tKeys").onclick=function(){$("vKeys").classList.remove("hidden");$("vEv").classList.add("hidden");$("tKeys").classList.add("on");$("tEv").classList.remove("on");loadKeys()};
+$("kNew").onclick=function(){
+  var uid=parseInt($("kUser").value,10),days=parseInt($("kDays").value,10);
+  api("/admin/api/keys",{robloxUserId:uid,days:days,note:$("kNote").value}).then(function(r){
+    $("kOut").textContent=r.key?("Cle (affichee une seule fois) : "+r.key):(r.error||"Erreur");if(r.key)loadKeys()})
+};
+["fUser","fGame","fScript","fStatus"].forEach(function(i){$(i).onchange=function(){loadEvents()};$(i).oninput=function(){if(i==="fUser")loadEvents()}});
+$("more").onclick=function(){loadEvents(true)};
+var timer=null;
+function start(){
+  $("login").classList.add("hidden");$("app").classList.remove("hidden");
+  if(!$("fGame").options[1])fillSelects();
+  refreshStats();loadEvents();
+  clearInterval(timer);
+  timer=setInterval(function(){if(!token)return;$("upd").textContent="maj "+new Date().toLocaleTimeString();refreshStats();if($("live").checked&&!$("vEv").classList.contains("hidden"))loadEvents()},5000)
+}
+if(token){api("/admin/api/stats").then(start).catch(function(){})}
+})();
+</script>
+</body>
+</html>
