@@ -266,36 +266,33 @@ M.Players = Players
 
 typeof = function(v) if type(v) == "table" and getmetatable(v) == V3 then return "Vector3" end if type(v) == "table" and getmetatable(v) == CF then return "CFrame" end if type(v) == "table" and v.ClassName then return "Instance" end return type(v) end
 
-local loadUpdate = function()
--- yslem Game Update v2 (UN fichier). Execute-le dans le jeu :
---   1 Scan       : il analyse le jeu (se lance tout seul) et compare avec la reference enregistree
---   2 Changements: badges NOUVEAU / SUPPRIME / DEPLACE / MODIFIE (touche un badge pour filtrer)
---   3 Copier     : copie le rapport + l'inventaire complet, a coller dans le chat
--- "Nouvelle ref." = le jeu actuel devient la reference (a faire quand tout est adapte).
--- Il ne modifie rien dans le jeu : il lit des noms et ecrit 3 petits fichiers texte. Aucun reseau.
+local loadAnalyzer = function()
+-- yslem Game Analyzer (UN fichier, 2 etapes). Execute-le dans le jeu :
+--   Etape 1 (structure) : remotes, scripts, ecrans, boutons, prompts, monde, stats  -> copie dans le presse-papier, colle dans le chat
+--   Etape 2 (contenu)   : donnees du jeu (pets, raretes, zones, events, produits...) + tous les textes -> copie, colle dans le chat
+-- Un badge en bas a droite dit quand chaque etape est faite. Le texte copie commence par le message pour Claude.
+-- Il lit des noms, des textes et les modules de donnees du jeu (ReplicatedStorage.Data, deja charges par le jeu). Aucun reseau.
+-- Il n'ecrit que des fichiers texte dans le dossier de l'executeur (yslem_analyzer).
 
-local VERSION = 2
+local VERSION = 3
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local lp = Players.LocalPlayer
 
 local genv = typeof(getgenv) == "function" and getgenv() or _G
-if type(genv.YslemGameUpdateStop) == "function" then pcall(genv.YslemGameUpdateStop) end
+if type(genv.YslemAnalyzerStop) == "function" then pcall(genv.YslemAnalyzerStop) end
 
--------------------------------------------------------------------------------------------------- inventaire
-local MAX_YIELD = 1500
-
+-------------------------------------------------------------------------------------------------- outils
 local function walk(root, fn)
 	local n = 0
 	for _, d in ipairs(root:GetDescendants()) do
 		fn(d)
 		n += 1
-		if n % MAX_YIELD == 0 then task.wait() end
+		if n % 1500 == 0 then task.wait() end
 	end
 end
 
@@ -309,6 +306,12 @@ local function norm(name)
 	return name
 end
 
+local function clean(text, max)
+	text = tostring(text):gsub("[|\r\n]", " ")
+	if #text > max then text = text:sub(1, max) .. "..." end
+	return text
+end
+
 local function rel(inst, root, label)
 	local parts = {}
 	local p = inst
@@ -319,14 +322,46 @@ local function rel(inst, root, label)
 	return label .. "/" .. table.concat(parts, "/")
 end
 
-local function snapshot()
+local function newCollector()
 	local counts, order = {}, {}
-	local function add(kind, class, p, extra)
-		local key = kind .. "|" .. class .. "|" .. p .. "|" .. (extra or "")
+	local function add(kind, class, path, extra)
+		local key = kind .. "|" .. class .. "|" .. path .. "|" .. (extra or "")
 		if counts[key] then counts[key] += 1 else counts[key] = 1; table.insert(order, key) end
 	end
-	local gname = "?"
-	pcall(function() gname = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+	return add, function()
+		table.sort(order)
+		local out = {}
+		for _, key in ipairs(order) do out[#out + 1] = key .. "|" .. counts[key] end
+		return out
+	end
+end
+
+local function gameName()
+	local name = "?"
+	pcall(function() name = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+	return name
+end
+
+local function header(step)
+	return {
+		"#SNAPSHOT v" .. VERSION,
+		"#STEP " .. step .. "/2",
+		"#GAME " .. gameName() .. " PlaceId=" .. tostring(game.PlaceId) .. " GameId=" .. tostring(game.GameId),
+		"#DATE " .. os.date("%Y-%m-%d %H:%M:%S"),
+	}
+end
+
+-- bibliotheques tierces : une seule ligne par dossier (sinon des milliers de lignes inutiles)
+local function libraryRoot(path)
+	for _, prefix in ipairs({"RS/Packages/_Index", "RS/UserGenerated", "RS/CmdrClient/Types", "RS/CmdrClient/Shared", "RS/CmdrClient/CmdrInterface"}) do
+		if path:sub(1, #prefix) == prefix then return prefix end
+	end
+	return nil
+end
+
+-------------------------------------------------------------------------------------------------- etape 1 : structure
+local function collectStructure()
+	local add, finish = newCollector()
 	local pgui = lp:FindFirstChild("PlayerGui")
 	local pscripts = lp:FindFirstChild("PlayerScripts")
 
@@ -335,7 +370,13 @@ local function snapshot()
 			if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") or d:IsA("UnreliableRemoteEvent") or d:IsA("BindableEvent") or d:IsA("BindableFunction") then
 				add("REMOTE", d.ClassName, rel(d, pair[1], pair[2]))
 			elseif d:IsA("ModuleScript") or d:IsA("LocalScript") then
-				add("SCRIPT", d.ClassName, rel(d, pair[1], pair[2]))
+				local p = rel(d, pair[1], pair[2])
+				local lib = libraryRoot(p)
+				if lib then add("LIBRARY", "Scripts", lib) else add("SCRIPT", d.ClassName, p) end
+			elseif d:IsA("ValueBase") then
+				local extra = ""
+				if d:IsA("StringValue") or d:IsA("BoolValue") then extra = clean(d.Value, 60) end
+				add("VALUE", d.ClassName, rel(d, pair[1], pair[2]), extra)
 			end
 		end)
 	end
@@ -346,20 +387,20 @@ local function snapshot()
 	end
 	if pgui then
 		for _, sg in ipairs(pgui:GetChildren()) do
-			if sg.Name ~= "YslemGameUpdate" then add("SCREEN", sg.ClassName, "GUI/" .. norm(sg.Name)) end
+			if sg.Name ~= "YslemAnalyzer" then add("SCREEN", sg.ClassName, "GUI/" .. norm(sg.Name)) end
 		end
 		walk(pgui, function(d)
 			if d:IsA("TextButton") or d:IsA("ImageButton") then
 				local sg = d:FindFirstAncestorOfClass("ScreenGui")
-				if sg and sg.Name == "YslemGameUpdate" then return end
+				if sg and sg.Name == "YslemAnalyzer" then return end
 				add("BUTTON", d.ClassName, rel(d, pgui, "GUI"), d:IsA("TextButton") and norm(d.Text) or "")
 			end
 		end)
 	end
+
 	local function skip(inst)
 		return inst:IsA("Model") and Players:GetPlayerFromCharacter(inst) ~= nil
 	end
-	-- monde : on ne descend pas dans les objets a identifiant (oeufs, pets rendus...) ni dans les dossiers de plus de 40 enfants
 	local function level(parent, depth)
 		local kids = parent:GetChildren()
 		for _, c in ipairs(kids) do
@@ -372,11 +413,12 @@ local function snapshot()
 	pcall(level, Workspace, 1)
 	walk(Workspace, function(d)
 		if d:IsA("ProximityPrompt") then
-			add("PROMPT", "ProximityPrompt", rel(d, Workspace, "WS"), norm(d.ActionText) .. " / " .. norm(d.ObjectText) .. " / hold=" .. tostring(d.HoldDuration))
+			add("PROMPT", "ProximityPrompt", rel(d, Workspace, "WS"), clean(norm(d.ActionText) .. " / " .. norm(d.ObjectText) .. " / hold=" .. tostring(d.HoldDuration), 90))
 		elseif d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
 			add("REMOTE", d.ClassName, rel(d, Workspace, "WS"))
 		end
 	end)
+
 	local ls = lp:FindFirstChild("leaderstats")
 	if ls then
 		for _, v in ipairs(ls:GetChildren()) do add("STAT", v.ClassName, "leaderstats/" .. norm(v.Name)) end
@@ -385,128 +427,119 @@ local function snapshot()
 	if lp.Character then
 		for k in pairs(lp.Character:GetAttributes()) do add("ATTR", "Character", "character/" .. norm(k)) end
 	end
-
-	table.sort(order)
-	local out = {
-		"#SNAPSHOT v2",
-		"#GAME " .. tostring(gname) .. " PlaceId=" .. tostring(game.PlaceId) .. " GameId=" .. tostring(game.GameId),
-		"#DATE " .. os.date("%Y-%m-%d %H:%M:%S"),
-	}
-	for _, key in ipairs(order) do table.insert(out, key .. "|" .. counts[key]) end
-	return table.concat(out, "\n"), #order
-end
-
--------------------------------------------------------------------------------------------------- comparaison
-local function parse(text)
-	local meta, rows = {}, {}
-	for line in tostring(text):gmatch("[^\r\n]+") do
-		if line:sub(1, 1) == "#" then
-			local k, v = line:match("^#(%S+)%s*(.*)$")
-			if k then meta[k] = v end
-		else
-			local parts = {}
-			for piece in (line .. "|"):gmatch("(.-)|") do parts[#parts + 1] = piece end
-			if #parts >= 5 then
-				local n = tonumber(parts[#parts]) or 1
-				local extra = table.concat(parts, "|", 4, #parts - 1)
-				rows[parts[1] .. "|" .. parts[3]] = {kind = parts[1], class = parts[2], path = parts[3], extra = extra, n = n}
+	-- attributs des racines (drapeaux d'events, versions...) : nom + valeur simple
+	for _, pair in ipairs({{Workspace, "WS"}, {ReplicatedStorage, "RS"}, {game:GetService("Lighting"), "Lighting"}}) do
+		pcall(function()
+			for k, v in pairs(pair[1]:GetAttributes()) do
+				local t = type(v)
+				add("ATTR", pair[2], pair[2] .. "/" .. norm(k), (t == "string" or t == "boolean") and clean(v, 60) or "")
 			end
+		end)
+	end
+	return finish()
+end
+
+-------------------------------------------------------------------------------------------------- etape 2 : contenu
+local function ser(v, depth, seen)
+	local t = typeof(v)
+	if t == "string" then
+		return '"' .. clean(v, 60) .. '"'
+	elseif t == "number" then
+		return string.format("%.4g", v)
+	elseif t == "boolean" or t == "nil" then
+		return tostring(v)
+	elseif t == "table" then
+		if depth <= 0 then return "{..}" end
+		if seen[v] then return "{cycle}" end
+		seen[v] = true
+		local keys = {}
+		for k in pairs(v) do keys[#keys + 1] = k end
+		table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+		local parts = {}
+		for i, k in ipairs(keys) do
+			if i > 40 then parts[#parts + 1] = "+" .. (#keys - 40); break end
+			local val = v[k]
+			if type(val) ~= "function" then parts[#parts + 1] = tostring(k) .. "=" .. ser(val, depth - 1, seen) end
+		end
+		seen[v] = nil
+		return "{" .. table.concat(parts, ",") .. "}"
+	elseif t == "Instance" then
+		return "<" .. v.ClassName .. ":" .. clean(v.Name, 30) .. ">"
+	elseif t == "Color3" then
+		return string.format("rgb(%d,%d,%d)", math.floor(v.R * 255 + 0.5), math.floor(v.G * 255 + 0.5), math.floor(v.B * 255 + 0.5))
+	elseif t == "Vector3" then
+		return string.format("v3(%.4g,%.4g,%.4g)", v.X, v.Y, v.Z)
+	elseif t == "function" then
+		return "fn"
+	end
+	return clean(tostring(v), 40)
+end
+
+local timeouts = 0
+local function safeRequire(m)
+	if timeouts >= 8 then return false, "skipped" end -- trop de modules qui bloquent : on n'insiste plus
+	local done, ok, res = false, false, nil
+	task.spawn(function()
+		ok, res = pcall(require, m)
+		done = true
+	end)
+	local t0 = os.clock()
+	while not done and os.clock() - t0 < 0.7 do task.wait(0.03) end
+	if not done then timeouts += 1; return false, "timeout" end
+	return ok, res
+end
+
+local function collectContent(progress)
+	local add, finish = newCollector()
+	local pgui = lp:FindFirstChild("PlayerGui")
+
+	-- tous les textes affiches (ecrans du jeu + panneaux du monde) : noms d'events, de boutiques, de quetes...
+	local function texts(root, label)
+		walk(root, function(d)
+			if d:IsA("TextLabel") and d.Text ~= "" then
+				local sg = d:FindFirstAncestorOfClass("ScreenGui")
+				if sg and sg.Name == "YslemAnalyzer" then return end
+				add("TEXT", "TextLabel", rel(d, root, label), clean(norm(d.Text), 90))
+			end
+		end)
+	end
+	if pgui then texts(pgui, "GUI") end
+	texts(Workspace, "WS")
+
+	-- donnees du jeu : chaque module de ReplicatedStorage.Data (+ Flags) resume sur une ligne
+	local roots = {}
+	local data = ReplicatedStorage:FindFirstChild("Data")
+	if data then roots[#roots + 1] = {data, "RS/Data"} end
+	local shared = ReplicatedStorage:FindFirstChild("Shared")
+	local flags = shared and shared:FindFirstChild("Flags")
+	if flags then roots[#roots + 1] = {flags, "RS/Shared/Flags"} end
+	local mods = {}
+	for _, r in ipairs(roots) do
+		for _, d in ipairs(r[1]:GetDescendants()) do
+			if d:IsA("ModuleScript") then mods[#mods + 1] = {d, rel(d, ReplicatedStorage, "RS")} end
 		end
 	end
-	return meta, rows
-end
-
-local function leaf(p) return p:match("([^/]*)$") or p end
-
--- ces categories bougent tout le temps (oeufs, pets, boutons generes) : un simple changement de nombre n'est pas une mise a jour
-local DYNAMIC = {WORLD = true, PROMPT = true, BUTTON = true}
-
-local function diff(oldRows, newRows)
-	local added, removed, changed, moved = {}, {}, {}, {}
-	for k, v in pairs(newRows) do
-		local o = oldRows[k]
-		if not o then
-			table.insert(added, v)
-		elseif o.class ~= v.class or o.extra ~= v.extra or (o.n ~= v.n and not DYNAMIC[v.kind]) then
-			local bits = {}
-			if o.class ~= v.class then bits[#bits + 1] = "class " .. o.class .. " -> " .. v.class end
-			if o.extra ~= v.extra then bits[#bits + 1] = "'" .. o.extra .. "' -> '" .. v.extra .. "'" end
-			if o.n ~= v.n then bits[#bits + 1] = "x" .. o.n .. " -> x" .. v.n end
-			table.insert(changed, {row = v, text = table.concat(bits, "; ")})
+	for i, m in ipairs(mods) do
+		local ok, res = safeRequire(m[1])
+		local text
+		if not ok then
+			text = "ERR " .. clean(res, 40)
+		elseif type(res) == "table" then
+			text = clean(ser(res, 3, {}), 700)
+		else
+			text = clean(ser(res, 1, {}), 200)
 		end
+		add("DATA", "Module", m[2], text)
+		if progress and i % 25 == 0 then progress(i, #mods) end
 	end
-	for k, v in pairs(oldRows) do
-		if not newRows[k] then table.insert(removed, v) end
-	end
-	local function byPath(a, b) return a.path < b.path end
-	table.sort(added, byPath); table.sort(removed, byPath)
-	table.sort(changed, function(a, b) return a.row.path < b.row.path end)
-	-- deplaces : meme type + meme nom de feuille (sans nombres), dossier different
-	local remBy = {}
-	for i, v in ipairs(removed) do
-		local key = v.kind .. "|" .. leaf(v.path)
-		if not leaf(v.path):find("#", 1, true) then remBy[key] = remBy[key] or {}; table.insert(remBy[key], i) end
-	end
-	local dropAdded, dropRemoved = {}, {}
-	for i, v in ipairs(added) do
-		local list = remBy[v.kind .. "|" .. leaf(v.path)]
-		if list and #list > 0 and not leaf(v.path):find("#", 1, true) then
-			local ri = table.remove(list, 1)
-			table.insert(moved, {from = removed[ri], to = v})
-			dropAdded[i] = true; dropRemoved[ri] = true
-		end
-	end
-	local a2, r2 = {}, {}
-	for i, v in ipairs(added) do if not dropAdded[i] then a2[#a2 + 1] = v end end
-	for i, v in ipairs(removed) do if not dropRemoved[i] then r2[#r2 + 1] = v end end
-	return {added = a2, removed = r2, moved = moved, changed = changed}
+	return finish()
 end
 
-local function describe(v)
-	return "[" .. v.kind .. "] " .. v.path .. (v.extra ~= "" and (" (" .. v.extra .. ")") or "")
-end
+-------------------------------------------------------------------------------------------------- etat + fichiers
+local DIR = "yslem_analyzer"
+local haveFiles = typeof(writefile) == "function"
 
--- categories : add (nouveau), del (supprime), mov (deplace), chg (modifie)
-local COLORS = {
-	add = Color3.fromRGB(90, 220, 140), del = Color3.fromRGB(255, 90, 90),
-	mov = Color3.fromRGB(255, 200, 90), chg = Color3.fromRGB(120, 180, 255), info = Color3.fromRGB(255, 176, 176),
-	dim = Color3.fromRGB(150, 110, 110),
-}
-local CATS = {
-	{id = "add", label = "NOUVEAU"}, {id = "del", label = "SUPPRIME"},
-	{id = "mov", label = "DEPLACE"}, {id = "chg", label = "MODIFIE"},
-}
-local KINDS = {REMOTE = "Remote", SCRIPT = "Script", SCREEN = "Ecran", BUTTON = "Bouton", PROMPT = "Prompt", WORLD = "Objet", STAT = "Stat", ATTR = "Attribut"}
-
--- un element = {cat, title (court), sub (detail), text (ligne du rapport copie)}
-local function items(d)
-	local out = {}
-	local function add(cat, v, sub, text)
-		out[#out + 1] = {cat = cat, title = (KINDS[v.kind] or v.kind) .. " : " .. leaf(v.path), sub = sub, text = text}
-	end
-	for _, v in ipairs(d.removed) do add("del", v, v.path, "- " .. describe(v)) end
-	for _, m in ipairs(d.moved) do add("mov", m.from, m.from.path .. "  ->  " .. m.to.path, "> [" .. m.from.kind .. "] " .. m.from.path .. "  ->  " .. m.to.path) end
-	for _, v in ipairs(d.added) do add("add", v, v.path .. (v.extra ~= "" and ("  (" .. v.extra .. ")") or ""), "+ " .. describe(v)) end
-	for _, c in ipairs(d.changed) do add("chg", c.row, c.text, "~ [" .. c.row.kind .. "] " .. c.row.path .. " : " .. c.text) end
-	return out
-end
-
-local function reportText(meta1, meta2, d, list)
-	local out = {
-		"##### yslem Game Update v" .. VERSION .. " #####",
-		"ancien : " .. tostring(meta1.GAME or "?") .. " (" .. tostring(meta1.DATE or "?") .. ")",
-		"nouveau : " .. tostring(meta2.GAME or "?") .. " (" .. tostring(meta2.DATE or "?") .. ")",
-		string.format("ajoutes %d  supprimes %d  deplaces %d  modifies %d", #d.added, #d.removed, #d.moved, #d.changed),
-	}
-	for _, l in ipairs(list) do out[#out + 1] = l.text end
-	return table.concat(out, "\n")
-end
-
--------------------------------------------------------------------------------------------------- fichiers
-local DIR = "yslem_gameupdate"
-local haveFiles = typeof(writefile) == "function" and typeof(readfile) == "function" and typeof(isfile) == "function"
-
-local function path(name)
+local function savePath(name)
 	if typeof(makefolder) == "function" and typeof(isfolder) == "function" then
 		pcall(function() if not isfolder(DIR) then makefolder(DIR) end end)
 		return DIR .. "/" .. name
@@ -514,150 +547,73 @@ local function path(name)
 	return DIR .. "_" .. name
 end
 
-local function save(name, text)
-	if not haveFiles then return false end
-	return pcall(writefile, path(name), text)
-end
+local PROMPTS = {
+	"GAME UPDATE - etape 1/2 (structure du jeu). Analyse TOUT ce qui est nouveau ou change : nouveaux pets, events, remotes, boutons, prompts, zones, objets, ecrans, scripts. "
+		.. "Compare avec les analyses precedentes de docs/scans/ si elles existent, liste toutes les nouveautes, puis adapte les scripts (yslemHub, SourcesHub...) avec les vrais noms uniquement. "
+		.. "Attends l'etape 2 avant de conclure. Voici l'etape 1 :",
+	"GAME UPDATE - etape 2/2 (contenu du jeu : donnees des modules + tous les textes). Tu as maintenant les deux etapes : fais l'analyse COMPLETE et dis-moi tout ce qui est nouveau "
+		.. "(pets, raretes, zones, events, boutiques, produits, quetes), ce qui a change, et ce que tu adaptes dans les scripts. Voici l'etape 2 :",
+}
 
-local function loadFile(name)
-	if not haveFiles then return nil end
-	local ok, exists = pcall(isfile, path(name))
-	if not ok or not exists then return nil end
-	local ok2, text = pcall(readfile, path(name))
-	return ok2 and text or nil
-end
-
--------------------------------------------------------------------------------------------------- etat
-local state = {snap = nil, report = nil, busy = false, items = {}, filter = nil, step = 1}
-local GameUpdate = {Version = VERSION, snapshot = snapshot, parse = parse, diff = diff}
-
+local state = {busy = false, done = {false, false}}
+local GameAnalyzer = {Version = VERSION, collectStructure = collectStructure, collectContent = collectContent}
 local ui = {}
 
-local function setStatus(text, color)
-	if ui.status then
-		ui.status.Text = text
-		ui.status.TextColor3 = color or COLORS.info
+local COLORS = {
+	ok = Color3.fromRGB(90, 220, 140), work = Color3.fromRGB(255, 200, 90), bad = Color3.fromRGB(255, 90, 90),
+	info = Color3.fromRGB(255, 176, 176), dim = Color3.fromRGB(150, 110, 110),
+}
+
+local function badge(text, color)
+	if ui.badge then
+		ui.badge.Text = text
+		ui.badge.TextColor3 = color or COLORS.info
+		ui.badgeFrame.Visible = true
 	end
 end
 
--- etapes : 1 Scan, 2 Changements, 3 Copier (rond plein = en cours, coche = fait)
-local function setStep(n)
-	state.step = n
-	for i, b in ipairs(ui.steps or {}) do
-		local done, current = i < n, i == n
-		b.num.Text = done and "OK" or tostring(i)
-		b.num.BackgroundColor3 = done and COLORS.add or (current and Color3.fromRGB(220, 40, 40) or Color3.fromRGB(40, 14, 14))
-		b.num.TextColor3 = (done or current) and Color3.fromRGB(20, 0, 0) or COLORS.dim
-		b.label.TextColor3 = (done or current) and Color3.fromRGB(255, 255, 255) or COLORS.dim
-	end
+local function markStep(i, status)
+	local b = ui.steps and ui.steps[i]
+	if not b then return end
+	b.num.Text = status == "ok" and "OK" or tostring(i)
+	b.num.BackgroundColor3 = status == "ok" and COLORS.ok or (status == "work" and COLORS.work or Color3.fromRGB(220, 40, 40))
+	b.num.TextColor3 = Color3.fromRGB(20, 0, 0)
 end
 
-local function setChips(counts)
-	for _, c in ipairs(ui.chips or {}) do
-		local n = counts and counts[c.id] or 0
-		c.btn.Text = c.label .. "  " .. n
-		c.btn.TextColor3 = n > 0 and COLORS[c.id] or COLORS.dim
-		c.stroke.Transparency = (state.filter == c.id) and 0 or (n > 0 and 0.45 or 0.8)
-	end
-end
-
-local function showItems()
-	if not ui.list then return end
-	for _, c in ipairs(ui.list:GetChildren()) do
-		if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end
-	end
-	local shown = 0
-	for _, it in ipairs(state.items) do
-		if not state.filter or it.cat == state.filter then
-			shown += 1
-			if shown > 300 then break end
-			local row = Instance.new("Frame")
-			row.BackgroundColor3 = Color3.fromRGB(20, 4, 4); row.BorderSizePixel = 0
-			row.Size = UDim2.new(1, -8, 0, 0); row.AutomaticSize = Enum.AutomaticSize.Y; row.LayoutOrder = shown
-			row.Parent = ui.list
-			local rc = Instance.new("UICorner"); rc.CornerRadius = UDim.new(0, 8); rc.Parent = row
-			local lay = Instance.new("UIListLayout"); lay.SortOrder = Enum.SortOrder.LayoutOrder; lay.Parent = row
-			local pd = Instance.new("UIPadding"); pd.PaddingLeft = UDim.new(0, 10); pd.PaddingTop = UDim.new(0, 4); pd.PaddingBottom = UDim.new(0, 5); pd.PaddingRight = UDim.new(0, 6); pd.Parent = row
-			local t = Instance.new("TextLabel")
-			t.BackgroundTransparency = 1; t.Size = UDim2.new(1, 0, 0, 15); t.LayoutOrder = 1
-			t.Font = Enum.Font.GothamBold; t.TextSize = 12; t.TextXAlignment = Enum.TextXAlignment.Left
-			t.TextColor3 = COLORS[it.cat]; t.Text = it.title; t.TextTruncate = Enum.TextTruncate.AtEnd
-			t.Parent = row
-			local sub = Instance.new("TextLabel")
-			sub.BackgroundTransparency = 1; sub.Size = UDim2.new(1, 0, 0, 0); sub.AutomaticSize = Enum.AutomaticSize.Y; sub.LayoutOrder = 2
-			sub.Font = Enum.Font.GothamMedium; sub.TextSize = 10; sub.TextWrapped = true; sub.TextXAlignment = Enum.TextXAlignment.Left
-			sub.TextYAlignment = Enum.TextYAlignment.Top; sub.TextColor3 = COLORS.dim; sub.Text = it.sub
-			sub.Parent = row
-		end
-	end
-	if shown == 0 then
-		local e = Instance.new("TextLabel")
-		e.BackgroundTransparency = 1; e.Size = UDim2.new(1, -8, 0, 40); e.Font = Enum.Font.GothamMedium; e.TextSize = 12
-		e.TextWrapped = true; e.TextXAlignment = Enum.TextXAlignment.Left; e.TextColor3 = COLORS.info
-		e.Text = ui.emptyText or "Rien a afficher."
-		e.Parent = ui.list
-	end
-end
-
-local function scan()
+local function run(step)
 	if state.busy then return end
 	state.busy = true
-	setStep(1)
-	setStatus("Etape 1 : analyse du jeu...")
+	markStep(step, "work")
+	badge("Etape " .. step .. " en cours...", COLORS.work)
 	local ok, err = pcall(function()
-		local text, count = snapshot()
-		local meta2, rows2 = parse(text)
-		local pid = tostring(game.PlaceId)
-		local baseText = loadFile(pid .. "_baseline.txt")
-		state.snap = text
-		state.filter = nil
-		save(pid .. "_latest.txt", text)
-		save(pid .. "_" .. os.date("%Y-%m-%d_%H%M%S") .. ".txt", text)
-		local oldFormat = false
-		if baseText then
-			local bm = parse(baseText)
-			oldFormat = bm.SNAPSHOT ~= "v2"
-		end
-		if not baseText or oldFormat then
-			save(pid .. "_baseline.txt", text)
-			state.items = {}
-			state.report = "##### yslem Game Update v" .. VERSION .. " #####\nPremiere analyse : reference enregistree (" .. count .. " entrees)."
-			ui.emptyText = (oldFormat and "Ancienne reference remplacee (nouveau format, plus propre). " or "") .. "Reference enregistree (" .. count .. " elements).\nApres la prochaine mise a jour du jeu, relance ce script : je te montre ce qui a change."
-			setChips(nil)
-			showItems()
-			setStatus("Reference creee.", COLORS.add)
-			setStep(3)
+		local lines
+		if step == 1 then
+			lines = collectStructure()
 		else
-			local meta1, rows1 = parse(baseText)
-			local d = diff(rows1, rows2)
-			state.items = items(d)
-			state.report = reportText(meta1, meta2, d, state.items)
-			local total = #state.items
-			ui.emptyText = "Rien n'a change depuis la reference."
-			setChips({add = #d.added, del = #d.removed, mov = #d.moved, chg = #d.changed})
-			showItems()
-			setStatus(total == 0 and "Aucun changement." or (total .. " changement" .. (total > 1 and "s" or "") .. " - touche un badge pour filtrer"), total == 0 and COLORS.add or COLORS.mov)
-			setStep(2)
+			lines = collectContent(function(i, total) badge("Etape 2 en cours... " .. i .. "/" .. total, COLORS.work) end)
 		end
-		GameUpdate.lastReport = state.report
-		GameUpdate.lastSnapshot = state.snap
+		local head = header(step)
+		local text = table.concat(head, "\n") .. "\n" .. table.concat(lines, "\n")
+		local clip = PROMPTS[step] .. "\n\n" .. text
+		if haveFiles then pcall(writefile, savePath(tostring(game.PlaceId) .. "_etape" .. step .. ".txt"), text) end
+		GameAnalyzer["step" .. step] = text
+		local copied = typeof(setclipboard) == "function" and pcall(setclipboard, clip)
+		state.done[step] = true
+		markStep(step, "ok")
+		if copied then
+			badge("Etape " .. step .. " faite - copie-colle dans le chat", COLORS.ok)
+		else
+			badge("Etape " .. step .. " faite - presse-papiers indisponible (fichier " .. DIR .. ")", COLORS.work)
+		end
+		if ui.hint then
+			ui.hint.Text = state.done[1] and state.done[2] and "Les 2 etapes sont faites." or (step == 1 and "Colle dans le chat, puis clique Etape 2." or "Colle dans le chat, puis clique Etape 1.")
+		end
 	end)
-	if not ok then setStatus("Erreur : " .. tostring(err), COLORS.del) end
+	if not ok then
+		markStep(step, "idle")
+		badge("Erreur etape " .. step .. " : " .. tostring(err), COLORS.bad)
+	end
 	state.busy = false
-end
-
-local function copyAll()
-	if not state.snap then return end
-	local text = (state.report or "") .. "\n\n===== INVENTAIRE COMPLET =====\n" .. state.snap
-	local ok = typeof(setclipboard) == "function" and pcall(setclipboard, text)
-	setStatus(ok and "Copie : colle-le dans le chat." or "Presse-papiers indisponible (fichiers dans " .. DIR .. ").", ok and COLORS.add or COLORS.mov)
-	if ok then setStep(3) end
-end
-
-local function setBaseline()
-	if not state.snap then return end
-	local ok = save(tostring(game.PlaceId) .. "_baseline.txt", state.snap)
-	setStatus(ok and "Nouvelle reference enregistree." or "Impossible d'ecrire le fichier.", ok and COLORS.add or COLORS.del)
 end
 
 -------------------------------------------------------------------------------------------------- fenetre yslemStyle
@@ -671,10 +627,10 @@ local function buildUI()
 		if not ok or not parent then parent = lp:WaitForChild("PlayerGui") end
 	end
 	for _, c in ipairs(parent:GetChildren()) do
-		if c.Name == "YslemGameUpdate" then c:Destroy() end
+		if c.Name == "YslemAnalyzer" then c:Destroy() end
 	end
 	local gui = Instance.new("ScreenGui")
-	gui.Name = "YslemGameUpdate"; gui.ResetOnSpawn = false; gui.DisplayOrder = 50
+	gui.Name = "YslemAnalyzer"; gui.ResetOnSpawn = false; gui.DisplayOrder = 50
 	gui.Parent = parent
 	ui.gui = gui
 
@@ -688,33 +644,31 @@ local function buildUI()
 		return g
 	end
 	local function corner(inst, r) local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r); c.Parent = inst end
-	local function stroke(inst, th, color)
-		local s = Instance.new("UIStroke"); s.Thickness = th; s.Color = color or Color3.fromRGB(255, 255, 255)
+	local function stroke(inst, th)
+		local s = Instance.new("UIStroke"); s.Thickness = th; s.Color = Color3.fromRGB(255, 255, 255)
 		s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; s.Parent = inst
-		if not color then gradient(s, Color3.fromRGB(70, 10, 10), Color3.fromRGB(255, 90, 90)) end
+		gradient(s, Color3.fromRGB(70, 10, 10), Color3.fromRGB(255, 90, 90))
 		return s
 	end
-	local function label(parentInst, text, x, y, w, h, size, font, color)
+	local function label(p, text, x, y, w, h, size, font, color)
 		local l = Instance.new("TextLabel")
 		l.BackgroundTransparency = 1; l.Position = UDim2.new(0, x, 0, y); l.Size = UDim2.new(0, w, 0, h)
 		l.Font = font or Enum.Font.GothamMedium; l.TextSize = size or 12; l.TextXAlignment = Enum.TextXAlignment.Left
 		l.TextColor3 = color or Color3.fromRGB(255, 255, 255); l.Text = text
-		l.Parent = parentInst
+		l.Parent = p
 		return l
 	end
 
 	local frame = Instance.new("Frame")
-	frame.Name = "Window"; frame.Size = UDim2.fromOffset(340, 420)
-	frame.Position = UDim2.new(0.5, -170, 0.5, -210)
+	frame.Name = "Window"; frame.Size = UDim2.fromOffset(300, 196)
+	frame.Position = UDim2.new(0.5, -150, 0.5, -98)
 	frame.BackgroundColor3 = Color3.fromRGB(5, 0, 0); frame.BorderSizePixel = 0; frame.Active = true
 	frame.Parent = gui
 	corner(frame, 14); stroke(frame, 1.6)
 
-	local title = label(frame, "Game Update v" .. VERSION, 14, 8, 240, 20, 16, Enum.Font.GothamBold)
+	local title = label(frame, "Game Analyzer", 14, 8, 220, 22, 17, Enum.Font.GothamBold)
 	gradient(title, Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 200, 200))
-	local gname = "?"
-	pcall(function() gname = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-	label(frame, tostring(gname), 14, 28, 250, 14, 10, nil, COLORS.dim)
+	label(frame, gameName(), 14, 30, 240, 14, 10, nil, COLORS.dim)
 
 	local close = Instance.new("TextButton")
 	close.Size = UDim2.fromOffset(24, 24); close.Position = UDim2.new(1, -34, 0, 10)
@@ -722,80 +676,47 @@ local function buildUI()
 	close.Font = Enum.Font.GothamBold; close.TextSize = 12; close.TextColor3 = Color3.fromRGB(255, 90, 90); close.Text = "X"
 	close.Parent = frame
 	corner(close, 8); stroke(close, 1)
-	close.MouseButton1Click:Connect(function() if genv.YslemGameUpdateStop then genv.YslemGameUpdateStop() end end)
+	close.MouseButton1Click:Connect(function() if genv.YslemAnalyzerStop then genv.YslemAnalyzerStop() end end)
 	ui.close = close
 
-	-- 3 etapes en badges
 	ui.steps = {}
-	local stepNames = {"Scan", "Changements", "Copier"}
-	for i, name in ipairs(stepNames) do
-		local x = 12 + (i - 1) * 108
+	local names = {"Etape 1  -  Structure", "Etape 2  -  Contenu"}
+	for i, name in ipairs(names) do
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.new(1, -28, 0, 44); b.Position = UDim2.new(0, 14, 0, 54 + (i - 1) * 54)
+		b.BackgroundColor3 = Color3.fromRGB(20, 4, 4); b.BorderSizePixel = 0; b.AutoButtonColor = false
+		b.Font = Enum.Font.GothamBold; b.TextSize = 14; b.TextColor3 = Color3.fromRGB(255, 255, 255)
+		b.Text = "          " .. name; b.TextXAlignment = Enum.TextXAlignment.Left
+		b.Parent = frame
+		corner(b, 12); stroke(b, 1.3); gradient(b, Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 190, 190))
 		local num = Instance.new("TextLabel")
-		num.Size = UDim2.fromOffset(22, 22); num.Position = UDim2.new(0, x, 0, 50)
-		num.BackgroundColor3 = Color3.fromRGB(40, 14, 14); num.BorderSizePixel = 0
-		num.Font = Enum.Font.GothamBold; num.TextSize = 10; num.TextColor3 = COLORS.dim; num.Text = tostring(i)
-		num.Parent = frame
-		corner(num, 11)
-		local lab = label(frame, name, x + 27, 50, 78, 22, 11, Enum.Font.GothamBold, COLORS.dim)
-		ui.steps[i] = {num = num, label = lab}
+		num.Size = UDim2.fromOffset(26, 26); num.Position = UDim2.new(0, 10, 0.5, -13)
+		num.BackgroundColor3 = Color3.fromRGB(220, 40, 40); num.BorderSizePixel = 0
+		num.Font = Enum.Font.GothamBold; num.TextSize = 11; num.TextColor3 = Color3.fromRGB(20, 0, 0); num.Text = tostring(i)
+		num.Parent = b
+		corner(num, 13)
+		b.MouseButton1Click:Connect(function() task.spawn(run, i) end)
+		ui.steps[i] = {btn = b, num = num}
 	end
+	ui.hint = label(frame, "Clique Etape 1, colle dans le chat, puis Etape 2.", 14, 166, 272, 16, 10, nil, COLORS.dim)
 
-	-- badges de categories (touche = filtre)
-	ui.chips = {}
-	for i, cat in ipairs(CATS) do
-		local b = Instance.new("TextButton")
-		b.Size = UDim2.new(0, 76, 0, 24); b.Position = UDim2.new(0, 10 + (i - 1) * 80, 0, 80)
-		b.BackgroundColor3 = Color3.fromRGB(20, 4, 4); b.BorderSizePixel = 0; b.AutoButtonColor = false
-		b.Font = Enum.Font.GothamBold; b.TextSize = 9; b.TextColor3 = COLORS.dim; b.Text = cat.label .. "  0"
-		b.Parent = frame
-		corner(b, 12)
-		local st = stroke(b, 1.2, COLORS[cat.id])
-		st.Transparency = 0.8
-		b.MouseButton1Click:Connect(function()
-			state.filter = (state.filter ~= cat.id) and cat.id or nil
-			local counts = {}
-			for _, it in ipairs(state.items) do counts[it.cat] = (counts[it.cat] or 0) + 1 end
-			setChips(counts)
-			showItems()
-		end)
-		ui.chips[i] = {id = cat.id, label = cat.label, btn = b, stroke = st}
-	end
+	-- badge en bas a droite de l'ecran
+	local bf = Instance.new("Frame")
+	bf.Name = "Badge"; bf.AnchorPoint = Vector2.new(1, 1); bf.Position = UDim2.new(1, -14, 1, -14)
+	bf.Size = UDim2.fromOffset(300, 34); bf.BackgroundColor3 = Color3.fromRGB(12, 2, 2); bf.BorderSizePixel = 0
+	bf.Visible = false; bf.Parent = gui
+	corner(bf, 17); stroke(bf, 1.4)
+	local bl = Instance.new("TextLabel")
+	bl.BackgroundTransparency = 1; bl.Size = UDim2.new(1, -20, 1, 0); bl.Position = UDim2.new(0, 12, 0, 0)
+	bl.Font = Enum.Font.GothamBold; bl.TextSize = 12; bl.TextXAlignment = Enum.TextXAlignment.Left
+	bl.TextColor3 = COLORS.info; bl.Text = ""; bl.TextTruncate = Enum.TextTruncate.AtEnd
+	bl.Parent = bf
+	ui.badge, ui.badgeFrame = bl, bf
 
-	local status = label(frame, "", 14, 110, 312, 16, 11, Enum.Font.GothamBold, COLORS.info)
-	ui.status = status
-
-	local list = Instance.new("ScrollingFrame")
-	list.Name = "List"; list.Position = UDim2.new(0, 10, 0, 130); list.Size = UDim2.new(1, -20, 1, -182)
-	list.BackgroundColor3 = Color3.fromRGB(12, 2, 2); list.BorderSizePixel = 0; list.ScrollBarThickness = 3
-	list.CanvasSize = UDim2.new(0, 0, 0, 0); list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	list.Parent = frame
-	corner(list, 10)
-	local layout = Instance.new("UIListLayout"); layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Padding = UDim.new(0, 4); layout.Parent = list
-	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 6); pad.PaddingTop = UDim.new(0, 6); pad.PaddingRight = UDim.new(0, 4); pad.Parent = list
-	ui.list = list
-
-	local function button(text, x, w, fn)
-		local b = Instance.new("TextButton")
-		b.Size = UDim2.new(0, w, 0, 30); b.Position = UDim2.new(0, x, 1, -40)
-		b.BackgroundColor3 = Color3.fromRGB(20, 4, 4); b.BorderSizePixel = 0; b.AutoButtonColor = false
-		b.Font = Enum.Font.GothamBold; b.TextSize = 12; b.TextColor3 = Color3.fromRGB(255, 255, 255); b.Text = text
-		b.Parent = frame
-		corner(b, 10); stroke(b, 1.2); gradient(b, Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 190, 190))
-		b.MouseButton1Click:Connect(fn)
-		return b
-	end
-	ui.scan = button("1  Scan", 10, 96, function() task.spawn(scan) end)
-	ui.copy = button("3  Copier", 114, 96, copyAll)
-	ui.baseline = button("Nouvelle ref.", 218, 112, setBaseline)
-
-	setStep(1)
-	setChips(nil)
-
-	-- deplacement par l'en-tete
 	local dragging, startPos, startInput
 	table.insert(connections, frame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if input.Position.Y - frame.AbsolutePosition.Y < 44 then
+			if input.Position.Y - frame.AbsolutePosition.Y < 46 then
 				dragging, startPos, startInput = true, frame.Position, input.Position
 			end
 		end
@@ -810,7 +731,6 @@ local function buildUI()
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
 	end))
 
-	-- degrade anime
 	local t0 = os.clock()
 	table.insert(connections, RunService.RenderStepped:Connect(function()
 		local rot = ((os.clock() - t0) * 60) % 360
@@ -820,18 +740,17 @@ local function buildUI()
 	end))
 end
 
-genv.YslemGameUpdateStop = function()
+genv.YslemAnalyzerStop = function()
 	for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
 	table.clear(connections)
 	if ui.gui then pcall(function() ui.gui:Destroy() end) end
-	genv.YslemGameUpdateStop = nil
+	genv.YslemAnalyzerStop = nil
 end
-genv.YslemGameUpdate = GameUpdate
+genv.YslemAnalyzer = GameAnalyzer
 
 buildUI()
-task.spawn(scan)
 
-return GameUpdate
+return GameAnalyzer
 
 end
 local passes, failures = 0, 0
@@ -850,97 +769,68 @@ UDim2.fromOffset = function(...) return setmetatable(_off(...), udmt) end
 UDim = UDim or {new = function(s, o) return {Scale = s, Offset = o} end}
 local UIS = M.getService(nil, "UserInputService")
 UIS.InputBegan = M.signal(); UIS.InputChanged = M.signal(); UIS.InputEnded = M.signal()
-M.getService(nil, "ReplicatedFirst")
+M.getService(nil, "ReplicatedFirst"); M.getService(nil, "Lighting")
 M.getService(nil, "MarketplaceService").GetProductInfo = function() return {Name = "Mock Game"} end
 local function advance(sec) for _ = 1, math.ceil(sec / 0.05) do M.step(0.05) end end
 local function find(root, pred) for _, d in ipairs(root:GetDescendants()) do if pred(d) then return d end end end
 
--- fichiers et presse-papiers
 local files, clip = {}, nil
-isfile = function(p) return files[p] ~= nil end
-readfile = function(p) return files[p] end
 writefile = function(p, c) files[p] = c end
 setclipboard = function(s) clip = s end
 local genvT = {}; getgenv = function() return genvT end
+require = function(m) return m._data end
 
--- monde
 local Players = M.getService(nil, "Players")
 local pl = M.newInst("Player"); pl.Name = "Tester"; pl.UserId = 1
 pl.PlayerGui = M.newInst("Folder"); pl.PlayerGui.Name = "PlayerGui"; pl.PlayerGui.Parent = pl
 pl.Parent = Players; Players.LocalPlayer = pl; Players.GetPlayers = function() return {pl} end
 local RS = M.getService(nil, "ReplicatedStorage")
 local function mk(class, name, parent) local o = M.newInst(class); o.Name = name; o.Parent = parent; return o end
-local remotes = mk("Folder", "Remotes", RS)
-local gameF = mk("Folder", "Game", remotes)
-mk("RemoteEvent", "BasketDrop", gameF); mk("RemoteEvent", "Teleporting", gameF)
+mk("RemoteEvent", "BasketDrop", mk("Folder", "Game", mk("Folder", "Remotes", RS)))
+local data = mk("Folder", "Data", RS)
+local pets = mk("Folder", "Configs", mk("Folder", "Assets", data))
+local dino = mk("ModuleScript", "Dino", pets); dino._data = {EarningRate = 12.5, Rarity = "Epic", Name = "Dino", Tags = {"a", "b"}}
+local newpet = mk("ModuleScript", "Phoenix", pets); newpet._data = {EarningRate = 99, Rarity = "Secret"}
+local bad = mk("ModuleScript", "Broken", data); bad._data = nil
+require = function(m) if m.Name == "Broken" then error("boom") end return m._data end
 local sg = mk("ScreenGui", "Main", pl.PlayerGui)
-local drop = mk("TextButton", "Drop", sg); drop.Text = "DROP"
+local drop = mk("TextButton", "Drop", sg); drop.Text = "DROP 12"
+local ev = mk("TextLabel", "EventTitle", sg); ev.Text = "Halloween Dimension 2026"
 local WS = M.getService(nil, "Workspace")
 local egg = mk("Part", "Egg", WS)
-local pr = mk("ProximityPrompt", "Prompt", egg); pr.ActionText = "Pick Up"; pr.ObjectText = "Dino"; pr.HoldDuration = 0.2
+local pr = mk("ProximityPrompt", "Prompt", egg); pr.ActionText = "Steal"; pr.ObjectText = "Egg"; pr.HoldDuration = 0
 
-local U = loadUpdate()
-advance(0.5)
-local pid = tostring(game.PlaceId)
-check("module returns version 2", U.Version == 2)
-check("first run saves the baseline, latest and a dated copy", files["yslem_gameupdate_" .. pid .. "_baseline.txt"] ~= nil and files["yslem_gameupdate_" .. pid .. "_latest.txt"] ~= nil)
-local dated = 0 for k in pairs(files) do if k:find("%d%d%d%d%-%d%d%-%d%d_%d+%.txt$") then dated += 1 end end
-check("dated copy written", dated >= 1)
-local gui = find(pl.PlayerGui, function(d) return d.Name == "YslemGameUpdate" end) or find(M.getService(nil, "CoreGui"), function(d) return d.Name == "YslemGameUpdate" end)
+local A = loadAnalyzer()
+advance(0.3)
+local gui = find(pl.PlayerGui, function(d) return d.Name == "YslemAnalyzer" end) or find(M.getService(nil, "CoreGui"), function(d) return d.Name == "YslemAnalyzer" end)
 check("window built", gui ~= nil)
-local function labels(root) local t = {} for _, d in ipairs(root:GetDescendants()) do if d.ClassName == "TextLabel" then t[#t + 1] = d.Text end end return t end
-local function anyText(root, s) for _, t in ipairs(labels(root)) do if t:find(s, 1, true) then return true end end return false end
-check("status: reference created", gui and anyText(gui, "Reference creee"))
-check("first run explains what happens next", anyText(gui, "Reference enregistree"))
+local function btn(prefix) return find(gui, function(d) return d.ClassName == "TextButton" and d.Text:find(prefix, 1, true) ~= nil end) end
+local function anyText(s) return find(gui, function(d) return d.ClassName == "TextLabel" and d.Text:find(s, 1, true) ~= nil end) ~= nil end
+check("two step buttons", btn("Etape 1") ~= nil and btn("Etape 2") ~= nil)
 
--- le jeu change : drop deplace, Teleporting supprime, nouveau remote, bouton renomme, prompt plus long
-local basket = find(RS, function(d) return d.Name == "BasketDrop" end); basket.Parent = mk("Folder", "Basket", remotes)
-find(RS, function(d) return d.Name == "Teleporting" end):Destroy()
-mk("RemoteEvent", "NewThing", gameF)
-drop.Text = "DROP EGG"; pr.HoldDuration = 0.5
-mk("Part", "Egg", WS); mk("Part", "Egg", WS)  -- plus d'oeufs : un simple changement de nombre ne compte pas
-local function btn(text) return find(gui, function(d) return d.ClassName == "TextButton" and d.Text == text end) end
-local scanBtn = btn("1  Scan")
-check("step badges 1-2-3 exist", btn("1  Scan") ~= nil and btn("3  Copier") ~= nil and anyText(gui, "Changements"))
-scanBtn.MouseButton1Click:Fire(); advance(0.5)
-check("removed remote (SUPPRIME)", anyText(gui, "Remote : Teleporting") and anyText(gui, "RS/Remotes/Game/Teleporting"))
-check("moved remote (DEPLACE) shows old and new path", anyText(gui, "RS/Remotes/Game/BasketDrop  ->  RS/Remotes/Basket/BasketDrop"))
-check("added remote (NOUVEAU)", anyText(gui, "Remote : NewThing"))
-check("button text change (MODIFIE)", anyText(gui, "'DROP' -> 'DROP EGG'"))
-check("prompt hold change (MODIFIE)", anyText(gui, "hold=0.5"))
-check("status says how many changes", anyText(gui, "5 changements"))
-check("category badges show the counts", btn("NOUVEAU  1") ~= nil and btn("SUPPRIME  1") ~= nil and btn("DEPLACE  1") ~= nil and btn("MODIFIE  2") ~= nil)
-check("step 1 is marked done once results are shown", anyText(gui, "OK"))
-local function rows() local n = 0 for _, d in ipairs(gui:GetDescendants()) do if d.ClassName == "TextLabel" and d.Text:find(" : ", 1, true) and d.TextSize == 12 then n += 1 end end return n end
-check("all 5 changes listed", rows() == 5)
-btn("NOUVEAU  1").MouseButton1Click:Fire(); advance(0.2)
-check("badge filter keeps only NOUVEAU", rows() == 1 and anyText(gui, "Remote : NewThing") and not anyText(gui, "Remote : Teleporting"))
-btn("NOUVEAU  1").MouseButton1Click:Fire(); advance(0.2)
-check("second tap clears the filter", rows() == 5)
+-- etape 1
+btn("Etape 1").MouseButton1Click:Fire(); advance(0.5)
+check("step 1: prompt for Claude comes first", clip ~= nil and clip:sub(1, 26) == "GAME UPDATE - etape 1/2 (s")
+check("step 1: structure inventory", clip:find("#SNAPSHOT v3", 1, true) and clip:find("#STEP 1/2", 1, true) and clip:find("REMOTE|RemoteEvent|RS/Remotes/Game/BasketDrop||1", 1, true) ~= nil)
+check("step 1: button + prompt", clip:find("BUTTON|TextButton|GUI/Main/Drop|DROP #|1", 1, true) and clip:find("PROMPT|ProximityPrompt|WS/Egg/Prompt|Steal / Egg / hold=0|1", 1, true) ~= nil)
+check("step 1: module names listed (new pets show up)", clip:find("SCRIPT|ModuleScript|RS/Data/Assets/Configs/Phoenix||1", 1, true) ~= nil)
+check("step 1: badge says step 1 done", anyText("Etape 1 faite"))
+check("step 1: file saved", files["yslem_analyzer_" .. game.PlaceId .. "_etape1.txt"] ~= nil)
 
--- copie
-btn("3  Copier").MouseButton1Click:Fire()
-check("copy: report + full inventory", clip ~= nil and clip:find("Game Update v2", 1, true) ~= nil and clip:find("- [REMOTE] RS/Remotes/Game/Teleporting", 1, true) ~= nil and clip:find("INVENTAIRE COMPLET", 1, true) ~= nil and clip:find("#SNAPSHOT v2", 1, true) ~= nil)
-
--- nouvelle reference puis plus de changement
-btn("Nouvelle ref.").MouseButton1Click:Fire()
-check("baseline replaced by the latest scan", files["yslem_gameupdate_" .. pid .. "_baseline.txt"] == files["yslem_gameupdate_" .. pid .. "_latest.txt"])
-scanBtn.MouseButton1Click:Fire(); advance(0.5)
-check("after baseline: no change", anyText(gui, "Aucun changement"))
-
--- ancienne reference (format v1) : remplacee automatiquement
-files["yslem_gameupdate_" .. pid .. "_baseline.txt"] = "#SNAPSHOT v1\n#GAME x\nREMOTE|RemoteEvent|RS/Old||1"
-scanBtn.MouseButton1Click:Fire(); advance(0.5)
-check("old-format baseline is replaced, not diffed", anyText(gui, "Ancienne reference remplacee") and files["yslem_gameupdate_" .. pid .. "_baseline.txt"]:find("#SNAPSHOT v2", 1, true) ~= nil)
-
--- logique pure
-local m1, r1 = U.parse("#GAME A\nREMOTE|RemoteEvent|RS/X/Foo||1\nBUTTON|TextButton|GUI/B|a|b|2")
-check("parse keeps '|' inside the extra text", r1["BUTTON|GUI/B"] and r1["BUTTON|GUI/B"].extra == "a|b" and r1["BUTTON|GUI/B"].n == 2)
-check("player name never in the inventory", not U.lastSnapshot:find("Tester", 1, true))
+-- etape 2
+btn("Etape 2").MouseButton1Click:Fire(); advance(1)
+check("step 2: prompt for Claude", clip:sub(1, 26) == "GAME UPDATE - etape 2/2 (c")
+check("step 2: module data content", clip:find('DATA|Module|RS/Data/Assets/Configs/Dino|{EarningRate=12.5,Name="Dino",Rarity="Epic",Tags={1="a",2="b"}}|1', 1, true) ~= nil)
+check("step 2: new pet data", clip:find('RS/Data/Assets/Configs/Phoenix|{EarningRate=99,Rarity="Secret"}', 1, true) ~= nil)
+check("step 2: broken module reported, not fatal", clip:find("RS/Data/Broken|ERR", 1, true) ~= nil)
+check("step 2: all texts (events)", clip:find("TEXT|TextLabel|GUI/Main/EventTitle|Halloween Dimension #|1", 1, true) ~= nil)
+check("step 2: badge says step 2 done", anyText("Etape 2 faite"))
+check("both steps done hint", anyText("Les 2 etapes sont faites"))
+check("no player name in the dump", not A.step1:find("Tester", 1, true) and not A.step2:find("Tester", 1, true))
 
 -- fermeture
-check("stop function registered", type(genvT.YslemGameUpdateStop) == "function")
-genvT.YslemGameUpdateStop()
+check("stop function registered", type(genvT.YslemAnalyzerStop) == "function")
+genvT.YslemAnalyzerStop()
 check("window closed", gui.Parent == nil)
-print(string.format("Update: %d ok, %d fail", passes, failures))
-if failures > 0 then error("update tests failed") end
+print(string.format("Analyzer: %d ok, %d fail", passes, failures))
+if failures > 0 then error("analyzer tests failed") end

@@ -8,14 +8,10 @@ description: "Game update" - le jeu a ete mis a jour (ou un script casse apres u
 Objectif : savoir TOUT ce qui a change dans le jeu depuis la derniere analyse, puis adapter nos scripts avec les noms reels.
 
 1. **Quel jeu ?** Steal An Egg (yslemHub, SourcesHub, standalones) ou Ride a Pet (yslempet_EggTP, friend/ShinEggFarm_yslem). Si ce n'est pas clair, le demander.
-2. **v2 = un seul fichier** : demander au joueur d'executer `yslem_GameUpdate_v2.lua` (renvoye avec SendUserFile) : il scanne, compare a la reference locale,
-   affiche les changements et `Copy` copie rapport + inventaire complet. Les etapes 3 a 6 s'appliquent avec ce texte ; l'etape 7 (retirer le bloc) n'est plus necessaire.
-   Ancienne voie (sans le fichier v2) :
-2bis. **Nouvel inventaire** : coller TEMPORAIREMENT le bloc `yslem GameScan` (marqueurs START/END de `yslem_GameScan.lua`) dans le script du jeu,
-   ajouter un bouton "snap" qui fait `GameScan.copy(GameScan.snapshot())` (et `GameScan.save(...)` si `writefile` existe), renvoyer le fichier au joueur.
-   Le joueur colle le resultat. L'inventaire est complet et stable : REMOTE, SCRIPT, SCREEN, BUTTON (nom + texte), PROMPT (action/objet/maintien),
-   WORLD (3 niveaux), STAT, ATTR (noms seulement, rien n'est modifie).
-3. **Sauvegarder** le texte dans `docs/scans/<Jeu>_<AAAA-MM-JJ>.txt` (commit). S'il n'y a AUCUN inventaire precedent pour ce jeu, celui-ci devient la
+2. **Un seul fichier, 2 etapes** : demander au joueur d'executer `yslem_GameAnalyzer.lua` (renvoye avec SendUserFile). Etape 1 = structure, Etape 2 = contenu
+   (donnees des modules RS/Data + tous les textes). Chaque etape copie un message pour toi + l'inventaire ; le joueur colle les deux dans le chat. Un badge en bas a droite
+   lui dit quand chaque etape est faite. Pas de bloc a coller ni a retirer.
+3. **Sauvegarder** le texte dans `docs/scans/<Jeu>_<AAAA-MM-JJ>_etape1.txt (et _etape2.txt)` (commit). S'il n'y a AUCUN inventaire precedent pour ce jeu, celui-ci devient la
    reference (baseline) : le dire, et lancer en plus `GameScan.run()` classique pour les faits lisibles (voir skill gamescan).
 4. **Comparer** : `python3 tools/gamediff.py docs/scans/<ancien>.txt docs/scans/<nouveau>.txt --out docs/scans/diff_<date>.md`.
    Le rapport donne supprime / deplace / ajoute / modifie et surtout **IMPACT sur nos scripts** (fichiers et lignes qui citent un nom touche).

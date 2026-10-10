@@ -58,7 +58,7 @@ def main():
 
     added = sorted(k for k in new if k not in old)
     removed = sorted(k for k in old if k not in new)
-    DYNAMIC = ("WORLD", "PROMPT", "BUTTON")  # un simple changement de nombre n'est pas une mise a jour
+    DYNAMIC = ("WORLD", "PROMPT", "BUTTON", "TEXT", "VALUE", "LIBRARY")  # un simple changement de nombre n'est pas une mise a jour
 
     def really_changed(k):
         o, n = old[k], new[k]
