@@ -105,9 +105,18 @@ local function collectStructure()
 				local lib = libraryRoot(p)
 				if lib then add("LIBRARY", "Scripts", lib) else add("SCRIPT", d.ClassName, p) end
 			elseif d:IsA("ValueBase") then
-				local extra = ""
-				if d:IsA("StringValue") or d:IsA("BoolValue") then extra = clean(d.Value, 60) end
-				add("VALUE", d.ClassName, rel(d, pair[1], pair[2]), extra)
+				local vp = rel(d, pair[1], pair[2])
+				local noisy = nil
+				for _, prefix in ipairs({"RS/CutsceneAssets", "RS/Assets", "RS/Controllers"}) do
+					if vp:sub(1, #prefix) == prefix then noisy = prefix break end
+				end
+				if noisy then
+					add("LIBRARY", "Values", noisy)
+				else
+					local extra = ""
+					if d:IsA("StringValue") or d:IsA("BoolValue") then extra = clean(d.Value, 60) end
+					add("VALUE", d.ClassName, vp, extra)
+				end
 			end
 		end)
 	end

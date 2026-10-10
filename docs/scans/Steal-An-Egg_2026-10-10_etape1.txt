@@ -1,0 +1,2773 @@
+#SNAPSHOT v3
+#STEP 1/2
+#GAME Steal An Egg PlaceId=107778070777162 GameId=10563114921
+#DATE 2026-10-10 18:17:28
+ATTR|Lighting|Lighting/OriginalAmbient||1
+ATTR|Lighting|Lighting/OriginalArchivable|true|1
+ATTR|Lighting|Lighting/OriginalBrightness||1
+ATTR|Lighting|Lighting/OriginalClockTime||1
+ATTR|Lighting|Lighting/OriginalColorShift_Bottom||1
+ATTR|Lighting|Lighting/OriginalColorShift_Top||1
+ATTR|Lighting|Lighting/OriginalEnvironmentDiffuseScale||1
+ATTR|Lighting|Lighting/OriginalEnvironmentSpecularScale||1
+ATTR|Lighting|Lighting/OriginalExposureCompensation||1
+ATTR|Lighting|Lighting/OriginalFogColor||1
+ATTR|Lighting|Lighting/OriginalFogEnd||1
+ATTR|Lighting|Lighting/OriginalFogStart||1
+ATTR|Lighting|Lighting/OriginalGeographicLatitude||1
+ATTR|Lighting|Lighting/OriginalGlobalShadows|true|1
+ATTR|Lighting|Lighting/OriginalName|Lighting|1
+ATTR|Lighting|Lighting/OriginalOutdoorAmbient||1
+ATTR|Lighting|Lighting/OriginalShadowSoftness||1
+ATTR|Lighting|Lighting/OriginalTimeOfDay|11:36:00|1
+ATTR|Lighting|Lighting/RBX_LightingTechnologyUnifiedMigration|true|1
+ATTR|Player|player/CashPackAmount1||1
+ATTR|Player|player/CashPackAmount2||1
+ATTR|Player|player/CashPackAmount3||1
+ATTR|Player|player/CashPackAmount4||1
+ATTR|Player|player/CashPackAmount5||1
+ATTR|Player|player/CashPackGroup||1
+ATTR|Player|player/CashPackQuoteRevision||1
+ATTR|Player|player/CashPacksReady||1
+ATTR|Player|player/EnchantedTreeUnlocked||1
+ATTR|Player|player/FriendsInServer||1
+ATTR|Player|player/JoinTick||1
+ATTR|Player|player/MonetizationAvatarMarketplaceValue||1
+ATTR|Player|player/MonetizationLuckyGamepassOwned||1
+ATTR|Player|player/MonetizationRobuxSpentTotal||1
+ATTR|Player|player/MonetizationX2MoneyGamepassOwned||1
+ATTR|Player|player/ProfileReady||1
+ATTR|Player|player/ScrambleCountdownReturningPlayer||1
+ATTR|Player|player/ShopVersionChanged||1
+ATTR|Player|player/__UG_NEW||1
+ATTR|Player|player/__UG||1
+ATTR|RS|RS/Emitter2D_Version||1
+ATTR|RS|RS/QA_PURCHASES|true|1
+ATTR|RS|RS/__MCPTopologyInstanceId|instance:dgt-nt6|1
+ATTR|RS|RS/__MCPTopologyMode|shared|1
+ATTR|RS|RS/__MCPTopologyToken|63bd2fe5-5fb7-4236-9d00-43fe3995658c|1
+ATTR|WS|WS/AreaEggCycleDefaultNightSeconds||1
+ATTR|WS|WS/AreaEggCyclePeriodSeconds||1
+ATTR|WS|WS/ButterflyBloomEndsAt||1
+ATTR|WS|WS/Event_ButterflyBloom|true|1
+ATTR|WS|WS/ExpandedLobbyServerGroup|Variant|1
+ATTR|WS|WS/LiveEventFlag_EnchantedForestOpen|true|1
+ATTR|WS|WS/LiveEventFlag_LightDarkReveal|{"WinnerPeriod":5972130,"Winner":"Light","RevealPeriod":5964...|1
+ATTR|WS|WS/LiveEventFlag_RiftOpen|true|1
+ATTR|WS|WS/LiveEventFlag_StarHandlerOpen|true|1
+ATTR|WS|WS/LogLevelClient|Trace|1
+ATTR|WS|WS/RaceEventBotCount||1
+ATTR|WS|WS/RaceEventBotsEnabled|true|1
+ATTR|WS|WS/ScrambleActiveDrones||1
+ATTR|WS|WS/ScrambleActiveDrops||1
+ATTR|WS|WS/ScrambleIsolatedStudioTest|true|1
+ATTR|WS|WS/ScrambleOutbreakActive|false|1
+ATTR|WS|WS/ScrambleOutbreakEndsAt||1
+BUTTON|ImageButton|GUI/ActivePets/Frame/Close||1
+BUTTON|ImageButton|GUI/ActivePets/Frame/EquipBest||1
+BUTTON|ImageButton|GUI/ActivePets/Frame/Header/PlusEquip||1
+BUTTON|ImageButton|GUI/ActivePets/Frame/ScrollingFrame/Pet_<id>/Spacer/ButtonsHolder/Ride||18
+BUTTON|ImageButton|GUI/ActivePets/Frame/ScrollingFrame/Pet_<id>/Spacer/ButtonsHolder/Unequip||18
+BUTTON|ImageButton|GUI/ActivePets/Frame/ScrollingFrame/Template/Spacer/ButtonsHolder/Ride||1
+BUTTON|ImageButton|GUI/ActivePets/Frame/ScrollingFrame/Template/Spacer/ButtonsHolder/Unequip||1
+BUTTON|ImageButton|GUI/AdEggBoostPopupUI/Container/Claim||1
+BUTTON|ImageButton|GUI/AdEggBoostPopupUI/Container/Close||1
+BUTTON|ImageButton|GUI/ApplyStarPopupConfirmationScreen/Frame/Content/No||1
+BUTTON|ImageButton|GUI/ApplyStarPopupConfirmationScreen/Frame/Content/Yes||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Close||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Common/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Cosmic/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Divine/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Epic/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Eternal/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Legendary/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Mythic/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Rare/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Secret/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/UIGridLayout/Template/TextButton||1
+BUTTON|ImageButton|GUI/AutoSell/Frame/Frame/Uncommon/TextButton||1
+BUTTON|ImageButton|GUI/BackpackGui/Backpack/Hotbar/EquipBest||1
+BUTTON|ImageButton|GUI/BackpackGui/Backpack/Hotbar/RoundChoices/DropAsset||1
+BUTTON|ImageButton|GUI/BackpackGui/Backpack/Hotbar/RoundChoices/EscapeAndKeep||1
+BUTTON|ImageButton|GUI/BackpackGui/Backpack/Main/Inventory/AutoSell||1
+BUTTON|ImageButton|GUI/BackpackGui/Backpack/Main/Inventory/CategoryFrame/CategoryTemplate/ImageButton||4
+BUTTON|ImageButton|GUI/BackpackGui/Backpack/Main/Inventory/Close||1
+BUTTON|ImageButton|GUI/BackpackGui/Backpack/Main/Inventory/FavoriteMode||1
+BUTTON|ImageButton|GUI/BossMastery/Frame/Close||1
+BUTTON|ImageButton|GUI/BossMastery/Frame/Header/BossShopButton||1
+BUTTON|ImageButton|GUI/BossMastery/Frame/ScrollingFrame/Infinite/Claim||1
+BUTTON|ImageButton|GUI/BossMastery/Frame/ScrollingFrame/Mastery#/Claim||4
+BUTTON|ImageButton|GUI/BossMastery/Frame/ScrollingFrame/Mastery3/Claim||1
+BUTTON|ImageButton|GUI/BossMastery/Frame/ScrollingFrame/Mastery5/Claim||1
+BUTTON|ImageButton|GUI/BossMastery/Frame/ScrollingFrame/Template/Claim||1
+BUTTON|ImageButton|GUI/BossShop/Main/BossMasteryButton||1
+BUTTON|ImageButton|GUI/BossShop/Main/Main/Close||1
+BUTTON|ImageButton|GUI/BossShop/Main/Main/ScrollingFrame/BossShopItemTemplate/Frame/Buy||1
+BUTTON|ImageButton|GUI/BossShop/Main/Main/ScrollingFrame/CashBooster/Frame/Buy||1
+BUTTON|ImageButton|GUI/BossShop/Main/Main/ScrollingFrame/MutationConsumable/Frame/Buy||1
+BUTTON|ImageButton|GUI/BossShop/Main/Main/ScrollingFrame/SpeedBoost/Frame/Buy||1
+BUTTON|ImageButton|GUI/BossShop/Main/Main/ScrollingFrame/TreadmillBooster/Frame/Buy||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/AdBoostx2Growth/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/AdminTreadmill/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/BossSpeedBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/Countdown/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/DemonicEvent/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/DragonEggEvent/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/EarningsBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/EggLuckBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/EggSizeBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/GreatBloom/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/GrowthBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/Luck/Button||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/MonsterEvent/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/MutationBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/PlayerEarningsBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/PlayerEggGrowthBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/PlayerSpeedBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/PowerUpFusion/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/PowerUpMagnet/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/PowerUpx2Rings/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/SpeedBoost/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/x2Growth/Icon||1
+BUTTON|ImageButton|GUI/BottomUI/BottomFrame/Holder/List/x2Luck/Icon||1
+BUTTON|ImageButton|GUI/ButterflyMachine/Frame/Close||1
+BUTTON|ImageButton|GUI/ButterflyMachine/Frame/Collection/TradeUp/Recipes/Recipe1||1
+BUTTON|ImageButton|GUI/ButterflyMachine/Frame/Collection/TradeUp/Recipes/Recipe2||1
+BUTTON|ImageButton|GUI/ButterflyMachine/Frame/Collection/TradeUp/Recipes/Recipe3||1
+BUTTON|ImageButton|GUI/ButterflyMachine/Frame/Collection/TradeUp/TradeButton||1
+BUTTON|ImageButton|GUI/CrateOpeningPopUpFrame/CrateOpeningPopUp/Skip||1
+BUTTON|ImageButton|GUI/DRrScrambleBossMasteryNewMilestones/Assets/MasteryRow/Claim||1
+BUTTON|ImageButton|GUI/DRrScrambleBossMasteryNewMilestones/Frame/Close||1
+BUTTON|ImageButton|GUI/DRrScrambleBossMasteryNewMilestones/Frame/Header/BossShopButton||1
+BUTTON|ImageButton|GUI/DRrScrambleBossMasteryNewMilestones/Frame/ScrollingFrame/#KillsSkin/Claim||5
+BUTTON|ImageButton|GUI/DrScrambleEventUI/DRScrambleEventUIMain/Close||1
+BUTTON|ImageButton|GUI/DrScrambleEventUI/DRScrambleEventUIMain/ContentFrame/ScrollingFrame/ShopItem/Card/Buy||4
+BUTTON|ImageButton|GUI/DrScrambleEventUI/DRScrambleEventUIMain/ContentFrame/ScrollingFrame/ShopItem/Card/SoldOut||4
+BUTTON|ImageButton|GUI/DrScrambleEventUI/DRScrambleEventUIMain/ContentFrame/ScrollingFrame/ShopItemLeavesTimer/Card/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleEventUI/DRScrambleEventUIMain/ContentFrame/ScrollingFrame/ShopItemLeavesTimer/Card/SoldOut||1
+BUTTON|ImageButton|GUI/DrScrambleEventUI/DRScrambleEventUIMain/ContentFrame/ScrollingFrame/ShopItem_Rare/Card/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleEventUI/DRScrambleEventUIMain/ContentFrame/ScrollingFrame/ShopItem_Rare/Card/SoldOut||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInInventory/Close||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInInventory/ScrollingFrame/Pet||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/Close||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/Refresh||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/SacrificeInputs/Input1/Empty/Add||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/SacrificeInputs/Input1/Full/Return||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/SacrificeInputs/Input2/Empty/Add||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/SacrificeInputs/Input2/Full/Return||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/SacrificeInputs/Input3/Empty/Add||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/SacrificeInputs/Input3/Full/Return||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/Sacrifice||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy1||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy2||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy3||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy4||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Infos||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Money/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Money/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Money/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Money/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Money/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Passes/Growth||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Passes/Money||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Speed/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Speed/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Speed/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Speed/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Speed/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/ScrollingFrame/Speed/c6/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInInventory/Close||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInInventory/ScrollingFrame/Pet||14
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/Close||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/SacrificeInputs/Input1/Empty/Add||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/SacrificeInputs/Input1/Full/Return||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/SacrificeInputs/Input2/Empty/Add||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/SacrificeInputs/Input2/Full/Return||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/SacrificeInputs/Input3/Empty/Add||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/SacrificeInputs/Input3/Full/Return||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/Sacrifice||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy1||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy2||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy3||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy4||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Infos||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Money/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Money/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Money/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Money/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Money/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Passes/Growth||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Passes/Money||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Speed/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Speed/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Speed/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Speed/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Speed/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/DrScrambleTradeInNEW/DrScrambleTradeInMain/ScrollingFrame/Speed/c6/Btns/Buy||1
+BUTTON|ImageButton|GUI/DropHeldEgg/Button||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/Close||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ContentFrame/Claim||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ContentFrame/VaultInComplete||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/DoubleSpeed/Spacer/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy1||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy2||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy3||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy4||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift1||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift2||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift3||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift4||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/LimitedEgg/Spacer/Infos||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c1/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c2/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c3/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c4/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Money/c5/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Passes/Growth/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Passes/Growth/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Passes/Growth||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Passes/Money/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Passes/Money/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Passes/Money||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c1/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c2/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c3/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Samples/c4/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c1/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c2/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c3/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c4/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c5/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c6/Btns/Buy||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/Speed/c6/Btns/Gift||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/UpgradeTreadmil/Spacer/Btns/Cash||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/Frame/ScrollingFrame/UpgradeTreadmil/Spacer/Btns/Robux||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/GiftingPopUp/Close||1
+BUTTON|ImageButton|GUI/EnchantedMutationShrine/GiftingPopUp/ScrollingFrame/PlayerTemplate/Select||5
+BUTTON|ImageButton|GUI/FreeGift/Frame/BuyCash||1
+BUTTON|ImageButton|GUI/FreeGift/Frame/Close||1
+BUTTON|ImageButton|GUI/GetMoreSpeedOnHit/Frame/Button||1
+BUTTON|ImageButton|GUI/GrowWispProgressUI/Frame/Close||1
+BUTTON|ImageButton|GUI/GrowWispProgressUI/Frame/ReturnButton_Ready||1
+BUTTON|ImageButton|GUI/GrowWispProgressUI/Frame/ReturnButton_Unready||1
+BUTTON|ImageButton|GUI/GrowingEggs/Frame/Close||1
+BUTTON|ImageButton|GUI/GrowingEggs/Frame/Header/GrowAll||1
+BUTTON|ImageButton|GUI/GrowingEggs/Frame/ScrollingFrame/<id>/Spacer/Open||14
+BUTTON|ImageButton|GUI/GrowingEggs/Frame/ScrollingFrame/<id>/Spacer/Skip||14
+BUTTON|ImageButton|GUI/GrowingEggs/Frame/ScrollingFrame/Template/Spacer/Open||1
+BUTTON|ImageButton|GUI/GrowingEggs/Frame/ScrollingFrame/Template/Spacer/Skip||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/BottomLeft/Speed/ShopBTN||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/DismountHUD/Dismount||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/DismountHUD/Mount||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/LeftControls/IndexBTN||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/LeftControls/ShopBTN||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/LeftControls/Slowmode/Btn||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/LeftControls/Slowmode/Hitbox||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/RightButtons/EggsButton||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/RightButtons/PetsButton||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/RightButtons/QuestlineButton||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/RightButtons/RaceRallyButton||1
+BUTTON|ImageButton|GUI/HUD/GameHUD/RightButtons/RiftButton||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/BottomLeft/Speed/ShopBTN||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/LeftControls/ShopBTN||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/LeftControls/SpeedMulti||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/RightButtons/EggsButton||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/RightButtons/PetsButton||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/RightButtons/QuestlineButton||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/RightButtons/RaceRallyButton||1
+BUTTON|ImageButton|GUI/HUD/TradmilHud/RightButtons/RiftButton||1
+BUTTON|ImageButton|GUI/Index/Frame/Close||1
+BUTTON|ImageButton|GUI/Index/Frame/Side/Rewards/Claim||1
+BUTTON|ImageButton|GUI/Index/Frame/TabButtons/Limited||1
+BUTTON|ImageButton|GUI/Index/Frame/TabButtons/World||1
+BUTTON|ImageButton|GUI/LightVsDarknessUI/PersonalRingMilestone/ProgressBar/Milestone1/ClaimButton||1
+BUTTON|ImageButton|GUI/LightVsDarknessUI/PersonalRingMilestone/ProgressBar/Milestone2/ClaimButton||1
+BUTTON|ImageButton|GUI/LightVsDarknessUI/PersonalRingMilestone/ProgressBar/Milestone3/ClaimButton||1
+BUTTON|ImageButton|GUI/LightVsDarknessUI/TeamSelection/ConfirmBTN||1
+BUTTON|ImageButton|GUI/LightVsDarknessUI/TeamSelection/TeamHolder/DarkTeam||1
+BUTTON|ImageButton|GUI/LightVsDarknessUI/TeamSelection/TeamHolder/LightTeam||1
+BUTTON|ImageButton|GUI/LimitedTimePopupsUI/LuminousEgg/CheckItOutBtn||1
+BUTTON|ImageButton|GUI/LimitedTimePopupsUI/LuminousEgg/Close||1
+BUTTON|ImageButton|GUI/Message/Frame/Close||1
+BUTTON|ImageButton|GUI/Message/Frame/Contents/Accept||1
+BUTTON|ImageButton|GUI/Message/Frame/Contents/Acknowledge||1
+BUTTON|ImageButton|GUI/Message/Frame/Contents/Decline||1
+BUTTON|ImageButton|GUI/MonsterChestRewards/Frame/Close||1
+BUTTON|ImageButton|GUI/MonsterEventTutorialFrame/MonsterEventTutorialFrame/Ok||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/Briefing/Ok||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/Close||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/FuseInputs/Input1/Empty/Add||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/FuseInputs/Input1/Full/Add||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/FuseInputs/Input2/Empty/Add||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/FuseInputs/Input2/Full/Add||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/FuseInputs/Input3/Empty/Add||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/FuseInputs/Input3/Full/Add||1
+BUTTON|ImageButton|GUI/PetFuse/FuseMain/Fuse||1
+BUTTON|ImageButton|GUI/PetFuse/FusePetInventory/Close||1
+BUTTON|ImageButton|GUI/PetFuse/FusePetInventory/IncludeEquipped/Box||1
+BUTTON|ImageButton|GUI/PetFuse/FusePetInventory/IncludeEquipped||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/Close||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/AddPhoto/Frame/Buttons/Add||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/AddPhoto/Frame/Buttons/Cancel||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/Sheet/Content/Comment_#/Avatar||10
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/FriendLikes/Frame/Main/Template/Button||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/Share/Frame/ShareButton||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/SideButtons/Frame/Buttons/CommentsButton||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/SideButtons/Frame/Buttons/LikeButton||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/SwapLeft/ButtonSwapLeft||1
+BUTTON|ImageButton|GUI/PhoneVideoUI/Phone/SwapRight/ButtonSwapRight||1
+BUTTON|ImageButton|GUI/PopupPrompt/Emptyv1/Close||1
+BUTTON|ImageButton|GUI/PopupPrompt/Emptyv1/Ok||1
+BUTTON|ImageButton|GUI/PopupPrompt/Emptyv2/Close||1
+BUTTON|ImageButton|GUI/PopupPrompt/Emptyv2/Ok||1
+BUTTON|ImageButton|GUI/PopupPrompt/PetFused/Close||1
+BUTTON|ImageButton|GUI/PopupPrompt/PetFused/Ok||1
+BUTTON|ImageButton|GUI/PopupPrompt/PurchaseSuccess/Close||1
+BUTTON|ImageButton|GUI/PopupPrompt/PurchaseSuccess/Ok||1
+BUTTON|ImageButton|GUI/PopupPrompt/SellAllPets/Close||1
+BUTTON|ImageButton|GUI/PopupPrompt/SellAllPets/No||1
+BUTTON|ImageButton|GUI/PopupPrompt/SellAllPets/Yes||1
+BUTTON|ImageButton|GUI/PopupPrompt/Sellv1/Close||1
+BUTTON|ImageButton|GUI/PopupPrompt/Sellv1/No||1
+BUTTON|ImageButton|GUI/PopupPrompt/Sellv1/Yes||1
+BUTTON|ImageButton|GUI/PopupPrompt/Sellv2/Close||1
+BUTTON|ImageButton|GUI/PopupPrompt/Sellv2/No||1
+BUTTON|ImageButton|GUI/PopupPrompt/Sellv2/Yes||1
+BUTTON|ImageButton|GUI/RacePowerUpUI/Slot||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/Close||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/CurrencyHolder/BuyMore||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/MasteryRow/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/MasteryRow_Gold/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/MasteryRow_Purple/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/MasteryRow_Rainbow/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/MasteryRow_Red/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/Repeat/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/Wins#/Claim||9
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/Wins1/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/Wins3/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/Wins5/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/MileStoneTab/ScrollingFrame/Wins7/Claim||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/Bird/Card/Equipped||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/Cheetah/Card/Equipped||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/Lizard/Card/Equipped||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/Ostrich/Card/Equipped||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/PetItem/Card/Equipped||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/PetItem/Card/Equip||5
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/Seahorse/Card/Equipped||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/PetTab/ScrollingFrame/Snail/Card/Equipped||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/CashBooster/Card/Buy||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/CashBooster/Card/SoldOut||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/DoubleTrophies/Card/Buy||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/DoubleTrophies/Card/SoldOut||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/MutationToken/Card/Buy||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/MutationToken/Card/SoldOut||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/RacingBat/Card/Buy||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/RacingBat/Card/SoldOut||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/ShopItem/Card/Buy||6
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/ShopItem/Card/SoldOut||6
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/SpeedBoost/Card/Buy||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/SpeedBoost/Card/SoldOut||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/TreadmillBoost/Card/Buy||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/ShopTab/ScrollingFrame/TreadmillBoost/Card/SoldOut||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/TabButtonsHolder/Milestones/Milestones||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/TabButtonsHolder/Racers/Racers||1
+BUTTON|ImageButton|GUI/RaceRallyUI/Main/TabButtonsHolder/ShopSlot/Shop||1
+BUTTON|ImageButton|GUI/RescueDragonFTUEQuest/FTUEQuestMain/Close||1
+BUTTON|ImageButton|GUI/RescueDragonFTUEQuest/FTUEQuestMain/Content/QuestHolder/Template/Claim||1
+BUTTON|ImageButton|GUI/RescueDragonFTUEQuest/FTUEQuestMain/Content/QuestHolder/Template/InProgress||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInInventory/Close||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInInventory/ScrollingFrame/Pet||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/Close||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/Refresh||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/SacrificeInputs/Input1/Empty/Add||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/SacrificeInputs/Input1/Full/Return||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/SacrificeInputs/Input2/Empty/Add||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/SacrificeInputs/Input2/Full/Return||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/SacrificeInputs/Input3/Empty/Add||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/SacrificeInputs/Input3/Full/Return||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/Sacrifice||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy1||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy2||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy3||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy4||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/LimitedEgg/Spacer/Infos||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Money/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Money/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Money/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Money/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Money/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Passes/Growth||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Passes/Money||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Speed/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Speed/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Speed/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Speed/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Speed/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/RiftTradeIn/RiftTradeInMain/ScrollingFrame/Speed/c6/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ButtonsHolder/Featured||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ButtonsHolder/Money||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ButtonsHolder/Samples||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ButtonsHolder/Speed||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ButtonsHolder/Stars||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/Close||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Cards/StarBundle#/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Cards/StarBundle1/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Cards/StarBundle3/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/DoubleSpeed/Spacer/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy1||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy2||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy3||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Buy4||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift1||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift2||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift3||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Btns/Gift4||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/LimitedEgg/Spacer/Infos||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c1/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c2/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c3/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c4/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Money/c5/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Buy1||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Buy2||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Buy3||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Buy4||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Gift1||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Gift2||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Gift3||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Btns/Gift4||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/OldLimitedEgg/Spacer/Infos||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Passes/Growth/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Passes/Growth/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Passes/Growth||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Passes/Money/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Passes/Money/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Passes/Money||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c1/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c2/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c3/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Samples/c4/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c1/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c2/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c3/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c4/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c5/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c6/Btns/Buy||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/Speed/c6/Btns/Gift||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/UpgradeTreadmil/Spacer/Btns/Cash||1
+BUTTON|ImageButton|GUI/RobuxShop/Frame/ScrollingFrame/UpgradeTreadmil/Spacer/Btns/Robux||1
+BUTTON|ImageButton|GUI/RobuxShop/GiftingPopUp/Close||1
+BUTTON|ImageButton|GUI/RobuxShop/GiftingPopUp/ScrollingFrame/PlayerTemplate/Select||5
+BUTTON|ImageButton|GUI/RollbackRewardUI/Main/Close||1
+BUTTON|ImageButton|GUI/RollbackRewardUI/Main/Contents/Ok||1
+BUTTON|ImageButton|GUI/SakuraCrystalCounter/Counter/Holder/Icon||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Close||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Content/Deposit||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Content/Mutate||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Content/ProgressBar/SliderButton||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Content/ProgressBarHolder/ProgressBar/SliderButton||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Content/RemoveEgg||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Content/SliderBar/SliderButton||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/Help||1
+BUTTON|ImageButton|GUI/SakuraEggCharge/SakuraEggCharge/SidePopUp/BuyLuck||1
+BUTTON|ImageButton|GUI/SakuraEventTutorialFrame/SakuraEventTutorialFrame/Ok||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/Close||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/Header/BossShopButton||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/NextRewardIcon||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/#KillsSkin/Claim||5
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/Scramble#/Claim||18
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/Scramble1/Claim||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/Scramble3/Claim||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/Scramble5/Claim||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/Scramble7/Claim||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/ScrambleInfinite/Claim||1
+BUTTON|ImageButton|GUI/ScrambleBossMastery/Frame/ScrollingFrame/Template/Claim||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/Close||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/SellInfoHolder/Sell||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/SortByHolder/Clear||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/SortByHolder/SelectAll||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/SortByHolder/Value||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/SortByHolder/Weight||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/TabButtonHolder/EggsTab||1
+BUTTON|ImageButton|GUI/SellPrompt/Frame/TabButtonHolder/PetsTab||1
+BUTTON|ImageButton|GUI/SellPrompt/HudToggle||1
+BUTTON|ImageButton|GUI/Settings/Frame/Close||1
+BUTTON|ImageButton|GUI/Settings/Frame/ScrollingFrame/CreatorPanel/ControlBar/Btn||1
+BUTTON|ImageButton|GUI/Settings/Frame/ScrollingFrame/DisableVideos/ControlBar/Btn||1
+BUTTON|ImageButton|GUI/Settings/Frame/ScrollingFrame/HideOtherPets/ControlBar/Btn||1
+BUTTON|ImageButton|GUI/Settings/Frame/ScrollingFrame/HideSelfPets/ControlBar/Btn||1
+BUTTON|ImageButton|GUI/ShiftLockButton/ImageButton||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/Close||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/DoubleSpeed/Spacer/Buy||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c1/Btns/Buy||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c1/Btns/Gift||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c2/Btns/Buy||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c2/Btns/Gift||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c3/Btns/Buy||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c3/Btns/Gift||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c4/Btns/Buy||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c4/Btns/Gift||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c5/Btns/Buy||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c5/Btns/Gift||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c6/Btns/Buy||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/Speed/c6/Btns/Gift||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/UpgradeTreadmil/Spacer/Btns/Cash||1
+BUTTON|ImageButton|GUI/SpeedShop/Frame/ScrollingFrame/UpgradeTreadmil/Spacer/Btns/Robux||1
+BUTTON|ImageButton|GUI/StolenVaultEventUI/StolenVaultEventUIMain/Close||1
+BUTTON|ImageButton|GUI/StolenVaultEventUI/StolenVaultEventUIMain/ContentFrame/Claim||1
+BUTTON|ImageButton|GUI/StolenVaultEventUI/StolenVaultEventUIMain/ContentFrame/VaultInComplete||1
+BUTTON|ImageButton|GUI/TouchGui/TouchControlFrame/JumpButton||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/Close||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/BlueTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/BlueTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/BlueTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/BlueTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/DivineTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/DivineTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/DivineTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/DivineTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/EternalTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/EternalTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/EternalTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/EternalTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GalaxyTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GalaxyTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GalaxyTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GalaxyTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GoldenTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GoldenTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GoldenTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GoldenTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreenTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreenTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreenTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreenTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreyTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreyTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreyTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/GreyTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/MoonbloomTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/MoonbloomTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/MoonbloomTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/MoonbloomTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/PurpleTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/PurpleTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/PurpleTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/PurpleTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/RedTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/RedTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/RedTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/RedTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/SecretTrail/LockedControls/BuyCash||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/SecretTrail/LockedControls/BuyRbx||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/SecretTrail/OwnedControls/Equip||1
+BUTTON|ImageButton|GUI/TrailShop/Frame/ScrollingFrame/SecretTrail/OwnedControls/Unequip||1
+BUTTON|ImageButton|GUI/TreadmillScreenButtonShare/Frame/ShareButton||1
+BUTTON|ImageButton|GUI/TreadmillScreenButtonSwapLeft/ButtonSwapLeft||1
+BUTTON|ImageButton|GUI/TreadmillScreenButtonSwapRight/ButtonSwapRight||1
+BUTTON|ImageButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/AddPhoto/Frame/Buttons/Add||1
+BUTTON|ImageButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/AddPhoto/Frame/Buttons/Cancel||1
+BUTTON|ImageButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/Sheet/Content/Comment_#/Avatar||1
+BUTTON|ImageButton|GUI/TreadmillScreenFriendLikes/Frame/Main/Template/Button||1
+BUTTON|ImageButton|GUI/TreadmillScreenSideButtons/Frame/Buttons/CommentsButton||1
+BUTTON|ImageButton|GUI/TreadmillScreenSideButtons/Frame/Buttons/LikeButton||1
+BUTTON|ImageButton|GUI/WispCompanion/Frame/Close||1
+BUTTON|ImageButton|GUI/WispCompanion/Frame/Quests/Template/Claim||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Hotbar/1||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Hotbar/2||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Hotbar/3||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Hotbar/4||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Hotbar/5||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/Capacity|Pets: #/#|1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/ScrollingFrame/#||123
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/ScrollingFrame/6||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/ScrollingFrame/7||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/ScrollingFrame/8||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/ScrollingFrame/9||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/ScrollingFrame/Template||1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/Search/X|X|1
+BUTTON|TextButton|GUI/BackpackGui/Backpack/Main/Inventory/VRInventorySelector||2
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/FreecamControls/Back|v|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/FreecamControls/Down|Down|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/FreecamControls/Exit|Exit|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/FreecamControls/Forward|^|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/FreecamControls/Left|<|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/FreecamControls/Right|>|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/FreecamControls/Up|Up|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/InvitePrompt/Accept|Accept & join|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/InvitePrompt/Decline|Decline|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Launcher|Creator Panel|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Header/Close|X|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Header/Minimize|–|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Disguise/Back|< Back|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Disguise/Find|Find|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Disguise/Send|Disguise|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Follow/Back|< Back|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Follow/Find|Find|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Follow/Send|Follow player|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Invite/Back|< Back|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Invite/Confirmation/Cancel|Cancel|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Invite/Confirmation/Confirm|Add guest|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Invite/Find|Find|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Invite/Send|Invite player|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Picker/Back|< Back|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Picker/Sort|Rarity ↑|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/AddForm/Lookup|Preview account|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/AddForm/Queue|Add|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/Add|Add guest|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/Back|< Back|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/Confirmation/Cancel|Cancel|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/Confirmation/Confirm|Add guest|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/Invite|Start your server to invite|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Overlay/Whitelist/RemoveSelected|Remove 0|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Free camera/Content/Body/Toggle/Switch||3
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Hide game UI/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Hide game UI/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Hide nameplates/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Hide nameplates/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Spectate player/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Spectate player/Content/Body/PrimaryButton|Spectate|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Camera/Spectate player/Content/Body/SecondaryButton|Stop|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Egg disguise/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Egg disguise/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Egg disguise/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Go to zone/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Go to zone/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Go to zone/Content/Body/PrimaryButton|Go|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Guard disguise/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Guard disguise/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Guard disguise/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Invincibility/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Invincibility/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Movement speed/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Movement speed/Content/Body/PrimaryButton|Apply|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Movement speed/Content/Body/SecondaryButton|Reset|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Movement speed/Content/Body/Slider/Track||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Character/Player disguise/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give animal/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give animal/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give animal/Content/Body/PrimaryButton|Give|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give egg/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give egg/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give egg/Content/Body/PrimaryButton|Give|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give event items/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give event items/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Give event items/Content/Body/PrimaryButton|Give|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Skip egg timer/Content/Body/Dropdown/Choose|Choose an egg|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Skip egg timer/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Skip egg timer/Content/Body/PrimaryButton|Skip timer|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Spawn an egg/Content/Body/Dropdown/Choose|Choose...|2
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Spawn an egg/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Spawn an egg/Content/Body/PrimaryButton|Spawn|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Collection/Spawn an egg/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Manage/Close creator server/Content/Body/DangerButton|Close server|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Manage/Close creator server/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Manage/Follow player/Content/Body/PrimaryButton|Find a player|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Manage/Open creator server/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Manage/Open creator server/Content/Body/PrimaryButton|Open server|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Mutations/Mutate a pen pet/Content/Body/Dropdown/Choose|Choose a pet|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Mutations/Mutate a pen pet/Content/Body/Dropdown/Choose|No mutation|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Mutations/Mutate a pen pet/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Mutations/Mutate a pen pet/Content/Body/PrimaryButton|Apply|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Mutations/Spawn mutated pet/Content/Body/Dropdown/Choose|Choose...|2
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Mutations/Spawn mutated pet/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Mutations/Spawn mutated pet/Content/Body/PrimaryButton|Spawn|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Announcement/Content/Body/PrimaryButton|Send|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Cancel server event/Content/Body/PrimaryButton|Cancel event|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Clear eggs/Content/Body/Dropdown/Choose|All rarities|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Clear eggs/Content/Body/PrimaryButton|Clear eggs|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Guard speed & size/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Guard speed & size/Content/Body/PrimaryButton|Apply|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Guard speed & size/Content/Body/SecondaryButton|Reset|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Guard speed & size/Content/Body/Slider/Track||2
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Pause pursuit/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Pause pursuit/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Pause pursuit/Content/Body/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Stage a prank/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Stage a prank/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Stage a prank/Content/Body/PrimaryButton|Run prank|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Start server event/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Scene/Start server event/Content/Body/PrimaryButton|Start event|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Invite players/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Invite players/Content/Body/PrimaryButton|Find a player|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Join server/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Join server/Content/Body/PrimaryButton|Join server|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Manage whitelist/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Manage whitelist/Content/Body/PrimaryButton|Manage guests|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Send player/Content/Body/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Send player/Content/Body/Dropdown/Choose|You · yslem|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Pages/Servers/Send player/Content/Body/PrimaryButton|Send|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Resize||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Tabs/Camera|Camera|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Tabs/Character|Character|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Tabs/Collection|Collection|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Tabs/Manage|Manage|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Tabs/Mutations|Mutations|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Tabs/Scene|Scene|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Root/Tabs/Servers|Servers|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Templates/AssetTile||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Templates/CommandCard||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Templates/EntryRow/Discard|X|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Templates/Field/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Templates/Option|Option|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/Templates/PlayerTile||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/AssetTile||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/CommandCard||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/DangerButton|Close|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Dropdown/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/EntryRow/Discard|X|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Field/Choose|Choose...|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Header/Close|X|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Option|Option|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Picker/Back|< Back|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Picker/Sort|Rarity ↑|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/PlayerTile||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/PrimaryButton|Confirm|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/SecondaryButton|Back|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Slider/Track||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Tab|Tab|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Toggle/Switch||1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Window/Header/Close|X|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Window/Header/Minimize|–|1
+BUTTON|TextButton|GUI/ContentCreatorsAdminPanel/UIKit/Window/Resize||1
+BUTTON|TextButton|GUI/DrScrambleTradeIn/DrScrambleTradeInMain/CurrentEggInfoHolder/ScrollingFrame/Template/SelectHit||3
+BUTTON|TextButton|GUI/EnchantedMutationShrine/GiftingPopUp/ScrollingFrame/PlayerTemplate/Gift||5
+BUTTON|TextButton|GUI/GrowWispProgressUI/Frame/ContentFrame/QuestHolder/eternal_egg/Claim||1
+BUTTON|TextButton|GUI/GrowWispProgressUI/Frame/ContentFrame/QuestHolder/forest_eggs/Claim||1
+BUTTON|TextButton|GUI/GrowWispProgressUI/Frame/ContentFrame/QuestHolder/forest_fusion/Claim||1
+BUTTON|TextButton|GUI/Index/Frame/Unlocked/PressSurface||1
+BUTTON|TextButton|GUI/MountRaceUI/FinishBanner/LeaveButton|RETURN HOME|1
+BUTTON|TextButton|GUI/MountRaceUI/Handbrake|DRIFT|1
+BUTTON|TextButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/Sheet/Actions/Content/AddPhoto||1
+BUTTON|TextButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/Sheet/Actions/Content/Send||1
+BUTTON|TextButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/Sheet/Actions/Content/TextInputWrapper/AddedPhoto/RemoveButton||1
+BUTTON|TextButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/Sheet/Content/Comment_#/Content/Actions/Right/Like||10
+BUTTON|TextButton|GUI/PhoneVideoUI/Phone/Comments/Frame/CommentsTemplate/Sheet/Header/Content/Close||1
+BUTTON|TextButton|GUI/PhoneVideoUI/Phone/TapCatcher||1
+BUTTON|TextButton|GUI/RiftTradeIn/RiftTradeInMain/CurrentEggInfoHolder/ScrollingFrame/Template/SelectHit||3
+BUTTON|TextButton|GUI/RobuxShop/GiftingPopUp/ScrollingFrame/PlayerTemplate/Gift||5
+BUTTON|TextButton|GUI/SellPrompt/Backdrop||1
+BUTTON|TextButton|GUI/Settings/Frame/ScrollingFrame/MenuNavigation/Buttons|Buttons|1
+BUTTON|TextButton|GUI/Settings/Frame/ScrollingFrame/MenuNavigation/Cursor|Cursor|1
+BUTTON|TextButton|GUI/Settings/Frame/ScrollingFrame/Music/ControlBar/VolumeDragHandle||1
+BUTTON|TextButton|GUI/Settings/Frame/ScrollingFrame/SFX/ControlBar/VolumeDragHandle||1
+BUTTON|TextButton|GUI/TopbarStandard/Holders/Left/InventoryIcon/IconButton/Menu/IconSpot/ClickRegion||1
+BUTTON|TextButton|GUI/TopbarStandard/Holders/Left/OverflowLeft/IconButton/Menu/IconSpot/ClickRegion||1
+BUTTON|TextButton|GUI/TopbarStandard/Holders/Left/Settings/IconButton/Menu/IconSpot/ClickRegion||1
+BUTTON|TextButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/Sheet/Actions/Content/AddPhoto||1
+BUTTON|TextButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/Sheet/Actions/Content/Send||1
+BUTTON|TextButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/Sheet/Actions/Content/TextInputWrapper/AddedPhoto/RemoveButton||1
+BUTTON|TextButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/Sheet/Content/Comment_#/Content/Actions/Right/Like||1
+BUTTON|TextButton|GUI/TreadmillScreenComments/Frame/CommentsTemplate/Sheet/Header/Content/Close||1
+BUTTON|TextButton|GUI/WispCompanion/Frame/Action|Complete all 4 stages|1
+LIBRARY|Scripts|RS/CmdrClient/CmdrInterface||3
+LIBRARY|Scripts|RS/CmdrClient/Shared||5
+LIBRARY|Scripts|RS/CmdrClient/Types||33
+LIBRARY|Scripts|RS/Packages/_Index||87
+LIBRARY|Scripts|RS/UserGenerated||121
+PROMPT|ProximityPrompt|WS/Plots/1/EventBoard/Display/Attachment/ProximityPrompt|Follow Event /  / hold=0|1
+PROMPT|ProximityPrompt|WS/Plots/2/EventBoard/Display/Attachment/ProximityPrompt|Follow Event /  / hold=0|1
+PROMPT|ProximityPrompt|WS/Plots/3/EventBoard/Display/Attachment/ProximityPrompt|Follow Event /  / hold=0|1
+PROMPT|ProximityPrompt|WS/Plots/4/EventBoard/Display/Attachment/ProximityPrompt|Follow Event /  / hold=0|1
+PROMPT|ProximityPrompt|WS/Plots/5/EventBoard/Display/Attachment/ProximityPrompt|Follow Event / Halloween Dimension🎃 / hold=0|1
+PROMPT|ProximityPrompt|WS/Plots/6/EventBoard/Display/Attachment/ProximityPrompt|Follow Event /  / hold=0|1
+PROMPT|ProximityPrompt|WS/Plots/7/EventBoard/Display/Attachment/ProximityPrompt|Follow Event /  / hold=0|1
+PROMPT|ProximityPrompt|WS/SmartPromptPart/CarryAreaEgg|Steal / Egg / hold=1.2000000476837158|65
+PROMPT|ProximityPrompt|WS/SmartPromptPart/ProximityPrompt|Apply Mutation / Egg / hold=1|20
+PROMPT|ProximityPrompt|WS/SmartPromptPart/ProximityPrompt|Hatch! / Hatch! / hold=0|1
+PROMPT|ProximityPrompt|WS/SmartPromptPart/ProximityPrompt|Skip Growth! / Skip Growth! / hold=0|13
+PROMPT|ProximityPrompt|WS/Stands/Prompts/SellAll/ProximityPrompt|Sell <font color="##FF#">All</font>? /  / hold=0|1
+PROMPT|ProximityPrompt|WS/Stands/Prompts/SellHeldAsset/ProximityPrompt|Sell <font color="##FF#">this</font> item? /  / hold=0|1
+PROMPT|ProximityPrompt|WS/Transient/PlayerTrap/UnplacePrompt|Unplace / Trap / hold=0|5
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedForestZone/WispSpawn/WispTalkPrompt|Talk / Baby Wisp / hold=0|1
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedForestZone/Zone#Props/EnchantedTree/WispAnchor/WispTreePrompt|Return Wisp / Enchanted Tree / hold=0|1
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedTreeInterior/Banjo Secret Room/NPCs/Band/BanjoCricket/RootPart/BanjoCricketTalk|Talk / Jitterbug / hold=0|1
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedTreeInterior/FusionShrine/LionPad/PromptAnchor/PlacePrompt|Place Celestial Sunlion / Lion Pad / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedTreeInterior/FusionShrine/LionPad2/PromptAnchor/PlacePrompt|Place Celestial Sunlion / Lion Pad / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedTreeInterior/FusionShrine/WhalePad/PromptAnchor/PlacePrompt|Place Royal Skywhale / Whale Pad / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedTreeInterior/FusionShrine/WhalePad2/PromptAnchor/PlacePrompt|Place Royal Skywhale / Whale Pad / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Build/EnchantedTreeInterior/Markers/EnterTrigger/EnchantedTreeEntrance/EnchantedTreePrompt|Enter / Enchanted Tree / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Build/StarHandler/RootPart/InteractionPoint/StarHandlerPrompt|Talk / Star Handler / hold=0|1
+PROMPT|ProximityPrompt|WS/World/GroupReward/ProximityPrompt|CLAIM! /  / hold=0|1
+PROMPT|ProximityPrompt|WS/World/Machines/ButterflyStation/ButterflyMachine/Anchor/ProximityPrompt|Open / Convert / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Machines/ButterflyStation/MutationShrine/Anchor/ProximityPrompt|Open / Enchanted Altar / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Machines/ButterflyStation/NetStand/Anchor/ProximityPrompt|Claim Net / Butterfly Net / hold=0.20000000298023224|1
+PROMPT|ProximityPrompt|WS/World/Machines/FuseMachine/Machine/Attachment/ProximityPrompt|Fuse Pets / Fuse Machine / hold=0|1
+PROMPT|ProximityPrompt|WS/World/Machines/RiftMachine/Machine/Attachment/ProximityPrompt|Dr. Scramble's Laboratory /  / hold=0|1
+REMOTE|BindableEvent|RS/Api||1
+REMOTE|BindableEvent|RS/RVBillboard_Cash_Reward/Remotes/SyncSignal||1
+REMOTE|RemoteEvent|RS/AdEggBoostRemotes/AdEggBoostConfigResult||1
+REMOTE|RemoteEvent|RS/AdEggBoostRemotes/AdGrowthBoostResult||1
+REMOTE|RemoteEvent|RS/AdEggBoostRemotes/LogTelemetry||1
+REMOTE|RemoteEvent|RS/CmdrClient/CmdrEvent||1
+REMOTE|RemoteEvent|RS/ContentCreatorRemotes/Update||1
+REMOTE|RemoteEvent|RS/GearTools/ShopItems/BeeLauncher/BeeLauncherRemote||1
+REMOTE|RemoteEvent|RS/GearTools/ShopItems/Trap/TrapRemote||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Alerts/Raise||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/AwayEarnings/Redeemed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/AwayEarnings/SummaryRefreshed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BanjoCricket/Aim||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BanjoCricket/BridgeFormed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BanjoCricket/Effect||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BanjoCricket/Squish||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BatSwing/Trigger||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskCatchFirefly||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskClaimReward||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskFinishEscape||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskFinishFlight||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskLaunch||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskPour||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskSlideCrash||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskStartTimer||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BeanstalkEvent/AskStealEgg||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Bloomery/AskStrikeTree||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Bloomery/CutsceneOpened||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Bloomery/PetalsGathered||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BossEvent/BlackHoleHit||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BossEvent/BossDamaged||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BossEvent/HazardHit||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BossEvent/HealthShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BossEvent/StateShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/BossEvent/Vfx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Broadcasts/FlashUserId||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Broadcasts/RaiseNotice||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Butterflies/Announce||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Butterflies/Escaped||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Butterflies/NetClaimed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Butterflies/Removed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Butterflies/Spawned||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ChatFeed/Post||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/DanceGadget/AskDance||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/DanceGadget/AttachEffect||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/DanceGadget/DetachEffect||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/DanceGadget/EmitSfx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggCapture/CutsceneBegan||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggCapture/StandingsRefreshed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/FieldEggBatchShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/FieldEggCarry||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/FieldEggCycleCountdown||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/FieldEggGone||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/FieldEggRaritiesShown||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/FieldEggRedeemVerdict||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/FieldEggShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/OwnerDropped||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EggWorld/OwnerShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/EnchantedTree/Transition||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/FuseBiome/PortalTransition||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GearSatchel/Gained||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GearSatchel/Lost||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Gifting/Completed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Gifting/PromptFinished||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Gifting/Received||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GravityDisruptor/AskPlace||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GravityDisruptor/Burst||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GuardOnboarding/LiveStateShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GuardPatrol/EnabledShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GuardPatrol/ForestHandoff||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GuardPatrol/ForestStrike||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GuardPatrol/Rouse||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GuardPatrol/SpeedTollOffer||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GuardPatrol/SpeedTollWarning||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GunGadget/AskDischarge||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/GunGadget/DropCaster||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Homestead/AskBaseTierRaise||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Homestead/AskLobbyHop||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Homestead/AskNearbyPurchase||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Homestead/BaseTierRaised||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Homestead/DimBaseOutline||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Homestead/LitBaseOutline||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Homestead/StateShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/IdleRescue/AskRescueHop||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/IdleRescue/SubmitIdleFlag||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LaserGadget/AskDischarge||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LaserGadget/EmitBeam||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LaserGadget/EmitSfx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Leaderboards/Updated||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Lifecycle/BeginShutdown||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/AskClaimMilestone||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/AskCollectPowerUp||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/AskCollectRing||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/AskSelectTeam||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/PowerUpCollected||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/PowerUpsCleared||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/PowerUpsDropped||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/PowerUpsSky||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/RingCollected||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/RingRespawned||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/RingsCleared||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/RingsSpawned||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/ScoreChanged||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LightVsDarkness/Struck||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LimitedTimePopups/ShowLimitedTimePopup||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Limpness/WriteLimpness||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LiveEvents/Began||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LiveEvents/Ended||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/LuckWindow/StateRefreshed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MagnetGadget/AskTug||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MagnetGadget/EmitBeam||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MagnetGadget/EmitTargetFx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MagnetGadget/HaltBeam||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MagnetGadget/HaltTargetFx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MegaphoneGadget/CloseEffectWindow||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MegaphoneGadget/EmitFx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MegaphoneGadget/EmitSfx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MegaphoneGadget/OpenEffectWindow||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MegaphoneGadget/Rouse||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MineTrap/AskPlace||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MineTrap/AttachOutline||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MineTrap/TrapSet||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterEvent/PlaySFX||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterEvent/WinPartsUpdated||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterEvent/WinsUpdated||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterParasite/AskFullChargeReset||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterParasite/AskGrowthSwap||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterParasite/ChestOpened||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterParasite/EventStateShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterParasite/FeedSettled||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MonsterParasite/StateShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MountRace/AskLeave||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MountRace/OutroFinished||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MountRace/PowerUpMoment||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/MountRace/PowerUp||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PassGrants/Awarded||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Payouts/Shower||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PenRoster/CoinsGathered||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PenRoster/OwnerDropped||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PenRoster/OwnerShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PetSatchel/SellEveryPet||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PetSatchel/SellPet||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PetSatchel/SellSelection||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/PetSatchel/WriteFavourite||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Preferences/PreferenceShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ProfileMirror/ProfileDelta||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RedLightGreenLight/Caught||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RedLightGreenLight/Cover||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Referrals/InviteLanded||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RewardScreen/Show||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Rift/BannerRotated||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RigSync/AskRigWipe||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RigSync/CorrectionBegan||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RigSync/Primed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RigSync/ProbeSatchel||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RigSync/Refresh||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RigSync/SeedSatchel||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/RollbackRewards/ShowNotice||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SammyEvent/AskCollectPickup||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SammyEvent/BomberRow||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SammyEvent/ElephantCharge||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SammyEvent/PickupCollected||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SammyEvent/PickupRespawned||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SammyEvent/PickupsCleared||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SammyEvent/PickupsSpawned||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Scramble/Collect||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Scramble/Drones||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Scramble/Drops||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Scramble/Effect||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Scramble/RemoveDrops||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Scramble/State||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ScrambleBoss/Fx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ScrambleBoss/HazardHit||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ScrambleBoss/Hazard||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ScrambleBoss/Transition||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ScrambleTradeIn/BannerRotated||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SharedFx/JoltOnce||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Catch||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Celebrate||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Claimed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Expired||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Fall||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Fed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Hold||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Slipped||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShootingStar/Wander||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShrineFusion/Feedback||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShrineFusion/Ritual||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ShrineFusion/StateChanged||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SoundBus/EmitSound||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/GrantSelfEgg||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/GrantSelfPet||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/GrantVerdict||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/ProbeStaffStatus||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/SpeedPowerVerdict||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/StaffVerdict||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/WipeSelfProfile||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/WipeVerdict||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/WriteSpeedPower||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/StaffConsole/WriteWalkSpeed||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Storefront/Awarded||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Storefront/PurchaseRejected||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Storefront/PurchaseSettled||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Storefront/ReceiptCleared||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SwapGadget/AskSwap||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SwapGadget/EmitFx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/SwapGadget/EmitSfx||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Telemetry/SubmitIdleState||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Toasts/Line||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ToolTrigger/Trigger||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Trailwear/WornTrailShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/TrapPlacement/AskPlace||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Treadmill/AssignedBeltShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Treadmill/OverlaySnapshot||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Treadmill/RefreshClipCursor||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Treadmill/RenderStateShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Treadmill/SpeedGained||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Treadmill/SubmitClipView||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Treadmill/ViewStateShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/TrexRun/Herd||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/TrexRun/Trampled||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/TrexRun/Wave||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Trials/Refresh||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Voting/Vote||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/Whodunnit/RoundShifted||1
+REMOTE|RemoteEvent|RS/Packages/Networking/RE/ZoneProbe/AnchorForZone||1
+REMOTE|RemoteEvent|RS/RVBillboard_Cash_Reward/Remotes/AdResult||1
+REMOTE|RemoteEvent|RS/RVBillboard_Cash_Reward/Remotes/LogTelemetry||1
+REMOTE|RemoteEvent|RS/RVBillboard_Cash_Reward/Remotes/ShowAd||1
+REMOTE|RemoteEvent|RS/UserGenerated/ABTests/SharedABTests/Update||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/Accept||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/Fps||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/LibMPDevice||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/LibMPFrame||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/LibMPRequired||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/LibMPRequiring||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/LiveRequest||1
+REMOTE|RemoteEvent|RS/UserGenerated/Analytics/ClientKit/LiveResponse||1
+REMOTE|RemoteEvent|RS/UserGenerated/FastFlags/SharedFastFlags/Update||1
+REMOTE|RemoteEvent|RS/__ReplicatorInternal/RemoteEvent||1
+REMOTE|RemoteFunction|RS/AdEggBoostRemotes/AskAdGrowthBoost||1
+REMOTE|RemoteFunction|RS/CmdrClient/CmdrFunction||1
+REMOTE|RemoteFunction|RS/ContentCreatorRemotes/Request||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/AwayEarnings/AskCollect||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/AwayEarnings/FetchSummary||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/AwayEarnings/PendingCheck||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/BanjoCricket/AskClaim||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Bloomery/AskBriefingConfirm||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Bloomery/AskCraneReturn||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Bloomery/AskEjectEgg||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Bloomery/AskGatherPetal||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Bloomery/AskHandoff||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Bloomery/AskLoadEgg||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Bloomery/AskMutate||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/BossEvent/AskEnter||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/BossEvent/AskSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/BossMastery/AskBuyShopItem||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/BossMastery/AskClaimMilestone||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/BossMastery/AskUseMutationConsumable||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Butterflies/AskClaimNet||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Butterflies/AskCraftEssence||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Butterflies/AskSwarm||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Butterflies/AskSwing||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Butterflies/AskTradeUp||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Codex/AskRedeemAll||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Codex/AskRedeemLimitedEgg||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Codex/AskRedeem||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Codex/AskWearFieldBat||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskDoffTool||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskEggRecord||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskFieldEggCarry||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskFieldEggDrop||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskFieldEggRarityShows||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskFieldEggSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskFinishHatch||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskHatch||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskLiveSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskPlaceEgg||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskSkipGrowth||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/EggWorld/AskWearTool||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Fusery/BeginFuse||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Fusery/ConfirmBriefing||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Fusery/EjectPet||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Fusery/FinishReveal||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Fusery/LoadPet||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Gifting/AskGift||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/GroupPerk/RedeemPerk||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/GuardOnboarding/AskLiveState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/GuardOnboarding/AskProgressSync||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/GuardPatrol/AskEnabled||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Haul/FetchAutoSell||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Haul/FetchWearBestStatus||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Haul/OfferFullSatchelSale||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Haul/WearBest||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Haul/WriteAutoSell||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Homestead/AskState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Leaderboards/Fetch||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LightVsDarkness/FetchPowerUps||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LightVsDarkness/FetchRings||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LightVsDarkness/FetchScore||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LiveEvents/FetchCatalogue||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LiveEvents/FetchRecurringEta||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LiveEvents/FetchRunning||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LiveEvents/FetchScheduled||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/LuckWindow/FetchState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterEvent/GetWinParts||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterEvent/GetWins||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterEvent/RequestTeleport||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterParasite/AskChestClaim||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterParasite/AskChestRevealComplete||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterParasite/AskChestTake||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterParasite/AskFeed||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/MonsterParasite/AskSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/OnboardingQuestline/AskAcknowledge||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/OnboardingQuestline/AskClaim||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PenRoster/AskDoff||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PenRoster/AskLiveSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PenRoster/AskSale||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PenRoster/AskWearLimit||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PenRoster/AskWear||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PenRoster/ConfirmEquipBestBadge||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PenRoster/ConfirmPetsBadge||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/PetMount/Request||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Preferences/AskWrite||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ProfileMirror/FetchProfile||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/RaceRally/AskBuy||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/RaceRally/AskClaimMilestone||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/RaceRally/AskEquipRacer||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Rift/AskFinishReveal||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Rift/AskRefresh||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Rift/AskState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Rift/AskTradeIn||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/RigSync/Reconcile||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/SammyEvent/FetchPickups||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Scramble/Request||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ScrambleBoss/EnterArena||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ScrambleTradeIn/AskFinishReveal||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ScrambleTradeIn/AskRefresh||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ScrambleTradeIn/AskState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ScrambleTradeIn/AskTradeIn||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/SeasonBanner/FetchState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/SeasonBanner/FlagSeen||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ShootingStar/AskFeed||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ShootingStar/AskState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ShopCta/FetchState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ShopCta/FlagSeen||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ShrineFusion/AskState||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/ShrineFusion/AskSubmit||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Storefront/AllowPurchase||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Storefront/AskPurchaseOffer||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Storefront/AskServerProbe||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Telemetry/AskIdleHopFlush||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Telemetry/SubmitIdleHop||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Trailwear/AskChoose||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Trailwear/AskDoff||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Trailwear/AskPurchase||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Trailwear/AskWornSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskClipFavour||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskDoff||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskFavourSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskFriendFavourSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskPostReply||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskRenderSnapshot||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskReplyCounts||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskReplyFavour||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskReplyPage||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskSlowToggleSet||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskSlowToggle||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskTierRaise||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/AskWearStill||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Treadmill/GaugeClipLength||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/TrexRun/FetchHerd||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/Trials/Fetch||1
+REMOTE|RemoteFunction|RS/Packages/Networking/RF/WispCompanion/Request||1
+REMOTE|RemoteFunction|RS/RVBillboard_Cash_Reward/Remotes/GetPlacementInfo||1
+REMOTE|UnreliableRemoteEvent|RS/UserGenerated/Analytics/ClientKit/FocusState||1
+REMOTE|UnreliableRemoteEvent|RS/UserGenerated/Analytics/ClientKit/MenuState||1
+REMOTE|UnreliableRemoteEvent|RS/UserGenerated/Analytics/ClientKit/Ping||1
+SCREEN|BillboardGui|GUI/Billboard_UI||1
+SCREEN|BillboardGui|GUI/PersonalFusionHint||2
+SCREEN|BillboardGui|GUI/PersonalFusionStatus||5
+SCREEN|ScreenGui|GUI/ActionPrompts||1
+SCREEN|ScreenGui|GUI/ActivePets||1
+SCREEN|ScreenGui|GUI/AdEggBoostPopupUI||1
+SCREEN|ScreenGui|GUI/ApplyStarPopupConfirmationScreen||1
+SCREEN|ScreenGui|GUI/AreaGui||1
+SCREEN|ScreenGui|GUI/AssetEggData||1
+SCREEN|ScreenGui|GUI/AssetHoverData||1
+SCREEN|ScreenGui|GUI/AutoSell||1
+SCREEN|ScreenGui|GUI/BackpackGui||1
+SCREEN|ScreenGui|GUI/BeanstalkEventUI||1
+SCREEN|ScreenGui|GUI/BossFightUI||1
+SCREEN|ScreenGui|GUI/BossMastery||1
+SCREEN|ScreenGui|GUI/BossShop||1
+SCREEN|ScreenGui|GUI/BossSpawningCountdown||1
+SCREEN|ScreenGui|GUI/BottomUI||1
+SCREEN|ScreenGui|GUI/ButterflyMachine||1
+SCREEN|ScreenGui|GUI/CaptureTheEggUI||1
+SCREEN|ScreenGui|GUI/Cmdr||1
+SCREEN|ScreenGui|GUI/ContentCreatorsAdminPanel||1
+SCREEN|ScreenGui|GUI/CountdownGui||1
+SCREEN|ScreenGui|GUI/CrateOpeningPopUpFrame||1
+SCREEN|ScreenGui|GUI/CutsceneUI||1
+SCREEN|ScreenGui|GUI/DRrScrambleBossMasteryNewMilestones||1
+SCREEN|ScreenGui|GUI/DrScrambleEventUI||1
+SCREEN|ScreenGui|GUI/DrScrambleTradeInNEW||1
+SCREEN|ScreenGui|GUI/DrScrambleTradeIn||1
+SCREEN|ScreenGui|GUI/DragonEggEventUI||1
+SCREEN|ScreenGui|GUI/DropHeldEgg||1
+SCREEN|ScreenGui|GUI/EnchantedMutationShrine||1
+SCREEN|ScreenGui|GUI/EventCountdownGui||1
+SCREEN|ScreenGui|GUI/Fade||1
+SCREEN|ScreenGui|GUI/FlashUserId||1
+SCREEN|ScreenGui|GUI/FreeGift||1
+SCREEN|ScreenGui|GUI/GenericRewardScreen2||1
+SCREEN|ScreenGui|GUI/GetMoreSpeedOnHit||1
+SCREEN|ScreenGui|GUI/GreatBloomBanner||1
+SCREEN|ScreenGui|GUI/GrowWispProgressUI||1
+SCREEN|ScreenGui|GUI/GrowingEggs||1
+SCREEN|ScreenGui|GUI/HUD||1
+SCREEN|ScreenGui|GUI/Index||1
+SCREEN|ScreenGui|GUI/LightVsDarknessUI||1
+SCREEN|ScreenGui|GUI/LimitedTimePopupsUI||1
+SCREEN|ScreenGui|GUI/Message||1
+SCREEN|ScreenGui|GUI/MonsterChargeUI||1
+SCREEN|ScreenGui|GUI/MonsterChestRewards||1
+SCREEN|ScreenGui|GUI/MonsterEventTutorialFrame||1
+SCREEN|ScreenGui|GUI/MonsterEventUI||1
+SCREEN|ScreenGui|GUI/MountRaceBoardUI||1
+SCREEN|ScreenGui|GUI/MountRaceUI||1
+SCREEN|ScreenGui|GUI/Notifications||1
+SCREEN|ScreenGui|GUI/OfflineMoneyInPlot||1
+SCREEN|ScreenGui|GUI/OverlayUI||1
+SCREEN|ScreenGui|GUI/Overlay||1
+SCREEN|ScreenGui|GUI/PendingPurchase||1
+SCREEN|ScreenGui|GUI/PetFuse||1
+SCREEN|ScreenGui|GUI/PhoneVideoUI||1
+SCREEN|ScreenGui|GUI/PopupPrompt||1
+SCREEN|ScreenGui|GUI/ProximityPrompts||1
+SCREEN|ScreenGui|GUI/RacePowerUpUI||1
+SCREEN|ScreenGui|GUI/RaceRallyUI||1
+SCREEN|ScreenGui|GUI/RecoveryVignette||1
+SCREEN|ScreenGui|GUI/RedLightGreenLightCinematic||1
+SCREEN|ScreenGui|GUI/RedLightGreenLightOverlay||1
+SCREEN|ScreenGui|GUI/RedLightGreenLightUI||1
+SCREEN|ScreenGui|GUI/RescueDragonFTUEQuest||1
+SCREEN|ScreenGui|GUI/RiftTradeIn||1
+SCREEN|ScreenGui|GUI/RobuxShop||1
+SCREEN|ScreenGui|GUI/RollbackRewardUI||1
+SCREEN|ScreenGui|GUI/RunBackEffects||1
+SCREEN|ScreenGui|GUI/SakuraCrystalCounter||1
+SCREEN|ScreenGui|GUI/SakuraEggCharge||1
+SCREEN|ScreenGui|GUI/SakuraEventTutorialFrame||1
+SCREEN|ScreenGui|GUI/SammyEventUI||1
+SCREEN|ScreenGui|GUI/ScrambleBossMastery||1
+SCREEN|ScreenGui|GUI/ScrambleBossUI||1
+SCREEN|ScreenGui|GUI/ScrambleDamag<id>k||1
+SCREEN|ScreenGui|GUI/SellPrompt||1
+SCREEN|ScreenGui|GUI/Settings||1
+SCREEN|ScreenGui|GUI/ShiftLockButton||1
+SCREEN|ScreenGui|GUI/ShootingStarUI||1
+SCREEN|ScreenGui|GUI/SpeedGainAnimation||1
+SCREEN|ScreenGui|GUI/SpeedShop||1
+SCREEN|ScreenGui|GUI/StolenVaultEventUI||1
+SCREEN|ScreenGui|GUI/TopbarCenteredClipped||1
+SCREEN|ScreenGui|GUI/TopbarCentered||1
+SCREEN|ScreenGui|GUI/TopbarStandardClipped||1
+SCREEN|ScreenGui|GUI/TopbarStandard||1
+SCREEN|ScreenGui|GUI/TouchGui||1
+SCREEN|ScreenGui|GUI/TrailShop||1
+SCREEN|ScreenGui|GUI/TrexRunCinematic||1
+SCREEN|ScreenGui|GUI/TrexRunOverlay||1
+SCREEN|ScreenGui|GUI/TrexRunUI||1
+SCREEN|ScreenGui|GUI/TutorialClick||1
+SCREEN|ScreenGui|GUI/TutorialInstructions||1
+SCREEN|ScreenGui|GUI/WispCompanion||1
+SCREEN|SurfaceGui|GUI/ResetStartTimer||1
+SCREEN|SurfaceGui|GUI/StaticTreadmillImageSurfaceGui||1
+SCREEN|SurfaceGui|GUI/SurfaceGui||1
+SCREEN|SurfaceGui|GUI/TreadmillScreenButtonShare||1
+SCREEN|SurfaceGui|GUI/TreadmillScreenButtonSwapLeft||1
+SCREEN|SurfaceGui|GUI/TreadmillScreenButtonSwapRight||1
+SCREEN|SurfaceGui|GUI/TreadmillScreenComments||1
+SCREEN|SurfaceGui|GUI/TreadmillScreenFriendLikes||1
+SCREEN|SurfaceGui|GUI/TreadmillScreenSideButtons||1
+SCREEN|SurfaceGui|GUI/TreadmillVideoSurfaceGui||1
+SCRIPT|LocalScript|PS/Kernel||1
+SCRIPT|LocalScript|PS/PlayerScriptsLoader||1
+SCRIPT|LocalScript|PS/RbxCharacterSounds||1
+SCRIPT|LocalScript|RS/Assets/Billboards/Billboard_UI/UIListLayout||1
+SCRIPT|LocalScript|RS/Assets/UI/Notifs/GoldenNotif/Main/<id>/PlaySprite||1
+SCRIPT|LocalScript|RS/Assets/UI/Npcs/Option_UI/Frame/ImageButton/LocalScript||1
+SCRIPT|LocalScript|RS/CutsceneAssets/BeanstalkEventCutsceneAssets/EndingCutscene/OriginalSequence||1
+SCRIPT|LocalScript|RS/CutsceneAssets/BeanstalkEventCutsceneAssets/IntroCutscene/OriginalSequence||1
+SCRIPT|LocalScript|RS/CutsceneAssets/RaceEventCutsceneAssets/OutroCutscene/OriginalSequence||1
+SCRIPT|LocalScript|RS/GearTools/GravityDisruptor/GravityDisruptorScript||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Abyss Ocean Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/BeeLauncher/BeeLauncherScript||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/BeeLauncher/Script/<id>tHandler||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Cosmic Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Desert Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/EnchantedHammer/ClientController||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Forest Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Jungle Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Katana/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Lake Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Light Dark Staff/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Prehistoric Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Racing Bat/ClientController||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Scramble Sword/ClientController||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Snow Bat/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Titan Axe/Controller||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Trap/TrapScript||1
+SCRIPT|LocalScript|RS/GearTools/ShopItems/Volcano Bat/Controller||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/BaseCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/BaseOcclusion||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/CameraInput||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/CameraToggleStateController||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/CameraUI||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/CameraUtils||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/ClassicCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/Invisicam||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/LegacyCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/MouseLockController||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/OrbitalCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/Poppercam||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/TransparencyController||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/VRBaseCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/VRCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/VRVehicleCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/VehicleCamera/VehicleCameraConfig||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/VehicleCamera/VehicleCameraCore||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/VehicleCamera||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/ZoomController/Popper||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule/ZoomController||1
+SCRIPT|ModuleScript|PS/PlayerModule/CameraModule||1
+SCRIPT|ModuleScript|PS/PlayerModule/CommonUtils/CameraWrapper||1
+SCRIPT|ModuleScript|PS/PlayerModule/CommonUtils/CharacterUtil||1
+SCRIPT|ModuleScript|PS/PlayerModule/CommonUtils/ConnectionUtil||1
+SCRIPT|ModuleScript|PS/PlayerModule/CommonUtils/FlagUtil||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/BaseCharacterController||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/ClickToMoveController||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/ClickToMoveDisplay||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/DynamicThumbstick||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/Gamepad||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/Keyboard||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/PathDisplay||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/TouchJump||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/TouchThumbstick||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/VRNavigation||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule/VehicleController||1
+SCRIPT|ModuleScript|PS/PlayerModule/ControlModule||1
+SCRIPT|ModuleScript|PS/PlayerModule||1
+SCRIPT|ModuleScript|PS/RbxCharacterSounds/AtomicBinding||1
+SCRIPT|ModuleScript|RF/UserGenerated||1
+SCRIPT|ModuleScript|RS/Client/AdminPanelEntry||1
+SCRIPT|ModuleScript|RS/Client/AreaEggResetWall||1
+SCRIPT|ModuleScript|RS/Client/AssetRoster||1
+SCRIPT|ModuleScript|RS/Client/AssetViewport||1
+SCRIPT|ModuleScript|RS/Client/BaseUpgrade||1
+SCRIPT|ModuleScript|RS/Client/BulkPartMotion||1
+SCRIPT|ModuleScript|RS/Client/ButtonHintStrip||1
+SCRIPT|ModuleScript|RS/Client/CameraShakerDriver||1
+SCRIPT|ModuleScript|RS/Client/ChatDecorations||1
+SCRIPT|ModuleScript|RS/Client/ConsoleSignals||1
+SCRIPT|ModuleScript|RS/Client/DecorationScale||1
+SCRIPT|ModuleScript|RS/Client/EggState||1
+SCRIPT|ModuleScript|RS/Client/ForbiddenIslandController||1
+SCRIPT|ModuleScript|RS/Client/FullscreenPresentation||1
+SCRIPT|ModuleScript|RS/Client/Functions/PurchaseLedger||1
+SCRIPT|ModuleScript|RS/Client/Functions/PurchaseSession||1
+SCRIPT|ModuleScript|RS/Client/Functions/Storefront||1
+SCRIPT|ModuleScript|RS/Client/FuseMachineMotion||1
+SCRIPT|ModuleScript|RS/Client/FuseMachineSignals||1
+SCRIPT|ModuleScript|RS/Client/GUI||1
+SCRIPT|ModuleScript|RS/Client/GameAudioMute||1
+SCRIPT|ModuleScript|RS/Client/GamepadBindings||1
+SCRIPT|ModuleScript|RS/Client/Gamepasses||1
+SCRIPT|ModuleScript|RS/Client/Gifting||1
+SCRIPT|ModuleScript|RS/Client/GridCellFitter||1
+SCRIPT|ModuleScript|RS/Client/GuardTutorialPresentation/TutorialHighlightOverlay||1
+SCRIPT|ModuleScript|RS/Client/GuardTutorialPresentation/TutorialProp||1
+SCRIPT|ModuleScript|RS/Client/GuardTutorialPresentation/TutorialTapIndicator||1
+SCRIPT|ModuleScript|RS/Client/GuardTutorialPresentation||1
+SCRIPT|ModuleScript|RS/Client/HiddenUIHandler||1
+SCRIPT|ModuleScript|RS/Client/HotbarImagePreloadController||1
+SCRIPT|ModuleScript|RS/Client/HotbarImagePreloadPolicy||1
+SCRIPT|ModuleScript|RS/Client/HoverCard||1
+SCRIPT|ModuleScript|RS/Client/Hud||1
+SCRIPT|ModuleScript|RS/Client/ImagePreloader||1
+SCRIPT|ModuleScript|RS/Client/Input/TouchTapTracker||1
+SCRIPT|ModuleScript|RS/Client/InputIconsConfig||1
+SCRIPT|ModuleScript|RS/Client/MenuNavigation||1
+SCRIPT|ModuleScript|RS/Client/Message||1
+SCRIPT|ModuleScript|RS/Client/ModelCameraOcclusion||1
+SCRIPT|ModuleScript|RS/Client/Modules/BulkFade||1
+SCRIPT|ModuleScript|RS/Client/Modules/ReplicatorClient/Buff||1
+SCRIPT|ModuleScript|RS/Client/Modules/ReplicatorClient/ReplicatorSignal||1
+SCRIPT|ModuleScript|RS/Client/Modules/ReplicatorClient||1
+SCRIPT|ModuleScript|RS/Client/Modules/SakuraBloomPolicy||1
+SCRIPT|ModuleScript|RS/Client/Modules/ShakePresets||1
+SCRIPT|ModuleScript|RS/Client/MusicDirector||1
+SCRIPT|ModuleScript|RS/Client/Notifications/CorruptedAnnouncement||1
+SCRIPT|ModuleScript|RS/Client/Notifications/CorruptedPlate||1
+SCRIPT|ModuleScript|RS/Client/Notifications/GoldenButterfly||1
+SCRIPT|ModuleScript|RS/Client/Notifications/Lanes||1
+SCRIPT|ModuleScript|RS/Client/Notifications/RareSpawnText/Translations||1
+SCRIPT|ModuleScript|RS/Client/Notifications/RareSpawnText||1
+SCRIPT|ModuleScript|RS/Client/Notifications/Reward||1
+SCRIPT|ModuleScript|RS/Client/Notifications/RiftSpawn||1
+SCRIPT|ModuleScript|RS/Client/Notifications/RoundDeferral||1
+SCRIPT|ModuleScript|RS/Client/Notifications/SammyPortrait||1
+SCRIPT|ModuleScript|RS/Client/Notifications/Toast||1
+SCRIPT|ModuleScript|RS/Client/Notifications||1
+SCRIPT|ModuleScript|RS/Client/PlatformController||1
+SCRIPT|ModuleScript|RS/Client/PlotState||1
+SCRIPT|ModuleScript|RS/Client/PlotUpgradeVisibility||1
+SCRIPT|ModuleScript|RS/Client/Policy||1
+SCRIPT|ModuleScript|RS/Client/Rewar<id>k/SpeedPower||1
+SCRIPT|ModuleScript|RS/Client/SakuraBloomVisibility||1
+SCRIPT|ModuleScript|RS/Client/SakuraFX||1
+SCRIPT|ModuleScript|RS/Client/SakuraSignals||1
+SCRIPT|ModuleScript|RS/Client/Shake||1
+SCRIPT|ModuleScript|RS/Client/ShopNavigation||1
+SCRIPT|ModuleScript|RS/Client/ShrineFusionController||1
+SCRIPT|ModuleScript|RS/Client/ShrineFusionSequences/EnchantedPond||1
+SCRIPT|ModuleScript|RS/Client/ShrineFusionSequences/Kit||1
+SCRIPT|ModuleScript|RS/Client/ShrineFusionSequences/Orbit||1
+SCRIPT|ModuleScript|RS/Client/ShrineFusionSequence||1
+SCRIPT|ModuleScript|RS/Client/ShrineFusionStatus||1
+SCRIPT|ModuleScript|RS/Client/ShrinePadPets||1
+SCRIPT|ModuleScript|RS/Client/SmartProximityPrompt/FollowerLoop||1
+SCRIPT|ModuleScript|RS/Client/SmartProximityPrompt/SurfaceTracker||1
+SCRIPT|ModuleScript|RS/Client/SmartProximityPrompt||1
+SCRIPT|ModuleScript|RS/Client/SpawnLock||1
+SCRIPT|ModuleScript|RS/Client/SpeedLines||1
+SCRIPT|ModuleScript|RS/Client/SpeedPowerProjection||1
+SCRIPT|ModuleScript|RS/Client/StaffEntryHotkey||1
+SCRIPT|ModuleScript|RS/Client/SystemChat||1
+SCRIPT|ModuleScript|RS/Client/Tabs||1
+SCRIPT|ModuleScript|RS/Client/ToolGameplayGuard||1
+SCRIPT|ModuleScript|RS/Client/TreadmillVideoGate||1
+SCRIPT|ModuleScript|RS/Client/Types/AssetSizeClassification||1
+SCRIPT|ModuleScript|RS/Client/Types/GUI||1
+SCRIPT|ModuleScript|RS/Client/Types/OfflineAssets||1
+SCRIPT|ModuleScript|RS/Client/Types/ShakeRequestData||1
+SCRIPT|ModuleScript|RS/Client/UI/AlertBadge||1
+SCRIPT|ModuleScript|RS/Client/UI/AssetChatBubble||1
+SCRIPT|ModuleScript|RS/Client/UI/AssetIconShape||1
+SCRIPT|ModuleScript|RS/Client/UI/CrateOpeningSpinner||1
+SCRIPT|ModuleScript|RS/Client/UI/MessageTyper||1
+SCRIPT|ModuleScript|RS/Client/UI/ModelHover||1
+SCRIPT|ModuleScript|RS/Client/UI/NotificationItemCard||1
+SCRIPT|ModuleScript|RS/Client/UI/SlideDock||1
+SCRIPT|ModuleScript|RS/Client/UI/SurfaceButtons||1
+SCRIPT|ModuleScript|RS/Client/UI/TopText||1
+SCRIPT|ModuleScript|RS/Client/UI/TreadmillStaticCover||1
+SCRIPT|ModuleScript|RS/Client/UI/TreadmillStaticRateSign||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/ButtonFX||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/Confetti||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Dropshadow||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Bubblegum||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Chrome||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/CleanGold||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Death||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Fire||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Ghost||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Gold||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Green||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Ice||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Lava||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Matrix||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Oceanic||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Rainbow||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Silver||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates/Zebra||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/GradientTemplates||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Gradient||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Layers||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Bubblegum||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/ChromeStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/CleanGold||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/DeathStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/FireStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/GhostStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Ghost||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/GoldStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Gold||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/GreenOutline||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/IceStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/LavaStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Lava||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Matrix||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/OceanicStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/RainbowOutline||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/RainbowStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Rainbow||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Secret||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/ShineOutline||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Shine||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/SilverStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Silver||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/WaveStroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets/Wrapper||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Presets||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/StopRamp||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/Stroke||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals/VisibilityGate||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/EasyVisuals||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/Flash||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/GuiTransitionGroup||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/ImageColorPulse||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/OverlayRoot||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/ParticleStage||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/Rain||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/RewardScreenTransition||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/SellPayout||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/Shockwave||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/Sparkles||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/SpeedGainPopup||1
+SCRIPT|ModuleScript|RS/Client/UI/VFX/SurfaceButton||1
+SCRIPT|ModuleScript|RS/Client/UIEffects/GuiVisibility||1
+SCRIPT|ModuleScript|RS/Client/UIEffects/HoverBob||1
+SCRIPT|ModuleScript|RS/Client/UIEffects/SpriteSheet||1
+SCRIPT|ModuleScript|RS/Client/UIEffects/TaggedSprites||1
+SCRIPT|ModuleScript|RS/Client/UIEffects/TextGlitch||1
+SCRIPT|ModuleScript|RS/Client/UIEffects||1
+SCRIPT|ModuleScript|RS/Client/Util/AssetOddsDisplay||1
+SCRIPT|ModuleScript|RS/Client/Util/GunCatalog||1
+SCRIPT|ModuleScript|RS/Client/Util/ToolSession||1
+SCRIPT|ModuleScript|RS/Client/Util/ToolSetup||1
+SCRIPT|ModuleScript|RS/Client/VideoComments/Types/Interface||1
+SCRIPT|ModuleScript|RS/Client/VideoComments||1
+SCRIPT|ModuleScript|RS/Client/ViewportSize||1
+SCRIPT|ModuleScript|RS/Client/WorldFX/ArrowPointer3D||1
+SCRIPT|ModuleScript|RS/Client/WorldFX/HoverHighlight||1
+SCRIPT|ModuleScript|RS/Client/WorldFX/Pads||1
+SCRIPT|ModuleScript|RS/Client/WorldFX/TutorialBeam||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/Fly||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/JumpPower||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/Rejoin||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/abTestGroup||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/afkRestore||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/afkTestGroup||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/alias||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/announceAsSelf||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/announceControlledSammy||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/announcement||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/approvePet||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/ban||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/bind||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/blink||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/cashpacks||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/clear||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/completeIndex||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/convertTimestamp||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/countdown||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/createPrivate||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/creatorPreview||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/currentTreadmillMedia||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/dismountPet||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/dragonCutscene||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/dragonSkip||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/earningsBoost||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/echo||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/edit||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/expandedLobbyTeleport||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/experimentVariant||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/fallenPowerUp||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/fetch||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/flashId||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/forceBossDefeat||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/fuseBiomeUnlock||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/getPlayerPlaceInstance||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveBigTrap||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveBossTokens||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveButterflies||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveEgg||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveEssence||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveItem||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveMoney||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveMonstrousEgg||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveParasiteEgg||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/givePet||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveSakuraCrystals||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveSamples||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveSpeedPower||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/giveStars||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalAdminTreadmill||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalAlertShops||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalAnnouncement||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalCountdown||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalEarningsBoost||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalEggLuckBoost||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalEggSizeBoost||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalGetFargateInstances||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalListSchedule||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalMutationBoost||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalProgressEggHatchTime||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalRemoveScheduledEvent||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalScheduleEvent||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalSetFargateInstances||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalShootingStar||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalSpawnRareEgg||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalSpeedBoost||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalStartEvent||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalStartGrowthBoost||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalStartMinigame||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/globalStopEvent||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/gotoPlace||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/gotoPlayer||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/growWisp||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/help||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/history||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/hover||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/jsonArrayDecode||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/jsonArrayEncode||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/kick||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/kill||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/len||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/lightDarkReveal||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/liveEventFlag||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/math||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/mountAudit||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/mountCheck||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/mountPets||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/mountPet||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/mountReview||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/mountSpeed||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/nextBossEgg||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/nextPetInLine||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/nightDuration||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/onboardingQuestline||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/openBossWindow||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/petNote||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/pick||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/position||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/previewBeanstalkSlide||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/previewFusion||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/previousPet||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/progressEggHatchTime||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/progressWisp||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/pullPlayer||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/pullProdData||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/raceRally/Actions||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/raceRally||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/rand||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/refreshPet||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/registerTreadmillMedia||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/removeTreadmillMedia||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/replace||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/reserve||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/resetBanjoCricket||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/resetButterflies||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/resetEggCycle||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/resetShrineFusion||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/resolve||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/respawn||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/riftReroll||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/riftSimulate||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/runLines||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/runif||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/run||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/sakuraCutscene||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/sakuraUnlock||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/scramblePity||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/scrambleRotate||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/scramble||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/sendToCreator||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/sendToPlayer||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/setMoney||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/setRideable||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/setSpeedPower||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/shootingStarGift||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/shootingStar||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/skipBossCountdown||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/spawnHeavyEgg||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/spawnRareEgg||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/spawnScrambleBoss||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/startEvent||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/startMinigame||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/startNight||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/stopEvent||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/stopMountReview||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/subBiome||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/teleport||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/testAdLobby||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/thru||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/unban||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/unbind||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/uptime||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/varSet||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/var||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/version||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/viewTreadmillMediaOverlay||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/zoneReveal||1
+SCRIPT|ModuleScript|RS/CmdrClient/Commands/zone||1
+SCRIPT|ModuleScript|RS/CmdrClient/DefaultEventHandlers||1
+SCRIPT|ModuleScript|RS/CmdrClient||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/ActiveAssetIncomePopup||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/AdminCmdrClientController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/AdminEntryVisibilityController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/AdminMessagesController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/AdminPanelController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/AreaEggDropGuiController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/AreaGuiController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/AssetHoverDataDisplay||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/Capacity||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/GameTranslator||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/HotbarDragFeedback||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/MutationHint||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/Navigation||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/SlotDragController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/SlotFavoriteController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main/Utility||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController/Main||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BackpackController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BossMasteryController/MilestoneCard||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/BossMasteryController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/ButterflyMachineController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/CheckResetOnSpawnController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/ConsoleController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/DrScrambleSequence/LaboratorySequence||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/DrScrambleSequence||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/DrScrambleTradeInController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/EnchantedMutationShrineController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/ExperienceEventCountdownController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/ExperienceEventPromptController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/FlashUserIdController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/FriendBoostController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/FuseMachineController/FuseMachineBackpackSelection||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/FuseMachineController/FuseMachinePickerLayout||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/FuseMachineController/FuseMachineProgressPresentation||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/FuseMachineController/FuseMachineSelectedSlot||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/FuseMachineController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/GameResetTimerController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/GlobalEventsController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/GroupRewardsController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/GrowingEggListController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/GuardAreas/GetMoreSpeedOnHitController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/GuardAreas/RequiredSpeedSign||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/IndexController/AreaIndexProgressComponent/Types/Interface||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/IndexController/AreaIndexProgressComponent||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/IndexController/ClaimRewardPanel||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/IndexController/Types/Interface||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/IndexController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/LimitedTimePopupsController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/MoneyUpdateController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/MonsterChargeController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/OnboardingQuestlineController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/PetListController/PetPenCapacityGuidanceController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/PetListController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/PhoneVideoController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/PlotSignHomeButtonFade||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/PlotUpgradeController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/PollController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/PurchaseNotificationsController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/RaceRallyController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/ResetStartTimerController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/RiftTradeInController/RiftSequence||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/RiftTradeInController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/RollbackRewardModalController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/SakuraIncubatorController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/SellPromptController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/SettingsController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/DoubleYourSpeedController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/LimitedEggController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/MainShopController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/SampleProductsController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/ServerLuckController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/ShopAlertBadgeController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/SpeedPowerProductsController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/SpeedShopShortcutController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shop/TreadmillSpeedShopController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/ShopCtaBadgeController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shops/BossShopController/BossShopProductCard||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shops/BossShopController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/Shops/TrailShopController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/SlowToggleController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/TrappedBackpackLock||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/TreadmillUIController/Visibility||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/TreadmillUIController||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/TreadmillUpgradeController/Client||1
+SCRIPT|ModuleScript|RS/Controllers/GUI/TreadmillUpgradeController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/<id>tController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/CutsceneHelperFunctions||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/BeanstalkGrowth||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Cutscenes/EndingCutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Cutscenes/IntroCutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Music||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/RailRide||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/RockFall||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/SpeedLines||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Stages/Completion||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Stages/EggEscape||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Stages/Fireflies||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Stages/Watering||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Stages/WhaleFlight||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/Trampoline||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/UISystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent/WhaleHearts||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/BeanstalkEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ButterflyBloom/CatchFX||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ButterflyBloom/Net||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ButterflyBloom/Swarm||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ButterflyBloom||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/CaptureTheEgg||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/Countdown||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/DemonicEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/DragonEggEvent/CutscenePart1||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/DragonEggEvent/CutscenePart2||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/DragonEggEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/GreatBloom||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/Cutscenes/EndCutsceneDark||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/Cutscenes/EndCutsceneLight||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/Cutscenes/IntroCutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/FlyingSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/MusicSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/PowerUpSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/RingSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/TeamSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/TemplateSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness/UISystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/LightVsDarkness||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/MonsterEvent/Cutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/MonsterEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RaceEvent/Cutscenes/IntroCutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RaceEvent/Cutscenes/OutroCutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RaceEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RecoveryEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RedLightGreenLight/Cutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RedLightGreenLight/Fx||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RedLightGreenLight/Giant||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RedLightGreenLight/Hud||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RedLightGreenLight/Laser||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RedLightGreenLight||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RiftEvent/Cutscene1||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RiftEvent/Cutscene2||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/RiftEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent/CollectSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent/Cutscenes/IntroCutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent/Cutscenes/OutroCutscene1||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent/Cutscenes/OutroCutscene2||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent/SammyGuardSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent/StealingSystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent/UISystem||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/SammyEvent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Cinematic||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Cutscenes/IntroCutscene1||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Cutscenes/IntroCutscene2||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Cutscenes/OutroCutscene1||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Cutscenes/OutroCutscene2||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/HazardView||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Juice||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Kit||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Music||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Presentation||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Rider||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Rigs||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Transition||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss/Vfx||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/ScrambleBoss||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/TrexRun/Cutscene||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/TrexRun/Fx||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/TrexRun/Herd||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/TrexRun/Hud||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Events/TrexRun||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController/Template||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AdminAbuseClientController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AntiAFKController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaArrowPointerClientController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/AreaEggNearbyPulse||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/CarryRunBackEffects/ScreenEffects/Types/Interface||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/CarryRunBackEffects/ScreenEffects||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/CarryRunBackEffects||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/HoverHighlight||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/NestResolver||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/RareEggHighlight||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController/WorkspaceEggVisibility||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaEggsController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AreaReset/AreaEggResetCycleController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/AudioSettingsController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Aim||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Band||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Bridge||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Dream/Score||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Dream/Shapes||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Dream/Tunnel||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Dream/Vortex||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Dream||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Mushrooms||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Reveal||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Sounds||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Spores||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController/Talk||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BanjoCricketController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/BossEventClientController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ButterflyStationController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/CameraShakeController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/CustomRespawnController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Eggs/EggPlacementController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Eggs/EggToolDisplayController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Eggs/HotbarImagePreloadController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/EnchantedTreeController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/EventBoardController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/FuseBiomePortalController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/FuseMachineController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/AreaNotificationTracker||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/ForestGuardRuntime||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardComponent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardEscapeSignController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/MilestoneAdapter||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/StepUtils||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/EquipEgg||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/ExpandPen||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/HatchEgg||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/HeadToPen||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/PlaceEgg||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/PlacePet||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/StealEgg||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/TreadmillIntro||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Steps/Types/Interface||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController/Types/Interface||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardTutorialController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController/GuardWakeLookAt||1
+SCRIPT|ModuleScript|RS/Controllers/Game/GuardAreasController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/IconController/Icons||1
+SCRIPT|ModuleScript|RS/Controllers/Game/IconController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/KrakenController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/LeaderboardsController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/LightingController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/MonsterParasiteController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Npcs/AssetSellerNpcController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ObbyAntiTPClientController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/OldRiftMachineController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ParasiteFeedArrowClientController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/PetMountController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/ActiveAssetPerformanceTestConfig||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/ActiveAssetPerformanceTest||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetBillboardController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetComponent||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetMovementBatch||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetMutationWalkSpeed||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetPersonalityMotion||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetPlacementHints||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetRetreatMotion||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetWanderArea||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetWanderMotion||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/AssetWanderSimulator||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/PetUpdateSchedule||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController/Types||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/ActiveAssetsController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/OfflineMoney/OfflineMoneyBucketPilesController/ClaimVisual||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/OfflineMoney/OfflineMoneyBucketPilesController/MoneyPiles||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/OfflineMoney/OfflineMoneyBucketPilesController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/OfflineMoney/OfflineMoneyInPlotUIController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/PlotSignManagerController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/RequireActiveAssetsController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/TreadmillCharacterPresentationController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/TreadmillStaticController/Render||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/TreadmillStaticController/Types/Interface||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Plots/TreadmillStaticController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ProximityPromptScriptController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/Components/BoostPad||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/Components/Jump||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/Components/LoopTheLoop||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/Components/PowerUpSpawn||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/Components/SlowPad||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/MountAnimator||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/MountController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/PowerUpController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/PowerUpVisuals||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/R<id>ts||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/RaceBoard||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/RaceCamera||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/RaceHud||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/RaceMusic||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/Respawner||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController/WrongWay||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceClientController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RaceRallyPortalController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RagdollLimpController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/RiftMachineController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/SakuraIncubatorController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/Dialogue||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/DroneVisual||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/HitFeedback||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/Interface||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/MasteryInterface||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/PersonalDrones||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/ShopInterface||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/SleepingBrock||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController/VaultSequence||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ScrambleClientController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/Buddy||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/CalmLoop||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/Celebrate||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/Cinematic||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/Fx||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/Hud||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/Meteor||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/MountControls||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/StarConfirmation||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController/StarFeed||1
+SCRIPT|ModuleScript|RS/Controllers/Game/ShootingStarController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/StaffTagController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/StarHandlerController/Dialog||1
+SCRIPT|ModuleScript|RS/Controllers/Game/StarHandlerController/Shop||1
+SCRIPT|ModuleScript|RS/Controllers/Game/StarHandlerController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/SubBiomesController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/AssetToolEquipController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/GravityDisruptorUnplacePromptController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/GravityDisruptorVFXController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/GunToolHandlerController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/OnClickController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/TrapGameplayHighlightController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/TrapUnplacePromptController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/Tools/TrappedBackpackController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/TrailController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/TreadmillAdPopupController/AdEggBoostClient||1
+SCRIPT|ModuleScript|RS/Controllers/Game/TreadmillAdPopupController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/UpgradesPadsController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/WispCompanionController/IntroDialogue||1
+SCRIPT|ModuleScript|RS/Controllers/Game/WispCompanionController||1
+SCRIPT|ModuleScript|RS/Controllers/Game/WorkspaceRainbowPartsController||1
+SCRIPT|ModuleScript|RS/Data/AdminAbuseEgg||1
+SCRIPT|ModuleScript|RS/Data/AreaEggResetCycle||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Abyss Ocean||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Cherry Blossom||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Cosmic||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Desert||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Enchanted Forest||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Forest||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Jungle||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Lake||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Light Dark||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Prehistoric||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Snow||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Titan Temple||1
+SCRIPT|ModuleScript|RS/Data/Areas/Configs/Volcano||1
+SCRIPT|ModuleScript|RS/Data/Areas/Types||1
+SCRIPT|ModuleScript|RS/Data/Areas||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/# OP||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/#||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Abyssal Overlord OP||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Abyssal Overlord||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Aetheron||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Alabaster Whale||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Alien Skeleton Boss||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Amethyst Runebear OP||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Amethyst Runebear||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ankylosaurus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/ArchAngel||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Archdemon Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ascended Vermilion Phoenix||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ash Gecko||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Baby Aurora Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Balrog||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Bananita Dolphinita||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Banjo Firefly||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Basilisk||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Bear||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Belula Beluga||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Blade Head||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Bomboclat Crocolat||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Bronto||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Brr Brr Patapim||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Burrowing Owl||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Camel||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Catfish||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Cave Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Centapede||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Centaur||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Cerberus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Chicken||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Chillin Chilli||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Chimpanzee||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Citadel Snail||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Colossal Mammoth||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Cosmic Beetle Blue||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Cosmic Fox||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Cosmic Lion||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Crab||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Crane||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Crawler||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Crocodile||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Crocodon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Cthulhu||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Cyclops Gorilla||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dark Gargoyle||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/DeathstalkerScorpion||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Demon Hound||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Demon Imp||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Depths Cthulhu||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Depths Electric Eel||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Depths Manta Ray||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Depths Megalodon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Depths Riptide Octopus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Depths Spike||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Depths Terra Snapper||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/DesertLark||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dodo||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dog||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dove||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dreadclaw||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dreadscale||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dreadstinger||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dream Axolotl||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Drill Monster||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Duckling||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Dunkleosteus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/El Maja||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Electric Eel||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ember Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Enchanted Bluejay||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Engine Snail||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Equinox||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Eternal Lunar Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Eye Bat||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Eyeball Crab||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/FennecFox||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Finned Thresher||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Flame Sprite||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Flaming Bull||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Frogfly||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Froggo||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Frog||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Galaxy Gecko||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Gigantopithecus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Glyptodon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Godzilla||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Gorilla||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Hazardhog||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Hellhound||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ice Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Imp||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Irihorus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Jellyfish||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Jerboa||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Kaiju Spider||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/King Kong||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Kitsune||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Koi||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Krakenoid||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Kraken||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/La Vacca Saturno Saturnita||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Lamb||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Lava Iguana||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Lava frog||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/LimitedTimeExperimentPet||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mammoth||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mangolini Parrochini||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Manta Ray||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mantis||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mawbreaker||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Chompa||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Crawler||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Crocodon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Dreadscale||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Froggo||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Krakenoid||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Scorpio||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mecha Scrambler||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Megalodon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Megatherium||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mire Fox||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Mosasaurus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Moth||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Nibbles ##||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Nuceodille||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Nuclear Mantis||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Octophant||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Oni Tiger||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Orangutini Ananassini||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Orca||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ostrich OP||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ostrich||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Parrotfish||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Peacock||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Pegasus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Penguin||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Pink Dragon Experiment||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Polar Bear||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Prism Gecko||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Pterodactyl||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Raccoon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Race Bird||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Race Cheetah||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Race Lizard||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Race Seahorse||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Radcoon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Rattlesnake||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/RazorFang||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Red Panda||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Rhinobear||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Rhino||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Rift Eye||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Riftwing||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ring Guard||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ringlord||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Riptide Octopus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Royal Skywhale||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Sabertooth Tiger||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Sabertooth||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Salamander||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Sand Spider||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/ScorchedDragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Scorpio||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Shadow Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Shardling||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Shardwing||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Sharkodile||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Shark||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Shattered Colossus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Shattered Drake||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Shattered Ram||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Skeletal Dunkleosteus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Skeletal Gigantopithecus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Skeletal Glyptodon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Skeletal Megatherium||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Skeletal Sabertooth||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Skeletal Terrorbird||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Skeleton Horse||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Snowy Owl||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Spiderpig||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Spider||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Spike||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Spirit Hare||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Spirit Panda||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Stacked Turtle||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Stag||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Strawberry Elephant||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Swan||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Swordfish||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Terra Snapper||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Terrorbird||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Three Headed Chicken||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Tiger||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Tob Tobi Tob Tob||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Toro||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Toucan||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Toucax||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Toxic Crocodile||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Toxic Hedgehog OP||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Toxic Hedgehog||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Toxic Rat||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Tralaledon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Triceratops||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Trulimero Trulicina||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Tung Tung Sahur||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Turtle||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/TyrannosaurusRex||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Uncoiled Armadillo||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Unicorn||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Ventinal||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Void Angler||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Void Dragon||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Void Serpent||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Voidmaw||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Walrus||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Warden||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Wendigo||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Whale Shark||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Wheel Hamster||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/World Burner||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/World Eater||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/World Spirit||1
+SCRIPT|ModuleScript|RS/Data/Assets/Configs/Yeti||1
+SCRIPT|ModuleScript|RS/Data/Assets/LightDarkPlaceholder||1
+SCRIPT|ModuleScript|RS/Data/Assets/PersonalityCatalog||1
+SCRIPT|ModuleScript|RS/Data/Assets/Types||1
+SCRIPT|ModuleScript|RS/Data/Assets||1
+SCRIPT|ModuleScript|RS/Data/Badges||1
+SCRIPT|ModuleScript|RS/Data/BanjoCricket||1
+SCRIPT|ModuleScript|RS/Data/Bases||1
+SCRIPT|ModuleScript|RS/Data/BeanstalkEvent||1
+SCRIPT|ModuleScript|RS/Data/BossEvent||1
+SCRIPT|ModuleScript|RS/Data/BossMastery||1
+SCRIPT|ModuleScript|RS/Data/BrainrotEgg||1
+SCRIPT|ModuleScript|RS/Data/CaptureTheEgg||1
+SCRIPT|ModuleScript|RS/Data/CashPacks||1
+SCRIPT|ModuleScript|RS/Data/Currency/Configs/BossTokens||1
+SCRIPT|ModuleScript|RS/Data/Currency/Configs/Money||1
+SCRIPT|ModuleScript|RS/Data/Currency/Configs/SakuraCrystals||1
+SCRIPT|ModuleScript|RS/Data/Currency||1
+SCRIPT|ModuleScript|RS/Data/DragonEgg||1
+SCRIPT|ModuleScript|RS/Data/EggSkins||1
+SCRIPT|ModuleScript|RS/Data/ExpandedLobby||1
+SCRIPT|ModuleScript|RS/Data/FallenPowerUp||1
+SCRIPT|ModuleScript|RS/Data/Gamepasses/Configs/Lucky||1
+SCRIPT|ModuleScript|RS/Data/Gamepasses/Configs/X2Growth||1
+SCRIPT|ModuleScript|RS/Data/Gamepasses/Configs/X2Money||1
+SCRIPT|ModuleScript|RS/Data/Gamepasses||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Abyss Ocean Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/BeeLauncher||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/BigTrap||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Cosmic Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Cricket's Banjo||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Desert Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/EnchantedHammer||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Flyswatter||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Forest Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/GravityDisruptor||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Jungle Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Katana||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Lake Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Light Dark Staff||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Prehistoric Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Racing Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Scramble Sword||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Snow Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/The Scrambler||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Titan Axe||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Trap||1
+SCRIPT|ModuleScript|RS/Data/Gears/Configs/Volcano Bat||1
+SCRIPT|ModuleScript|RS/Data/Gears/Types||1
+SCRIPT|ModuleScript|RS/Data/Gears||1
+SCRIPT|ModuleScript|RS/Data/GiftProductsMapping||1
+SCRIPT|ModuleScript|RS/Data/GuardTutorialSteps||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Abyss Ocean||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Cherry Blossom||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Cosmic||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Desert||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Enchanted Forest||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Forest||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Jungle||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Lake||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Light Dark Dark||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Light Dark Light||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Light Dark Mixed||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Light Dark||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Prehistoric||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Snow||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Titan Temple||1
+SCRIPT|ModuleScript|RS/Data/Guards/Configs/Volcano||1
+SCRIPT|ModuleScript|RS/Data/Guards/Types||1
+SCRIPT|ModuleScript|RS/Data/Guards||1
+SCRIPT|ModuleScript|RS/Data/LightVsDarkness||1
+SCRIPT|ModuleScript|RS/Data/LimitedEgg/Types/Interface||1
+SCRIPT|ModuleScript|RS/Data/LimitedEgg||1
+SCRIPT|ModuleScript|RS/Data/LimitedTimePopups||1
+SCRIPT|ModuleScript|RS/Data/LuminousEgg||1
+SCRIPT|ModuleScript|RS/Data/MonsterEgg||1
+SCRIPT|ModuleScript|RS/Data/MonsterParasite||1
+SCRIPT|ModuleScript|RS/Data/MountRace||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/BillboardReward||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/CashPack||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/EggSkipGrowth||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/LimitedEgg||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/Money||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/RiftRefresh||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/SamplePack||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/ServerLuckExtension||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/ServerLuck||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/SpeedBoost||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/SpeedPower||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/TemporarySpeedBoost||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/Trail||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/TreadmillAdEggBoost||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/TreadmillSpeedEquivalent||1
+SCRIPT|ModuleScript|RS/Data/Products/Builders/Treadmill||1
+SCRIPT|ModuleScript|RS/Data/Products/Internal/GeneratedProducts||1
+SCRIPT|ModuleScript|RS/Data/Products/Internal/MarketplaceValidator||1
+SCRIPT|ModuleScript|RS/Data/Products/Internal/ProductTypes||1
+SCRIPT|ModuleScript|RS/Data/Products||1
+SCRIPT|ModuleScript|RS/Data/RacePowerUps||1
+SCRIPT|ModuleScript|RS/Data/RaceRally||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/BrainrotGod||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Common||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Cosmic||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Divine||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Epic||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Eternal||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Legendary||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/LightDark||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Limited||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Mythic||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Rainbow||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Rare||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Secret||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/SuperRare||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Titan||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Transcendent||1
+SCRIPT|ModuleScript|RS/Data/Rarity/Configs/Uncommon||1
+SCRIPT|ModuleScript|RS/Data/Rarity||1
+SCRIPT|ModuleScript|RS/Data/Rift||1
+SCRIPT|ModuleScript|RS/Data/Sakura||1
+SCRIPT|ModuleScript|RS/Data/SammyEvent||1
+SCRIPT|ModuleScript|RS/Data/SamplePacks||1
+SCRIPT|ModuleScript|RS/Data/ScrambleMastery||1
+SCRIPT|ModuleScript|RS/Data/ScrambleTradeIn||1
+SCRIPT|ModuleScript|RS/Data/SfxRework||1
+SCRIPT|ModuleScript|RS/Data/Sounds/Languages/Alphabet||1
+SCRIPT|ModuleScript|RS/Data/StarBundles||1
+SCRIPT|ModuleScript|RS/Data/Trails||1
+SCRIPT|ModuleScript|RS/Data/TreadmillMediaCatalog||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/AngelicTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/AstralTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/CelebrityTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/DemonicTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/FlameTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/GoldenTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/GuardianTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/HackerTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/Lucky BlockTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/Sci-FiTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/The FreezeTreadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills/Configs/Treadmill||1
+SCRIPT|ModuleScript|RS/Data/Treadmills||1
+SCRIPT|ModuleScript|RS/Data/WispQuests||1
+SCRIPT|ModuleScript|RS/GearTools/ShopItems/Trap/_scriptThatsUnderTrap||1
+SCRIPT|ModuleScript|RS/Packages/CameraShaker||1
+SCRIPT|ModuleScript|RS/Packages/Configs/Log||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/Main/DecimalFormatSymbols||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/Main/IntegerWidth||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/Main/Notation||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/Main/Precision||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/Main||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/Simple||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/Version||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/_internal/class||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/_internal/decimal_conversion||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/_internal/enums||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/_internal/formatter_settings||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/_internal/format||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/_internal/skeleton||1
+SCRIPT|ModuleScript|RS/Packages/FormatNumber/_internal||1
+SCRIPT|ModuleScript|RS/Packages/Input||1
+SCRIPT|ModuleScript|RS/Packages/InstanceCache||1
+SCRIPT|ModuleScript|RS/Packages/Log||1
+SCRIPT|ModuleScript|RS/Packages/Networking||1
+SCRIPT|ModuleScript|RS/Packages/Promise||1
+SCRIPT|ModuleScript|RS/Packages/Shake||1
+SCRIPT|ModuleScript|RS/Packages/Signal||1
+SCRIPT|ModuleScript|RS/Packages/Spring||1
+SCRIPT|ModuleScript|RS/Packages/Streamable||1
+SCRIPT|ModuleScript|RS/Packages/TableUtil||1
+SCRIPT|ModuleScript|RS/Packages/TestEz||1
+SCRIPT|ModuleScript|RS/Packages/Timer||1
+SCRIPT|ModuleScript|RS/Packages/TopBarPlus||1
+SCRIPT|ModuleScript|RS/Packages/Trove||1
+SCRIPT|ModuleScript|RS/Packages/WaitFor||1
+SCRIPT|ModuleScript|RS/Packages/t||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ClientCode/AdClient||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ClientCode/Audio||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ClientCode/BillboardController||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ClientCode/BillboardTweens||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ClientCode/HintEffect||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ClientCode/ViewabilityTracker||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ServerCode/AdServer||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ServerCode/RewardSelector||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ServerCode/SaveData||1
+SCRIPT|ModuleScript|RS/RVBillboard_Cash_Reward/ServerCode/Telemetry||1
+SCRIPT|ModuleScript|RS/Shared/AdminItemCatalog||1
+SCRIPT|ModuleScript|RS/Shared/Audio||1
+SCRIPT|ModuleScript|RS/Shared/CreatorCommands||1
+SCRIPT|ModuleScript|RS/Shared/DisplayNameOverride||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggActionMovement||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggEnergyOrbField||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggGrowthAnimation||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggHatchAnimation||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggMechaUpgradeAnimation||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggPlaceAnimation||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggPlacementRaycast||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggRenderer||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggSkipAnimation||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/EggToolDisplay||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/GrowingEggListRow||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/MutationConsumabl<id>k||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/NightEggTimeSkipAnimation||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/ParasiteVisual||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/PlacedEggBillboard||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/PlacedEggGrowthPresentationPolicy||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/PlacedEggReadyPulse||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/PlacedEggRenderer||1
+SCRIPT|ModuleScript|RS/Shared/Eggs/Types||1
+SCRIPT|ModuleScript|RS/Shared/Experiments/Definitions||1
+SCRIPT|ModuleScript|RS/Shared/Experiments/Types||1
+SCRIPT|ModuleScript|RS/Shared/Flags/BalanceConfig||1
+SCRIPT|ModuleScript|RS/Shared/Flags/BanjoCricketFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/BaseFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/BeanstalkEventFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/BossEventFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/BossMasteryFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/ButterflyFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/CashPackFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/EconomyFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/EggFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/EnchantedForestFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/FuseFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/GameFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/GameplayBalance||1
+SCRIPT|ModuleScript|RS/Shared/Flags/GravityDisruptorFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/GuardTutorialFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/InventoryFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/LightVsDarknessEventFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/LiveEventFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/MonsterParasiteFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/MountRaceFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/NewPlayerFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/OfflineFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/OnboardingQuestlineFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/PetMountFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/RaceRallyFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/RedLightGreenLightFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/RiftFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/SammyEventFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/ScrambleBossFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/ScrambleMutationFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/ScrambleTradeInFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/ServerLuckFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/ShootingStarFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/ShrineFusionFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/StaffTagFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/StarHandlerFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/TreadmillFlags||1
+SCRIPT|ModuleScript|RS/Shared/Flags/TrexRunFlags||1
+SCRIPT|ModuleScript|RS/Shared/FusionShrines/Enchanted||1
+SCRIPT|ModuleScript|RS/Shared/FusionShrines/LightDark||1
+SCRIPT|ModuleScript|RS/Shared/FusionShrines||1
+SCRIPT|ModuleScript|RS/Shared/Globals/Constants||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ActionThrottle||1
+SCRIPT|ModuleScript|RS/Shared/Modules/AfkTreadmillTest||1
+SCRIPT|ModuleScript|RS/Shared/Modules/AssetDisplayText||1
+SCRIPT|ModuleScript|RS/Shared/Modules/AssetInfoBillboard||1
+SCRIPT|ModuleScript|RS/Shared/Modules/AssetInvertedModelPresentation||1
+SCRIPT|ModuleScript|RS/Shared/Modules/AssetModels||1
+SCRIPT|ModuleScript|RS/Shared/Modules/AssetRigFactory||1
+SCRIPT|ModuleScript|RS/Shared/Modules/AssetToolRig||1
+SCRIPT|ModuleScript|RS/Shared/Modules/BatController/Client||1
+SCRIPT|ModuleScript|RS/Shared/Modules/BatController/Config||1
+SCRIPT|ModuleScript|RS/Shared/Modules/BatController/Server||1
+SCRIPT|ModuleScript|RS/Shared/Modules/BatController/Types/Interface||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ButterflyCatalog||1
+SCRIPT|ModuleScript|RS/Shared/Modules/CoreProfileManager||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Environment||1
+SCRIPT|ModuleScript|RS/Shared/Modules/EventBoardView||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ExperienceEventPromptPolicy||1
+SCRIPT|ModuleScript|RS/Shared/Modules/FriendRoster||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardChasePolicy||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardComponent||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardDistance||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardEggRetrievalComponent||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardEscapePrediction||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardEscapeRequirement||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardMovementRecovery||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardPresentationComponent||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/GuardReturnHomeDistanceResolver||1
+SCRIPT|ModuleScript|RS/Shared/Modules/GuardAreas/Types/Interface||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ItemDisplay||1
+SCRIPT|ModuleScript|RS/Shared/Modules/KrakenRig||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Log||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Minigames||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Mutations/Catalog||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Mutations/ScrambledVisuals||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Mutations/Types||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Mutations/Visuals||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Mutations||1
+SCRIPT|ModuleScript|RS/Shared/Modules/PetMountAttachmentAudit||1
+SCRIPT|ModuleScript|RS/Shared/Modules/PetMountEffects||1
+SCRIPT|ModuleScript|RS/Shared/Modules/PetMountGeometry||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ProfileDefaults/Defaults||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ProfileDefaults/Types/Interface||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ProfileDefaults/Types/KeyScopedProfileValidator||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ProfileDefaults/Types/SchemaFields||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ProfileDefaults/Types/Schema||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ProfileDefaults||1
+SCRIPT|ModuleScript|RS/Shared/Modules/QueueLock||1
+SCRIPT|ModuleScript|RS/Shared/Modules/RaceRallyRewards||1
+SCRIPT|ModuleScript|RS/Shared/Modules/RaceTrackPath||1
+SCRIPT|ModuleScript|RS/Shared/Modules/RagdollJoints||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Ragdoll||1
+SCRIPT|ModuleScript|RS/Shared/Modules/RateLimiter||1
+SCRIPT|ModuleScript|RS/Shared/Modules/RiftRecipes||1
+SCRIPT|ModuleScript|RS/Shared/Modules/RiftZoneLadder||1
+SCRIPT|ModuleScript|RS/Shared/Modules/ScrambleTradeInRecipes||1
+SCRIPT|ModuleScript|RS/Shared/Modules/Staff||1
+SCRIPT|ModuleScript|RS/Shared/Modules/TokenBucket||1
+SCRIPT|ModuleScript|RS/Shared/Modules/TreadmillMediaCommentsConfig||1
+SCRIPT|ModuleScript|RS/Shared/Modules/TreadmillMediaIdentity/Types/Interface||1
+SCRIPT|ModuleScript|RS/Shared/Modules/TreadmillMediaIdentity||1
+SCRIPT|ModuleScript|RS/Shared/Modules/TreadmillMediaOverlay||1
+SCRIPT|ModuleScript|RS/Shared/Modules/TrexRunHerd||1
+SCRIPT|ModuleScript|RS/Shared/Modules/WispProgression||1
+SCRIPT|ModuleScript|RS/Shared/NotificationItem||1
+SCRIPT|ModuleScript|RS/Shared/Player||1
+SCRIPT|ModuleScript|RS/Shared/Preferences||1
+SCRIPT|ModuleScript|RS/Shared/Remotes||1
+SCRIPT|ModuleScript|RS/Shared/Save||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/CommentsController/CommentRenderer||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/CommentsController/PhotoInputController||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/CommentsController/Types/Interface||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/CommentsController||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/FeedSequencer||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/FriendLikesController||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/LikeController||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/Media||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/RecommendationFeedSource||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/RecommendationFlags||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/RecommendationSignals||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/Types/Interface||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/Types/Schema||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController/VideoFramePool||1
+SCRIPT|ModuleScript|RS/Shared/TreadmillVideoController||1
+SCRIPT|ModuleScript|RS/Shared/Types/ActiveAssets||1
+SCRIPT|ModuleScript|RS/Shared/Types/AfkProtection||1
+SCRIPT|ModuleScript|RS/Shared/Types/AreaEggResetCycle||1
+SCRIPT|ModuleScript|RS/Shared/Types/AreaEggs||1
+SCRIPT|ModuleScript|RS/Shared/Types/AssetItem||1
+SCRIPT|ModuleScript|RS/Shared/Types/AssetRuntime||1
+SCRIPT|ModuleScript|RS/Shared/Types/BanjoCricket||1
+SCRIPT|ModuleScript|RS/Shared/Types/BossMastery||1
+SCRIPT|ModuleScript|RS/Shared/Types/Butterflies||1
+SCRIPT|ModuleScript|RS/Shared/Types/CharacterIntegrity||1
+SCRIPT|ModuleScript|RS/Shared/Types/CollisionGroups||1
+SCRIPT|ModuleScript|RS/Shared/Types/Currency||1
+SCRIPT|ModuleScript|RS/Shared/Types/Eggs||1
+SCRIPT|ModuleScript|RS/Shared/Types/FuseMachine||1
+SCRIPT|ModuleScript|RS/Shared/Types/GroupReward||1
+SCRIPT|ModuleScript|RS/Shared/Types/GuardAreas||1
+SCRIPT|ModuleScript|RS/Shared/Types/GuardTutorial||1
+SCRIPT|ModuleScript|RS/Shared/Types/Index||1
+SCRIPT|ModuleScript|RS/Shared/Types/Leaderboards||1
+SCRIPT|ModuleScript|RS/Shared/Types/Monetization||1
+SCRIPT|ModuleScript|RS/Shared/Types/MonsterParasite||1
+SCRIPT|ModuleScript|RS/Shared/Types/OnboardingQuestline||1
+SCRIPT|ModuleScript|RS/Shared/Types/Plots||1
+SCRIPT|ModuleScript|RS/Shared/Types/RaceRally||1
+SCRIPT|ModuleScript|RS/Shared/Types/Rarity||1
+SCRIPT|ModuleScript|RS/Shared/Types/Rift||1
+SCRIPT|ModuleScript|RS/Shared/Types/Sakura||1
+SCRIPT|ModuleScript|RS/Shared/Types/ScrambleFinalHits||1
+SCRIPT|ModuleScript|RS/Shared/Types/Scramble||1
+SCRIPT|ModuleScript|RS/Shared/Types/ServerLuck||1
+SCRIPT|ModuleScript|RS/Shared/Types/ShrineFusion||1
+SCRIPT|ModuleScript|RS/Shared/Types/Tools||1
+SCRIPT|ModuleScript|RS/Shared/Types/TreadmillMediaComments/Schema||1
+SCRIPT|ModuleScript|RS/Shared/Types/TreadmillMediaComments||1
+SCRIPT|ModuleScript|RS/Shared/Types/TreadmillMediaLike/Types/Interface||1
+SCRIPT|ModuleScript|RS/Shared/Types/TreadmillMediaLike/Types/Schema||1
+SCRIPT|ModuleScript|RS/Shared/Types/TreadmillMediaLike||1
+SCRIPT|ModuleScript|RS/Shared/Types/WispCompanion||1
+SCRIPT|ModuleScript|RS/Shared/Util/AdminBoosts||1
+SCRIPT|ModuleScript|RS/Shared/Util/AreaEggCycle||1
+SCRIPT|ModuleScript|RS/Shared/Util/AreaEggSlotIdentity||1
+SCRIPT|ModuleScript|RS/Shared/Util/AssetEarnings||1
+SCRIPT|ModuleScript|RS/Shared/Util/AssetGender||1
+SCRIPT|ModuleScript|RS/Shared/Util/AssetItems||1
+SCRIPT|ModuleScript|RS/Shared/Util/AssetLottery||1
+SCRIPT|ModuleScript|RS/Shared/Util/AssetPalette||1
+SCRIPT|ModuleScript|RS/Shared/Util/AssetRollScaleWeights||1
+SCRIPT|ModuleScript|RS/Shared/Util/AssetSounds||1
+SCRIPT|ModuleScript|RS/Shared/Util/BaseBalance||1
+SCRIPT|ModuleScript|RS/Shared/Util/EggRecords||1
+SCRIPT|ModuleScript|RS/Shared/Util/EggScaling||1
+SCRIPT|ModuleScript|RS/Shared/Util/EventEggCategories||1
+SCRIPT|ModuleScript|RS/Shared/Util/FuseKernel||1
+SCRIPT|ModuleScript|RS/Shared/Util/GearToolLookup||1
+SCRIPT|ModuleScript|RS/Shared/Util/GuardAreaGeometry||1
+SCRIPT|ModuleScript|RS/Shared/Util/MonetizationEntitlements||1
+SCRIPT|ModuleScript|RS/Shared/Util/MonsterParasiteEligibility||1
+SCRIPT|ModuleScript|RS/Shared/Util/MonsterParasiteWindow||1
+SCRIPT|ModuleScript|RS/Shared/Util/OnboardingTiming||1
+SCRIPT|ModuleScript|RS/Shared/Util/PlayerEarningsBoost||1
+SCRIPT|ModuleScript|RS/Shared/Util/RaceRallyEligibility||1
+SCRIPT|ModuleScript|RS/Shared/Util/RaceRallySchedule||1
+SCRIPT|ModuleScript|RS/Shared/Util/RiftEligibility||1
+SCRIPT|ModuleScript|RS/Shared/Util/RiftMachineSchedule||1
+SCRIPT|ModuleScript|RS/Shared/Util/SafeZoneBarriers||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScrambleBossDrop||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScrambleBossHazards||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScrambleDroneMotion||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScrambleMotion||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScramblePickupMotion||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScrambleRules||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScrambleTradeInEligibility||1
+SCRIPT|ModuleScript|RS/Shared/Util/ScrambleVaultPresentation||1
+SCRIPT|ModuleScript|RS/Shared/Util/ShrineFusionRules||1
+SCRIPT|ModuleScript|RS/Shared/Util/ShrinePadZone||1
+SCRIPT|ModuleScript|RS/Shared/Util/SpecialLuckyBlockAsset||1
+SCRIPT|ModuleScript|RS/Shared/Util/SubBiomeCycle||1
+SCRIPT|ModuleScript|RS/Shared/Util/ToolCooldown||1
+SCRIPT|ModuleScript|RS/Shared/Util/ToolHolders||1
+SCRIPT|ModuleScript|RS/Shared/Util/TreadmillUtil||1
+SCRIPT|ModuleScript|RS/Shared/Util/WalkSpeedGovernor||1
+SCRIPT|ModuleScript|RS/Shared/Utils/AnimationAssets||1
+SCRIPT|ModuleScript|RS/Shared/Utils/AssetIds||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Checksum||1
+SCRIPT|ModuleScript|RS/Shared/Utils/CmdrToolkit||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Cooldown||1
+SCRIPT|ModuleScript|RS/Shared/Utils/DeepCopy||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Diff||1
+SCRIPT|ModuleScript|RS/Shared/Utils/EnsureUIScale||1
+SCRIPT|ModuleScript|RS/Shared/Utils/GuardEscape||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Identity||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Marketplace||1
+SCRIPT|ModuleScript|RS/Shared/Utils/ModelBounds||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Numbers||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Numeric||1
+SCRIPT|ModuleScript|RS/Shared/Utils/PartBounds||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Physics||1
+SCRIPT|ModuleScript|RS/Shared/Utils/PointInBox||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Preload||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Retry||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Spread||1
+SCRIPT|ModuleScript|RS/Shared/Utils/SwapGradient||1
+SCRIPT|ModuleScript|RS/Shared/Utils/Time||1
+SCRIPT|ModuleScript|RS/Shared/Utils/TryCall||1
+SCRIPT|ModuleScript|RS/Shared/Utils/TryLock||1
+SCRIPT|ModuleScript|RS/Shared/Utils/VFX||1
+SCRIPT|ModuleScript|RS/Shared/Utils/VisibleBounds||1
+SCRIPT|ModuleScript|RS/Shared/Utils/VisualTransform||1
+SCRIPT|ModuleScript|RS/Shared/environment||1
+STAT|NumberValue|leaderstats/Money/s||1
+STAT|NumberValue|leaderstats/Speed||1
+LIBRARY|Values|RS/Assets||1
+LIBRARY|Values|RS/Controllers||1
+LIBRARY|Values|RS/CutsceneAssets||1
+VALUE|ObjectValue|RS/RVBillboard_Cash_Reward/Screen/Ball||1
+VALUE|ObjectValue|RS/RVBillboard_Cash_Reward/Screen/Socket||1
+VALUE|ObjectValue|RS/TopbarPlusReference||1
+VALUE|StringValue|RS/Value||1
+WORLD|Camera|WS/Camera||1
+WORLD|Folder|WS/AreaEggSlotsClient||1
+WORLD|Folder|WS/BanjoCricketRings||1
+WORLD|Folder|WS/ClientMountedPets||1
+WORLD|Folder|WS/ClientRenderedAssets||1
+WORLD|Folder|WS/Eggs||1
+WORLD|Folder|WS/Forest||1
+WORLD|Folder|WS/LightDarkSubBiomeVfx||1
+WORLD|Folder|WS/Map||1
+WORLD|Folder|WS/ObjectCache||2
+WORLD|Folder|WS/PlacedEggRenders||1
+WORLD|Folder|WS/Plots||1
+WORLD|Folder|WS/RaceTrack||1
+WORLD|Folder|WS/ScrambleLocalVisuals||1
+WORLD|Folder|WS/Stands||1
+WORLD|Folder|WS/Transient||1
+WORLD|Folder|WS/World||1
+WORLD|Folder|WS/_Guards||1
+WORLD|Folder|WS/__ClientTreadmillRenders||1
+WORLD|Model|WS/<id>||4
+WORLD|Model|WS/Chest||1
+WORLD|Part|WS/SmartPromptPart||99
+WORLD|SpawnLocation|WS/SpawnLocation||1
+WORLD|Terrain|WS/Terrain||1
