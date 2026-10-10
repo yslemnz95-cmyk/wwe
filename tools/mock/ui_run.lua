@@ -112,8 +112,12 @@ check("tabs have no drawn icons", not bSteal:FindFirstChild("Icon") and not bEve
 check("footer shows the hint and live stats", hasText(main, "RightShift to hide") and hasText(main, "60 FPS   0 ms"))
 
 -- search box filters the rows of the current tab
-local search = find(side, function(d) return d.Name == "Search" end)
-check("search box in the sidebar", search ~= nil and search.ClassName == "TextBox")
+local search = find(main, function(d) return d.Name == "Search" and d.ClassName == "TextBox" end)
+check("search box in the header (right side)", search ~= nil and search.Parent ~= nil and search.Parent.Name ~= "SideTabs" and find(side, function(d) return d.Name == "Search" end) == nil)
+check("search box has a living stroke and a magnifier", find(search, function(d) return d.ClassName == "UIStroke" end) ~= nil)
+check("page transition api", type(lib.mainWindow.Transition) == "function")
+lib.mainWindow.Select("StealPanel"); lib.mainWindow.Select("Farm"); advance(0.5)
+check("page veil + sweep exist", find(main, function(d) return d.Name == "PageVeil" end) ~= nil and find(main, function(d) return d.Name == "PageSweep" end) ~= nil)
 lib.mainWindow.ApplyFilter("speed")
 check("filter keeps the matching slider", sl.Instance.Visible == true)
 check("filter hides a non matching toggle", tg.Instance.Visible == false)

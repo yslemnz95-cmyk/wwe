@@ -1076,8 +1076,8 @@ end
 			title.TextXAlignment = Enum.TextXAlignment.Left; title.TextColor3 = C.WHITE
 			title.TextTruncate = Enum.TextTruncate.AtEnd
 			if cfg.subtitle then
-				title.Size = UDim2.new(1, -112, 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
-				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -112, 0, 12), C.DIM, Enum.Font.GothamMedium)
+				title.Size = UDim2.new(1, -250, 0, 20); title.Position = UDim2.new(0, 40, 0, 4)
+				subtitle = label(header, tostring(cfg.subtitle), UDim2.new(1, -250, 0, 12), C.DIM, Enum.Font.GothamMedium)
 				subtitle.Position = UDim2.new(0, 40, 0, 25); subtitle.TextSize = 9; subtitle.TextTruncate = Enum.TextTruncate.AtEnd
 				if cfg.subtitleCopy then
 					subtitle.TextColor3 = C.MOON2
@@ -1089,7 +1089,7 @@ end
 					end)
 				end
 			else
-				title.Size = UDim2.new(1, -112, 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
+				title.Size = UDim2.new(1, -250, 1, 0); title.Position = UDim2.new(0, 40, 0, 0)
 			end
 			liveGrad(title, true, true)
 			close = Instance.new("TextButton", header)
@@ -1102,6 +1102,33 @@ end
 			mini.BackgroundColor3 = Color3.fromRGB(24, 26, 35); mini.Text = "-"; mini.TextSize = 13
 			mini.TextColor3 = C.ACCENT2; mini.Font = Enum.Font.GothamBold; mini.BorderSizePixel = 0
 			corner(mini, 6); addLivingStroke(mini, 1); pressFx(mini)
+			local search = Instance.new("TextBox", header)
+			search.Name = "Search"; search.ZIndex = 5
+			search.Size = UDim2.new(0, 132, 0, 24); search.Position = UDim2.new(1, -(56 + 8 + 132), 0.5, -12)
+			search.BackgroundColor3 = Color3.fromRGB(26, 6, 8); search.BorderSizePixel = 0
+			search.PlaceholderText = "Search"; search.PlaceholderColor3 = C.DIM
+			search.Text = ""; search.TextColor3 = C.WHITE; search.TextSize = 10.5; search.Font = Enum.Font.GothamMedium
+			search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
+			corner(search, 12); addLivingStroke(search, 1.2, true, true)
+			local sp = Instance.new("UIPadding", search); sp.PaddingLeft = UDim.new(0, 26); sp.PaddingRight = UDim.new(0, 8)
+			local lens = Instance.new("Frame", search)
+			lens.Size = UDim2.fromOffset(9, 9); lens.Position = UDim2.new(0, -18, 0.5, -6)
+			lens.BackgroundTransparency = 1; lens.BorderSizePixel = 0
+			corner(lens, 5); stroke(lens, C.MOON2, 1.5)
+			local handle = Instance.new("Frame", search)
+			handle.Size = UDim2.fromOffset(5, 2); handle.Position = UDim2.new(0, -10, 0.5, 3)
+			handle.Rotation = 45; handle.BackgroundColor3 = C.MOON2; handle.BorderSizePixel = 0
+			search:GetPropertyChangedSignal("Text"):Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
+			search.FocusLost:Connect(function()
+				if w.ApplyFilter then w.ApplyFilter(search.Text) end
+				TweenService:Create(search, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, 132, 0, 24), Position = UDim2.new(1, -(56 + 8 + 132), 0.5, -12)}):Play()
+			end)
+			search.Focused:Connect(function()
+				TweenService:Create(search, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Size = UDim2.new(0, 170, 0, 24), Position = UDim2.new(1, -(56 + 8 + 170), 0.5, -12)}):Play()
+			end)
+			w.search = search
 			sep = Instance.new("Frame", frame)
 			sep.Size = UDim2.new(1, 0, 0, 2); sep.Position = UDim2.new(0, 0, 0, 42)
 			sep.BackgroundColor3 = C.WHITE; sep.BorderSizePixel = 0
@@ -1121,18 +1148,6 @@ end
 				tl2.Padding = UDim.new(0, 3); tl2.SortOrder = Enum.SortOrder.LayoutOrder
 				local tp2 = Instance.new("UIPadding", tabBar)
 				tp2.PaddingTop = UDim.new(0, 6); tp2.PaddingLeft = UDim.new(0, 4); tp2.PaddingRight = UDim.new(0, 4)
-				local search = Instance.new("TextBox", tabBar)
-				search.Name = "Search"; search.LayoutOrder = 0
-				search.Size = UDim2.new(1, 0, 0, 26)
-				search.BackgroundColor3 = C.BG; search.BorderSizePixel = 0
-				search.PlaceholderText = "Search"; search.PlaceholderColor3 = C.DIM
-				search.Text = ""; search.TextColor3 = C.WHITE; search.TextSize = 10.5; search.Font = Enum.Font.GothamMedium
-				search.ClearTextOnFocus = false; search.TextXAlignment = Enum.TextXAlignment.Left
-				corner(search, 6); addLivingStroke(search, 1)
-				local sp = Instance.new("UIPadding", search); sp.PaddingLeft = UDim.new(0, 8); sp.PaddingRight = UDim.new(0, 6)
-				search:GetPropertyChangedSignal("Text"):Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
-				search.FocusLost:Connect(function() if w.ApplyFilter then w.ApplyFilter(search.Text) end end)
-				w.search = search
 				local sideLine = Instance.new("Frame", frame)
 				sideLine.Name = "SideLine"
 				sideLine.Size = UDim2.new(0, 1, 1, -(44 + footerH)); sideLine.Position = UDim2.new(0, contentX, 0, 44)
@@ -1160,6 +1175,24 @@ end
 			local noRes = label(content, "No matching feature", UDim2.new(1, 0, 0, 30), C.DIM, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
 			noRes.Position = UDim2.new(0, 0, 0, 40); noRes.TextSize = 11; noRes.Visible = false; noRes.ZIndex = 5
 			w.noResults = noRes
+
+			local pageVeil = Instance.new("Frame", content)
+			pageVeil.Name = "PageVeil"; pageVeil.Size = UDim2.new(1, 0, 1, 0)
+			pageVeil.BackgroundColor3 = C.BG; pageVeil.BackgroundTransparency = 1; pageVeil.BorderSizePixel = 0; pageVeil.ZIndex = 150
+			local sweep = Instance.new("Frame", content)
+			sweep.Name = "PageSweep"; sweep.Size = UDim2.new(0.4, 0, 0, 2); sweep.Position = UDim2.new(-0.4, 0, 0, 0)
+			sweep.BackgroundColor3 = C.WHITE; sweep.BorderSizePixel = 0; sweep.ZIndex = 151; sweep.Visible = false
+			local sg = Instance.new("UIGradient", sweep)
+			sg.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, C.DEEP1), ColorSequenceKeypoint.new(0.5, C.MOON2), ColorSequenceKeypoint.new(1, C.DEEP1)})
+			w.Transition = function()
+				if lib.NoAnim then return end
+				pageVeil.BackgroundTransparency = 0.4
+				TweenService:Create(pageVeil, TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
+				sweep.Position = UDim2.new(-0.4, 0, 0, 0); sweep.Visible = true
+				TweenService:Create(sweep, TweenInfo.new(0.38, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, 0, 0, 0)}):Play()
+				task.delay(0.4, function() sweep.Visible = false end)
+			end
 		end
 
 		-- picker overlay (single / multi select) covering the content area
@@ -1478,6 +1511,7 @@ end
 					if w.sideLine then w.sideLine.Visible = false end
 					title.Visible = false; mini.Visible = false; close.Visible = false; bgImg.Visible = false
 					if w.footer then w.footer.Visible = false end
+					if w.search then w.search.Visible = false end
 					if subtitle then subtitle.Visible = false end
 					hudLabel.Text = hudFps .. " FPS   " .. hudPing .. " ms"
 					hudLabel.Visible = true; hudHint.Visible = true
@@ -1488,6 +1522,7 @@ end
 					hudLabel.Visible = false; hudHint.Visible = false
 					title.Visible = true; mini.Visible = true; close.Visible = true; bgImg.Visible = true
 					if w.footer then w.footer.Visible = true end
+					if w.search then w.search.Visible = true end
 					if subtitle then subtitle.Visible = true end
 					header.BackgroundTransparency = 0
 					TweenService:Create(frame, TweenInfo.new(0.22, Enum.EasingStyle.Quint), {
@@ -1670,9 +1705,9 @@ end
 				t.isOn = on
 				if on and not t.page.Visible and not firstSelect then
 					t.basePos = t.basePos or t.page.Position
-					t.page.Position = t.basePos + UDim2.fromOffset(18, 0)
+					t.page.Position = t.basePos + UDim2.fromOffset(44, 0)
 					t.page.Visible = true
-					TweenService:Create(t.page, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = t.basePos}):Play()
+					TweenService:Create(t.page, TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = t.basePos}):Play()
 				else
 					t.page.Visible = on
 					if not on and t.basePos then t.page.Position = t.basePos end
@@ -1685,6 +1720,7 @@ end
 					TweenService:Create(t.bar, TweenInfo.new(0.18), {BackgroundTransparency = on and 0 or 1}):Play()
 				end
 			end
+			if not firstSelect and w.Transition then w.Transition() end
 		end
 		w.header = header; w.title = title; w.moon = moon
 		table.insert(windows, w)
@@ -2596,8 +2632,12 @@ check("tabs have no drawn icons", not bSteal:FindFirstChild("Icon") and not bEve
 check("footer shows the hint and live stats", hasText(main, "RightShift to hide") and hasText(main, "60 FPS   0 ms"))
 
 -- search box filters the rows of the current tab
-local search = find(side, function(d) return d.Name == "Search" end)
-check("search box in the sidebar", search ~= nil and search.ClassName == "TextBox")
+local search = find(main, function(d) return d.Name == "Search" and d.ClassName == "TextBox" end)
+check("search box in the header (right side)", search ~= nil and search.Parent ~= nil and search.Parent.Name ~= "SideTabs" and find(side, function(d) return d.Name == "Search" end) == nil)
+check("search box has a living stroke and a magnifier", find(search, function(d) return d.ClassName == "UIStroke" end) ~= nil)
+check("page transition api", type(lib.mainWindow.Transition) == "function")
+lib.mainWindow.Select("StealPanel"); lib.mainWindow.Select("Farm"); advance(0.5)
+check("page veil + sweep exist", find(main, function(d) return d.Name == "PageVeil" end) ~= nil and find(main, function(d) return d.Name == "PageSweep" end) ~= nil)
 lib.mainWindow.ApplyFilter("speed")
 check("filter keeps the matching slider", sl.Instance.Visible == true)
 check("filter hides a non matching toggle", tg.Instance.Visible == false)
